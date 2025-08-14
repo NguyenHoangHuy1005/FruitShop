@@ -16,7 +16,7 @@ $bannerImg: "E:/FruitShop/FrontEnd/src/assets/user/images/banner/banner1.jpg";
         align-items: center;
         list-style: none;
         column-gap: 50px;
-        margin-top: 3px;
+        margin-top: -5px;
         li {
             font-size: 16px;
             color: map.get($theme-colors, "normal-text");
@@ -52,7 +52,7 @@ $bannerImg: "E:/FruitShop/FrontEnd/src/assets/user/images/banner/banner1.jpg";
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    margin-top: 10px;
+    margin-top: -2px;
     ul {
         display: flex;
         column-gap: 10px;

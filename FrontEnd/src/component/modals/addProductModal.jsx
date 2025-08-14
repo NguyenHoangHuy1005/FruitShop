@@ -69,11 +69,11 @@ const ProductForm = ({ initialData, onSubmit }) => {
         Danh mục *
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">Chọn danh mục</option>
-          <option value="vegetable">Rau củ</option>
-          <option value="fruit">Trái cây</option>
-          <option value="freshmeat">Thịt tươi</option>
-          <option value="seafood">Hải sản</option>
-          <option value="dryfood">Thực phẩm khô</option>
+          <option value="Rau củ">Rau củ</option>
+          <option value="Trái cây">Trái cây</option>
+          <option value="Thịt tươi">Thịt tươi</option>
+          <option value="Hải sản">Hải sản</option>
+          <option value="Thực phẩm khô">Thực phẩm khô</option>
         </select>
       </label>
 

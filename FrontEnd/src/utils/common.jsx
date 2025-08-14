@@ -1,39 +1,75 @@
-import prod0Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
-import prod1Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod1.jpg";
-import prod2Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod2.jpg";
-import prod3Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod3.jpg";
-import prod4Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod4.jpg";
-import prod5Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod5.jpg";
-import prod6Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod6.jpg";
-import prod7Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod7.jpg";
-import prod8Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod8.jpg";
-import prod9Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod9.jpg";
-import prod10Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod10.jpg";
-import prod11Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod11.jpg";
-import prod12Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod12.jpg";
-import prod13Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod13.jpg";
-import prod14Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod14.jpg";
-import prod15Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod15.jpg";
-import prod16Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod16.jpg";
-import prod17Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod17.jpg";
-import prod18Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod18.jpg";
-import prod19Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod19.jpg";
-import prod20Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod20.jpg";
-import prod21Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod21.jpg";
-import prod22Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod22.jpg";
-import prod23Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod23.jpg";
-import prod24Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod24.jpg";
-import prod25Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod25.jpg";
-import prod26Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod26.jpg";
-import prod27Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod27.jpg";
-import prod28Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod28.jpg";
-import prod29Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod29.jpg";
-import prod30Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod30.jpg";
-import prod31Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod31.jpg";
-import prod32Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod32.jpg";
-import prod33Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod33.jpg";
-import prod34Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod34.jpg";
-import prod35Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod35.jpg";
+const prod0Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1754924902/uploads/c86hfeg9hodvtaepi0q9.jpg";
+<img src={prod0Img} alt="Ảnh sản phẩm" />
+const prod1Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1754925263/uploads/nztftlqad1guytyzxvsb.jpg";
+<img src={prod1Img} alt="Ảnh sản phẩm" />
+const prod2Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1754925263/uploads/jlxoqvmhnyovgeytga9n.jpg";
+<img src={prod2Img} alt="Ảnh sản phẩm" />
+const prod3Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175914/uploads/bfelhxjyfl14dgcil5hg.jpg";
+<img src={prod3Img} alt="Ảnh sản phẩm" />
+const prod4Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175914/uploads/lys53eoxteivwflhnlnh.jpg";
+<img src={prod4Img} alt="Ảnh sản phẩm" />
+const prod5Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175914/uploads/m4qx5ddvsksivvjjgflg.jpg";
+<img src={prod5Img} alt="Ảnh sản phẩm" />
+const prod6Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175915/uploads/kj2jlgn4ly6rmavovchv.jpg";
+<img src={prod6Img} alt="Ảnh sản phẩm" />
+const prod7Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175916/uploads/akj8eeozqcpjnr3ps40d.jpg";
+<img src={prod7Img} alt="Ảnh sản phẩm" />
+const prod8Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175919/uploads/ebxt6op9hcleuubnzlqe.jpg";
+<img src={prod8Img} alt="Ảnh sản phẩm" />
+const prod9Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175920/uploads/zebcxuwtpgm8czvrtmst.jpg";
+<img src={prod9Img} alt="Ảnh sản phẩm" />
+const prod10Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175920/uploads/uunw6x1xkzcuebqyrsb2.jpg";
+<img src={prod10Img} alt="Ảnh sản phẩm" />
+const prod11Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755175921/uploads/wkipgc9xyqsgg4wi2gbt.jpg";
+<img src={prod11Img} alt="Ảnh sản phẩm" />
+const prod12Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176745/uploads/hiqhaxxrhoc8ivugnqyw.jpg";
+<img src={prod12Img} alt="Ảnh sản phẩm" />
+const prod13Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176745/uploads/lhayoxlkmhjcco9qymdi.jpg";
+<img src={prod13Img} alt="Ảnh sản phẩm" />
+const prod14Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176746/uploads/zbdbf356xd8gn51jptip.jpg";
+<img src={prod14Img} alt="Ảnh sản phẩm" />
+const prod15Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176745/uploads/hxm5uaqekk8o0dizqatj.jpg";
+<img src={prod15Img} alt="Ảnh sản phẩm" />
+const prod16Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176777/uploads/u0000pdjenl728pjsk6y.jpg";
+<img src={prod16Img} alt="Ảnh sản phẩm" />
+const prod17Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176836/uploads/acxocnqe0zmrvv6jw9vb.jpg";
+<img src={prod17Img} alt="Ảnh sản phẩm" />
+const prod18Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176832/uploads/mxuo0j1xiwgaglpvnwwo.jpg";
+<img src={prod18Img} alt="Ảnh sản phẩm" />
+const prod19Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176831/uploads/dbbrwub9jep6i5zn2y4w.jpg";
+<img src={prod19Img} alt="Ảnh sản phẩm" />
+const prod20Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176831/uploads/ijfmk28rohi15rcngmbe.jpg";
+<img src={prod20Img} alt="Ảnh sản phẩm" />
+const prod21Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176886/uploads/efoofq4tstrt6xaemfkb.jpg";
+<img src={prod21Img} alt="Ảnh sản phẩm" />
+const prod22Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176885/uploads/hnrfdtnnxv9ykhusocyp.jpg";
+<img src={prod22Img} alt="Ảnh sản phẩm" />
+const prod23Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176889/uploads/vyypfbedrrpkrngup4l5.jpg";
+<img src={prod23Img} alt="Ảnh sản phẩm" />
+const prod24Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176888/uploads/wai0bvhlse5llhj8qit4.jpg";
+<img src={prod24Img} alt="Ảnh sản phẩm" />
+const prod25Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176885/uploads/jzapppkmivogwal0dxwm.jpg";
+<img src={prod25Img} alt="Ảnh sản phẩm" />
+const prod26Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176895/uploads/intykmssnwznhmjnobhs.jpg";
+<img src={prod26Img} alt="Ảnh sản phẩm" />
+const prod27Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176902/uploads/bn2te2svtnjclobfurto.jpg";
+<img src={prod27Img} alt="Ảnh sản phẩm" />
+const prod28Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176887/uploads/r3wxtjjwc57f5ojuofzb.jpg";
+<img src={prod28Img} alt="Ảnh sản phẩm" />
+const prod29Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176989/uploads/kevgay875eha3okrr9yu.jpg";
+<img src={prod29Img} alt="Ảnh sản phẩm" />
+const prod30Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176977/uploads/aq0zu0v0mq49p7wfyboe.jpg";
+<img src={prod30Img} alt="Ảnh sản phẩm" />
+const prod31Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176980/uploads/uz8ou0swytjk52soxzj7.jpg";
+<img src={prod31Img} alt="Ảnh sản phẩm" />
+const prod32Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176977/uploads/yssntcx5drfkdzqojr3o.jpg";
+<img src={prod32Img} alt="Ảnh sản phẩm" />
+const prod33Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176981/uploads/bzaeoukjy16dtb8siaih.jpg";
+<img src={prod33Img} alt="Ảnh sản phẩm" />
+const prod34Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176978/uploads/cuo9azhkzwzkrbnelgvk.jpg";
+<img src={prod34Img} alt="Ảnh sản phẩm" />
+const prod35Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755176978/uploads/cuo9azhkzwzkrbnelgvk.jpg";
+<img src={prod35Img} alt="Ảnh sản phẩm" />
 export const featProducts = {
     all: {
         title: "Tất cả sản phẩm",

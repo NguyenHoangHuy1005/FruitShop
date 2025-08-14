@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "react-multi-carousel": "^2.8.6",
+    "react-tabs": "^6.1.0"
+  }
+}

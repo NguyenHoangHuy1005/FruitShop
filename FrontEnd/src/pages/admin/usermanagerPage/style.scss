@@ -1,0 +1,84 @@
+@use "sass:map";
+@import "../../../style/pages/all";
+
+.container {
+    padding: 10px;
+    h2 {
+        margin-bottom: 20px;
+        color: map.get($theme-colors, "main");
+        text-align: center;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        overflow: hidden;
+
+        th,
+        td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        th {
+            background-color: #f7f7f7;
+            font-weight: 600;
+            color: map.get($theme-colors, "normal-text");
+        }
+
+        td {
+            color: map.get($theme-colors, "normal-text");
+        }
+
+        .status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: capitalize;
+
+            &.active {
+                background-color: #e0f7e9;
+                color: #2e7d32;
+            }
+
+            &.banned {
+                background-color: #fdecea;
+                color: #c62828;
+            }
+        }
+
+        .view-btn,.update-btn,
+        .ban-btn {
+            margin-right: 8px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .view-btn {
+            background-color: #1976d2;
+            color: white;
+        }
+        .update-btn {
+            background-color: #fbc02d;
+            color: white; 
+        }
+        
+
+        .ban-btn {
+            background-color: #d32f2f;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+    }
+}

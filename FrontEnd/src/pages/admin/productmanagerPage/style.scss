@@ -1,0 +1,129 @@
+@use "sass:map";
+@import "../../../style/pages/all";
+
+$product-red: #c62828; // Đỏ
+$product-yellow: #fbc02d; // Vàng
+$product-gray: #f1f1f1;
+$product-main: map.get($theme-colors, "main");
+
+.container {
+    padding: 10px
+    h2 {
+        margin-bottom: 20px;
+        color: map.get($theme-colors, "main");
+        text-align: center;
+    }
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    gap: 10px;
+
+    input {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+
+        &:focus {
+            outline: none;
+            border-color: map.get($theme-colors, "main");
+        }
+    }
+
+    .btn-add {
+        background: map.get($theme-colors, "main");
+        color: white;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+
+        &:hover {
+            background: darken(map.get($theme-colors, "main"), 5%);
+        }
+    }
+}
+
+.product-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+    th,
+    td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    th {
+        background: $product-gray;
+        font-weight: bold;
+    }
+
+    img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+    }
+
+    .status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 12px;
+
+        &.in-stock {
+            background: rgba(map.get($theme-colors, "main"), 0.1);
+            color: map.get($theme-colors, "main");
+        }
+
+        &.out-stock {
+            background: rgba($product-red, 0.1);
+            color: $product-red;
+        }
+    }
+
+    .btn-edit,
+    .btn-delete {
+        padding: 6px 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        margin-right: 5px;
+    }
+
+    .btn-edit {
+        background: $product-yellow;
+        color: #ffffff;
+
+        &:hover {
+            background: darken($product-yellow, 5%);
+        }
+    }
+
+    .btn-delete {
+        background: $product-red;
+        color: white;
+
+        &:hover {
+            background: darken($product-red, 5%);
+        }
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 20px;
+        color: #888;
+    }
+}

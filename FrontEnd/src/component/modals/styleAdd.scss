@@ -1,0 +1,64 @@
+@use "sass:map";
+@import "../../style/pages/all";
+
+/* Lớp nền mờ toàn màn hình */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Khung modal */
+.modal-content {
+  background: #fff;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+  /* Canh chỉnh form bên trong */
+  .product-form{
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    
+    label {
+      display: flex;
+      flex-direction: column;
+      font-weight: 500;
+      color: map.get($theme-colors, "normal-text");
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border 0.3s;
+
+        &:focus {
+          outline: none;
+        }
+      }
+    }
+  }
+}
+.error-msg {
+  color: red;
+  font-size: 13px;
+  margin-top: 4px;
+}

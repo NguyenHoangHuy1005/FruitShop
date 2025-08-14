@@ -1,0 +1,216 @@
+@use "sass:map";
+@import "../../../../style/pages/all";
+
+
+@mixin header-small-divice {
+    .l__catagories {
+        margin-bottom: 20px;
+    }
+
+    .r__search_form {
+        padding-left: unset !important;
+        width: 550px !important;
+
+    }
+
+    .header__top,
+    .header__menu,
+    .header__cart {
+        display: none;
+    }
+
+    .humberger__open {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+
+        svg {
+            font-size: 30px;
+            color: map.get($theme-colors, "normal-text");
+        }
+    }
+
+    .humberger__menu__wrapper {
+        position: fixed;
+        width: 300px;
+        background: #ffffff;
+        height: 100%;
+        overflow-y: auto;
+        z-index: -9999;
+        padding: 30px;
+        padding-top: 50px;
+        opacity: 0;
+        display: block;
+        transition: all 0.2s;
+
+        &.show {
+            opacity: 1;
+            z-index: 9999;
+        }
+    }
+
+    .humberger__menu__overlay {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 100;
+        visibility: hidden;
+        transition: all, 0.2;
+
+        &.active {
+            visibility: visible !important;
+        }
+    }
+
+    .humberger__menu__cart {
+        display: flex;
+        margin-bottom: 25px;
+
+        .header__cart__price {
+            font-size: 20px;
+            color: #000000;
+            margin-top: 24px;
+            margin-left: 10px;
+
+            span {
+                color: black;
+            }
+        }
+
+        ul {
+            list-style: none;
+            display: inline-block;
+            margin-top: 15px;
+
+            li:last-child {
+                margin-right: 0;
+            }
+
+            li {
+                position: relative;
+
+                a {
+                    font-size: 40px;
+                    color: map.get($theme-colors, "normal-text");
+
+                    span {
+                        color: rgb(255, 255, 255);
+                        background: map.get($theme-colors, "main");
+                        position: absolute;
+                        height: 25px;
+                        width: 25px;
+                        border-radius: 50%;
+                        display: inline-block;
+                        text-align: center;
+                        font-size: 15px;
+                        font-weight: 500;
+                        left: 23px;
+                        top: -10px;
+                    }
+                }
+            }
+        }
+    }
+
+    .humberger__menu_widget {
+        margin-bottom: 20px;
+
+        .header__top__right__auth a {
+            font-size: 20px;
+            color: map.get($theme-colors, "normal-text");
+            text-decoration: none;
+
+            svg {
+                font-size: 25px;
+
+            }
+        }
+    }
+
+    .humberger__menu__nav {
+        margin-bottom: 20px;
+
+        ul {
+            list-style: none;
+
+            li {
+                padding: 8px 0;
+                border-bottom: 2px solid #e1e1e1;
+
+                a {
+                    color: map.get($theme-colors, "normal-text");
+                    font-size: 16px;
+                    font-weight: 500;
+                    text-decoration: none;
+
+
+                    svg {
+                        vertical-align: middle;
+                        margin-left: 5px;
+                        font-size: 19px;
+
+                    }
+                }
+            }
+        }
+
+        .header__menu__dropdown {
+            display: none;
+            padding: 5px;
+
+            li {
+                margin-left: 25px;
+                display: block;
+                margin-right: 0px;
+
+                &:last-child {
+                    border-bottom: none;
+                }
+            }
+        }
+
+        .show__submenu {
+            display: block;
+        }
+    }
+
+    .header__top__right__social {
+        display: block;
+        margin-right: 0px;
+        margin-bottom: 20px;
+
+        a {
+            font-size: 16px;
+            display: inline-block;
+            color: map.get($theme-colors, "normal-text");
+            margin-right: 25px;
+
+            svg {
+                font-size: 50px;
+
+            }
+
+        }
+    }
+
+    .humberger__menu__contact {
+        ul {
+            font-size: 20px;
+            color: map.get($theme-colors, "normal-text");
+        }
+
+        li {
+            display: inline-block;
+            font-size: 17px;
+            margin-bottom: 10px;
+
+        }
+    }
+    .header__logo {
+        width: max-content;
+    }
+}

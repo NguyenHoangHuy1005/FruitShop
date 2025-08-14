@@ -1,0 +1,24 @@
+@use "sass:map";
+@import "../../../style/pages/all";
+
+.orders{
+    background: #fff;
+    border-radius: 8px;
+
+    h2{
+        margin-bottom: 30px;
+        color: map.get($theme-colors, "normal-text");
+
+    }
+    &__table{
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+
+        th, td{
+            text-align: center;
+            vertical-align: middle;
+        }
+    }
+}
+

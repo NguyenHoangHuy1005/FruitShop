@@ -1,0 +1,67 @@
+@use "sass:map";
+@import "../../../style/pages/theme";
+
+
+.product__detail__pic {
+
+    img {
+        object-fit: cover;
+
+    }
+
+    .main {
+        flex: 0 0 50%;
+        display: grid;
+        align-items: stretch;
+
+        img {
+            width: 70%;
+            object-fit: cover;
+        }
+    }
+}
+
+.product__detail__text {
+    h2 {
+        color: #252525;
+        font-weight: 700;
+    }
+
+    .see-icon {
+        display: flex;
+        align-items: center;
+        font-size: 15px;
+        line-height: 30px;
+        column-gap: 5px;
+    }
+
+    ul {
+        margin: 20px 0;
+        border-top: 2px solid #eee;
+        padding-top: 20px;
+
+        li {
+            list-style: none;
+            display: flex;
+            column-gap: 20px;
+            line-height: 35px;
+
+            b {
+                width: 150px;
+
+            }
+
+            span {
+                display: flex;
+                column-gap: 10px;
+                align-items: center;
+
+                svg{
+                    font-size: 30px;
+                    cursor: pointer;
+                }
+            }
+        }
+    }
+}
+

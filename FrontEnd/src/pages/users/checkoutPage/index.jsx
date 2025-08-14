@@ -1,7 +1,7 @@
 import Breadcrumb from '../theme/breadcrumb';
 import { formatter } from "../../../utils/fomater";
 import { ProductCard, Quantity } from "../../../component";
-import prod0Img from "E:/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
+import prod0Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
 import { AiOutlineClose } from "react-icons/ai";
 
 

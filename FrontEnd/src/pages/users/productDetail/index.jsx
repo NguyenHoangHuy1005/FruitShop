@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import Breadcrumb from '../theme/breadcrumb';
 import "./style.scss";
-import prod0Img from "E:/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
+import prod0Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
 import { AiOutlineEye, AiFillFacebook, AiFillInstagram, AiFillLinkedin, AiFillMail, AiOutlineCopy, AiFillTikTok } from "react-icons/ai";
 import { formatter } from "../../../utils/fomater";
 import { ProductCard, Quantity } from "../../../component";

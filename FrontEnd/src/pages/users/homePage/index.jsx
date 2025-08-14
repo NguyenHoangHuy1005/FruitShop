@@ -4,14 +4,22 @@ import "react-multi-carousel/lib/styles.css";
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import "./style.scss";
-import slidesImg1 from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/slides/slides1.jpg";
-import slidesImg2 from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/slides/slides2.jpg";
-import slidesImg3 from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/slides/slides3.jpg";
-import slidesImg4 from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/slides/slides4.jpg";
-import slidesImg5 from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/slides/slides5.jpg";
-import botbanner1Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/banner/botbanner1.jpg";
-import botbanner2Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/banner/botbanner2.jpg";
-import botbanner3Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/banner/botbanner3.jpg";
+const slidesImg1 = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/hsphxledn4qzugjdnqf0.jpg";
+<img src={slidesImg1} alt="Ảnh sản phẩm" />
+const slidesImg2 = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/xsafgtsnwuhhxshrcgow.jpg";
+<img src={slidesImg2} alt="Ảnh sản phẩm" />
+const slidesImg3 = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/cq6drmb2orcmgswcdlim.jpg";
+<img src={slidesImg3} alt="Ảnh sản phẩm" />
+const slidesImg4 = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177110/uploads/wcobv5n1u9ysc7ymw10c.jpg";
+<img src={slidesImg4} alt="Ảnh sản phẩm" />
+const slidesImg5 = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177111/uploads/fr9pcwgs4jrxusa6iumy.jpg";
+<img src={slidesImg5} alt="Ảnh sản phẩm" />
+const botbanner1Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177061/uploads/xulbotuqjsc80wx3elfg.webp";
+<img src={botbanner1Img} alt="Ảnh sản phẩm" />
+const botbanner2Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177065/uploads/wgfzvomoctdu0j4hpzda.webp";
+<img src={botbanner2Img} alt="Ảnh sản phẩm" />
+const botbanner3Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177060/uploads/vbtnworyqt7kxoygrpb3.webp";
+<img src={botbanner3Img} alt="Ảnh sản phẩm" />
 import { Link } from 'react-router-dom';
 import { ProductCard } from "../../../component";
 import { featProducts } from "../../../utils/common";

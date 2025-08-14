@@ -1,7 +1,8 @@
 import Breadcrumb from '../theme/breadcrumb';
 import { formatter } from "../../../utils/fomater";
 import { ProductCard, Quantity } from "../../../component";
-import prod0Img from "D:/KLTN/FruitShop/FrontEnd/src/assets/user/images/product/prod0.jpg";
+const prod0Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v1754924902/uploads/c86hfeg9hodvtaepi0q9.jpg";
+<img src={prod0Img} alt="Ảnh sản phẩm" />
 import { AiOutlineClose } from "react-icons/ai";
 
 

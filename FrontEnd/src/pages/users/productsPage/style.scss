@@ -1,5 +1,5 @@
 @use "sass:map";
-@import "../../../style/pages/theme";
+@use "../../../style/pages/theme";
 
 .container {
     .sidebar {
@@ -36,7 +36,7 @@
                     margin-bottom: 0;
 
                     &:hover, &:active{
-                        background: map.get($theme-colors, "main");
+                        background: map.get(theme.$theme-colors, "main");
                         color:#f5f5f5;
                     }
                 }
@@ -48,9 +48,9 @@
                 a{
                     text-decoration: none;
                     line-height: 30px;
-                    color: map.get($theme-colors, "normal-text");
+                    color: map.get(theme.$theme-colors, "normal-text");
                     &:hover {
-                        color: map.get($theme-colors, "main");
+                        color: map.get(theme.$theme-colors, "main");
                         font-weight: bold;
                     }
                 }

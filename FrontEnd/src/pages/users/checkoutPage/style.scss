@@ -1,6 +1,6 @@
 @use "sass:map";
-@import "../../../style/pages/all";
-@import "../../../style/pages/theme";
+@use "../../../style/pages/all";
+@use "../../../style/pages/theme";
 
 
 .checkout__input {
@@ -54,7 +54,7 @@
             margin-bottom: 20px;
 
             b {
-                color: map.get($theme-colors, "decription");
+                color: map.get(theme.$theme-colors, "decription");
             }
         }
     }

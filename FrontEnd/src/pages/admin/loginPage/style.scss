@@ -1,5 +1,7 @@
 @use "sass:map";
-@import "../../../style/pages/all";
+@use "../../../style/pages/all";
+@use "../../../style/pages/theme";
+
 
 .login{
     input{
@@ -21,7 +23,7 @@
 
     &__title {
         font-weight: 700;
-        color: map.get($theme-colors, "normal-text");
+        color: map.get(theme.$theme-colors, "normal-text");
         margin-bottom: 20px;
     }   
 
@@ -42,7 +44,7 @@
 
         font-size: 15px;
         font-weight: 600;
-        color: map.get($theme-colors, "normal-text");
+        color: map.get(theme.$theme-colors, "normal-text");
 
     }
 
@@ -51,7 +53,7 @@
         font-size: 15px;
         font-weight: 600;
         color: #fff;
-        background-color: map.get($theme-colors, "main");
+        background-color: map.get(theme.$theme-colors, "main");
         border-radius: 2px; 
         border: none;
         cursor: pointer;
@@ -59,6 +61,6 @@
    a,p{
     display: flex;
     justify-content: center;
-    color: map.get($theme-colors, "normal-text");
+    color: map.get(theme.$theme-colors, "normal-text");
    }
 }

@@ -1,5 +1,7 @@
 @use "sass:map";
-@import "../../../../style/pages/all";
+@use "../../../../style/pages/all";
+@use "../../../../style/pages/theme";
+
 
 .admin__header{
     background: white;
@@ -18,7 +20,7 @@
             align-items: center;
             gap: 8px;
             padding: 12px 24px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             text-decoration: none;
             font-weight: 500;
             font-size: 15px;
@@ -28,13 +30,13 @@
 
             &:hover{
                 background: #3182ce18;
-                color: map.get($theme-colors, "main");
+                color: map.get(theme.$theme-colors, "main");
 
             }
 
             &--active{
                 background: #3182ce18;
-                color: map.get($theme-colors, "main")
+                color: map.get(theme.$theme-colors, "main")
             }
         }
 

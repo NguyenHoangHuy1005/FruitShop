@@ -1,6 +1,9 @@
 @use "sass:map";
 @use "header";
-@import "../../../../style/pages/all";
+@use "../../../../style/pages/all";
+@use "../../../../style/pages/responsive";
+@use "../../../../style/pages/theme";
+
 
 
 $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploads/pn9qsmkbijuvqan7yp5m.png";
@@ -19,7 +22,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         margin-top: -5px;
         li {
             font-size: 16px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             display: flex;
             align-items: center;
             column-gap: 10px;
@@ -60,7 +63,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         a {
             font-size: 24px;
             display: inline-block;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
         }
 
         li:last-child {
@@ -99,7 +102,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             a {
                 text-decoration: none;
                 font-size: 15px;
-                color: map.get($theme-colors, "bold-text");
+                color: map.get(theme.$theme-colors, "bold-text");
                 text-transform: uppercase;
                 font-weight: bold;
                 font-family: "Roboto", sans-serif;
@@ -117,7 +120,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         }
 
         .active a {
-            color: map.get($theme-colors, "main");
+            color: map.get(theme.$theme-colors, "main");
         }
 
         .header__menu__dropdown {
@@ -143,7 +146,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
                 :hover {
                     color: white;
-                    background: map.get($theme-colors, "main");
+                    background: map.get(theme.$theme-colors, "main");
                     font-weight: 600;
                 }
             }
@@ -171,12 +174,12 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
             svg {
                 font-size: 25px;
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
             }
 
             span {
                 color: white;
-                background: map.get($theme-colors, "main");
+                background: map.get(theme.$theme-colors, "main");
                 position: absolute;
                 height: 20px;
                 width: 20px;
@@ -199,7 +202,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     position: relative;
     padding-bottom: 20px;
     .categories__all {
-        background: map.get($theme-colors, "main");
+        background: map.get(theme.$theme-colors, "main");
         padding: 15px 25px 15px 40px;
         display: flex;
         align-items: center;
@@ -236,7 +239,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 text-decoration: none;
                 background-color: transparent;
                 font-size: 16px;
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
                 display: block;
                 line-height: 39px;
                 padding-left: 40px;
@@ -245,7 +248,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             }
 
             &:hover {
-                background: map.get($theme-colors, "main");
+                background: map.get(theme.$theme-colors, "main");
 
 
                 a {
@@ -279,7 +282,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             border: none;
             height: 50px;
             font-size: 16px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             padding-left: 20px;
             border: 1px solid #b5b5b5;
             width: 70%;
@@ -298,7 +301,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             text-transform: uppercase;
             display: inline-block;
             padding: 16px 30px 17px;
-            background: map.get($theme-colors, "main");
+            background: map.get(theme.$theme-colors, "main");
             border: none;
             height: 100%;
             letter-spacing: 2px;
@@ -321,14 +324,14 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             justify-content: center;
             display: flex;
             align-items: center;
-            color: map.get($theme-colors, "main");
+            color: map.get(theme.$theme-colors, "main");
         }
 
         .r__search_phone_text {
             display: inline-block;
 
             p {
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
                 font-weight: bold;
                 margin-bottom: 5px;
 
@@ -362,7 +365,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 text-transform: uppercase;
                 font-weight: 650;
                 letter-spacing: 4px;
-                color: map.get($theme-colors, "main");
+                color: map.get(theme.$theme-colors, "main");
                 font-family: "Roboto", sans-serif;
             }
 
@@ -371,7 +374,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 text-transform: uppercase;
                 font-weight: 650;
                 line-height: 52px;
-                color: map.get($theme-colors, "bold-text");
+                color: map.get(theme.$theme-colors, "bold-text");
                 margin: 10px 0;
                 font-family: "Roboto", sans-serif;
             }
@@ -392,7 +395,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 color: #ffffff;
                 text-transform: uppercase;
                 font-weight: 650;
-                background: map.get($theme-colors, "main");
+                background: map.get(theme.$theme-colors, "main");
                 letter-spacing: 2px;
                 text-decoration: none;
                 font-family: "Roboto", sans-serif;
@@ -408,7 +411,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
 }
 
-@include Responsive($MEDIUM_DEVICE) {
+@include responsive.Responsive(responsive.$MEDIUM_DEVICE) {
     .r__search_form {
         padding: 5px;
         margin-top: -5px;
@@ -416,11 +419,11 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     }
 }
 
-@include Responsive($TABLET_DEVICE) {
+@include responsive.Responsive(responsive.$TABLET_DEVICE) {
     @include header.header-small-divice;
 }
 
-@include Responsive($WIDE_MOBILE){
+@include responsive.Responsive(responsive.$WIDE_MOBILE){
     @include header.header-small-divice;
 
 }

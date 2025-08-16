@@ -1,5 +1,7 @@
 @use "sass:map";
-@import "../../../style/pages/all";
+@use "../../../style/pages/all";
+@use "../../../style/pages/theme";
+
 
 .container__catagories_slides {
     max-width: 1200px;
@@ -20,7 +22,7 @@
                 position: absolute;
                 text-align: center;
                 font-size: 18px;
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
                 text-transform: uppercase;
                 letter-spacing: 2px;
                 padding: 12px 0 12px;
@@ -30,7 +32,7 @@
                 cursor: pointer;
 
                 &:hover {
-                    background: map.get($theme-colors, "main");
+                    background: map.get(theme.$theme-colors, "main");
                 }
             }
         }
@@ -59,7 +61,7 @@
         bottom: -15px;
         width: 600px;
         height: 7px;
-        background: map.get($theme-colors, "main");
+        background: map.get(theme.$theme-colors, "main");
         content: "";
         margin: 0 auto;
     }
@@ -75,7 +77,7 @@
         li {
             position: relative;
             font-size: 18px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             display: inline-block;
             margin-right: 25px;
             cursor: pointer;

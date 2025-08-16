@@ -1,8 +1,10 @@
  @use "sass:map";
- @import "../../style/pages/all";
+ @use "../../style/pages/all";
+@use "../../style/pages/theme";
+
 
  .quantity-container {
-     color: map.get($theme-colors, "decription");
+     color: map.get(theme.$theme-colors, "decription");
      display: flex;
      gap: 20px;
     padding: 40px 0px;

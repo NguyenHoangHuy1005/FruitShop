@@ -1,5 +1,5 @@
 @use "sass:map";
-@import "../../../../style/pages/theme";
+@use "../../../../style/pages/theme";
 
 .footer {
     background: #F3F6FA;
@@ -19,7 +19,7 @@
 
         ul li{
             font-size: 14px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             line-height: 36px;
             list-style: none;
             
@@ -31,7 +31,7 @@
         overflow: hidden;
 
         h6 {
-             color: map.get($theme-colors, "normal-text");
+             color: map.get(theme.$theme-colors, "normal-text");
              margin-bottom: 10px;
              font-size: 16px;
              font-weight: 700;
@@ -55,12 +55,12 @@
                 width: 100%;
                 font-size: 16px;
                 padding-left: 20px;
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
                 height: 46px;
                 border: 1px solid #ededed;
                  font-family: "Roboto", sans-serif;
                 ::placeholder {
-                    color: map.get($theme-colors, "normal-text");
+                    color: map.get(theme.$theme-colors, "normal-text");
                 }
             }
             button {
@@ -81,7 +81,7 @@
                 width: auto;     
             }
             a {
-                color: map.get($theme-colors, "normal-text");
+                color: map.get(theme.$theme-colors, "normal-text");
                 font-size: 14px;
                 line-height: 32px;
                 text-decoration: none;
@@ -97,7 +97,7 @@
         margin-top: 50px;
         div {
             :hover {
-                background: map.get($theme-colors, "main");
+                background: map.get(theme.$theme-colors, "main");
                 color: #ffffff;
                 border-color: #ffffff;
 

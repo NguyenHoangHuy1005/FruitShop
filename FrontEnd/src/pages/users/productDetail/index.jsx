@@ -28,7 +28,7 @@ const productDetail = () => {
                     </div>
                     <div className="col-lg-6 product__detail__text">
                         <h2>Chi tiết sản phẩm</h2>
-                        <div className="see-icon"> 
+                        <div className="see-icon">
                             <AiOutlineEye/>
                             {`68 (lượt xem)`}
                         </div>
@@ -55,7 +55,7 @@ const productDetail = () => {
                 <div className="product__detail__tab">
 
                 </div>
-                <div className="section-title"> 
+                <div className="section-title">
                     <ul></ul>
                     <h2>Sản phẩm tương tự</h2>
                 </div>

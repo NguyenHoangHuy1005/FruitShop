@@ -5,6 +5,9 @@ import './style/style.scss';
 import { Provider } from "react-redux";
 import { store, persistor } from "../src/component/redux/store";
 import { PersistGate } from 'redux-persist/integration/react';
+import '@fontsource/be-vietnam-pro/400.css';
+import '@fontsource/be-vietnam-pro/500.css';
+import '@fontsource/be-vietnam-pro/700.css';
 
 
 

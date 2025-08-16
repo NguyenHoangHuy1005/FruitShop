@@ -1,5 +1,7 @@
 @use "sass:map";
-@import "../../style/pages/all";
+@use "../../style/pages/all";
+@use "../../style/pages/theme";
+
 
 .modal-backdrop {
   position: fixed;
@@ -51,12 +53,12 @@
     transition: background 0.2s;
 
     &:first-of-type {
-      background-color: map.get($theme-colors,"main");
+      background-color: map.get(theme.$theme-colors,"main");
       color: white;
       border: none;
 
       &:hover {
-        background-color: map.get($theme-colors,"main");
+        background-color: map.get(theme.$theme-colors,"main");
       }
     }
 

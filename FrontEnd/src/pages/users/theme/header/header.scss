@@ -1,5 +1,7 @@
 @use "sass:map";
-@import "../../../../style/pages/all";
+@use "../../../../style/pages/all";
+@use "../../../../style/pages/theme";
+
 
 
 @mixin header-small-divice {
@@ -27,7 +29,7 @@
 
         svg {
             font-size: 30px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
         }
     }
 
@@ -95,11 +97,11 @@
 
                 a {
                     font-size: 40px;
-                    color: map.get($theme-colors, "normal-text");
+                    color: map.get(theme.$theme-colors, "normal-text");
 
                     span {
                         color: rgb(255, 255, 255);
-                        background: map.get($theme-colors, "main");
+                        background: map.get(theme.$theme-colors, "main");
                         position: absolute;
                         height: 25px;
                         width: 25px;
@@ -121,7 +123,7 @@
 
         .header__top__right__auth a {
             font-size: 20px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             text-decoration: none;
 
             svg {
@@ -142,7 +144,7 @@
                 border-bottom: 2px solid #e1e1e1;
 
                 a {
-                    color: map.get($theme-colors, "normal-text");
+                    color: map.get(theme.$theme-colors, "normal-text");
                     font-size: 16px;
                     font-weight: 500;
                     text-decoration: none;
@@ -186,7 +188,7 @@
         a {
             font-size: 16px;
             display: inline-block;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
             margin-right: 25px;
 
             svg {
@@ -200,7 +202,7 @@
     .humberger__menu__contact {
         ul {
             font-size: 20px;
-            color: map.get($theme-colors, "normal-text");
+            color: map.get(theme.$theme-colors, "normal-text");
         }
 
         li {

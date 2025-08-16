@@ -1,16 +1,19 @@
 @use "sass:map";
-@import "../../../style/pages/all";
+@use "sass:color";
+@use "../../../style/pages/all";
+@use "../../../style/pages/theme";
+
 
 $product-red: #c62828; // Đỏ
 $product-yellow: #fbc02d; // Vàng
 $product-gray: #f1f1f1;
-$product-main: map.get($theme-colors, "main");
+$product-main: map.get(theme.$theme-colors, "main");
 
 .container {
     padding: 10px
     h2 {
         margin-bottom: 20px;
-        color: map.get($theme-colors, "main");
+        color: map.get(theme.$theme-colors, "main");
         text-align: center;
     }
 }
@@ -29,12 +32,12 @@ $product-main: map.get($theme-colors, "main");
 
         &:focus {
             outline: none;
-            border-color: map.get($theme-colors, "main");
+            border-color: map.get(theme.$theme-colors, "main");
         }
     }
 
     .btn-add {
-        background: map.get($theme-colors, "main");
+        background: map.get(theme.$theme-colors, "main");
         color: white;
         border: none;
         padding: 8px 14px;
@@ -43,7 +46,7 @@ $product-main: map.get($theme-colors, "main");
         font-weight: bold;
 
         &:hover {
-            background: darken(map.get($theme-colors, "main"), 5%);
+            background: color.adjust(map.get(theme.$theme-colors, "main"), $lightness: -5%);
         }
     }
 }
@@ -83,8 +86,8 @@ $product-main: map.get($theme-colors, "main");
         font-size: 12px;
 
         &.in-stock {
-            background: rgba(map.get($theme-colors, "main"), 0.1);
-            color: map.get($theme-colors, "main");
+            background: rgba(map.get(theme.$theme-colors, "main"), 0.1);
+            color: map.get(theme.$theme-colors, "main");
         }
 
         &.out-stock {
@@ -108,7 +111,7 @@ $product-main: map.get($theme-colors, "main");
         color: #ffffff;
 
         &:hover {
-            background: darken($product-yellow, 5%);
+            background: color.adjust($product-yellow, $lightness: -5%);
         }
     }
 
@@ -117,7 +120,7 @@ $product-main: map.get($theme-colors, "main");
         color: white;
 
         &:hover {
-            background: darken($product-red, 5%);
+            background: color.adjust($product-red, $lightness: -5%);
         }
     }
 

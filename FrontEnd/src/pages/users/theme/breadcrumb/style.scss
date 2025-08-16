@@ -1,5 +1,5 @@
 @use "sass:map";
-@import "../../../../style/pages/theme";
+@use "../../../../style/pages/theme";
 
 .breadcrumb {
    display: flex;
@@ -9,7 +9,7 @@
    justify-content: center;
    line-height: 15px;
    text-align: center;
-   background: map.get($theme-colors,"main");
+   background: map.get(theme.$theme-colors,"main");
 
    .breadcrumb__text{
     color: #ffffff;
@@ -24,7 +24,7 @@
     }
     li {
         text-decoration: underline;
-        color: map.get($theme-colors,"decription");
+        color: map.get(theme.$theme-colors,"decription");
 
         a{
             text-decoration: none; 
@@ -33,7 +33,7 @@
         &.link {
             text-decoration: none; 
             :hover {
-                color: map.get($theme-colors,"decription");
+                color: map.get(theme.$theme-colors,"decription");
             }
         }
     }

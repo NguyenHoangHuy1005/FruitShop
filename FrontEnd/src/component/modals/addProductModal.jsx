@@ -23,14 +23,15 @@ const ProductForm = ({ initialData, onSubmit }) => {
       image: image,
       status: status,
     };
-    
+
     if (initialData) {
-      // code cập nhật sản phẩm
+      // createProduct(newProduct, dispatch);
+      onSubmit(newProduct);
     } else {
-     // createProduct(newProduct, dispatch);
-       onSubmit(newProduct); 
+      // createProduct(newProduct, dispatch);
+      onSubmit(newProduct);
     }
-   
+
   };
 
   return (

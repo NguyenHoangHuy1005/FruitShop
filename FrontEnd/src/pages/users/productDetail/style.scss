@@ -1,67 +1,91 @@
 @use "sass:map";
 @use "../../../style/pages/theme";
 
+.row {
+    display: flex; // 2 khối nằm ngang
+    align-items: stretch;
 
-.product__detail__pic {
-
-    img {
-        object-fit: cover;
-
-    }
-
-    .main {
-        flex: 0 0 50%;
-        display: grid;
-        align-items: stretch;
+    .product__detail__pic {
+        flex: 0 0 45%;
+        right: -20px;
+        border-right: 2px solid #eee;
+        padding-left: 100px;
+        padding-top: 80px;
 
         img {
-            width: 70%;
             object-fit: cover;
+
+        }
+
+        .main {
+            flex: 0 0 50%;
+            display: grid;
+            align-items: stretch;
+
+            img {
+                width: 70%;
+                object-fit: cover;
+            }
         }
     }
-}
 
-.product__detail__text {
-    h2 {
-        color: #252525;
-        font-weight: 700;
-    }
+    .product__detail__text {
+        flex: 1;
+        padding-left: 40px;
 
-    .see-icon {
-        display: flex;
-        align-items: center;
-        font-size: 15px;
-        line-height: 30px;
-        column-gap: 5px;
-    }
+        h2 {
+            color: #252525;
+            font-weight: 700;
+        }
 
-    ul {
-        margin: 20px 0;
-        border-top: 2px solid #eee;
-        padding-top: 20px;
+        .product__name {
+            white-space: nowrap; // giữ trên 1 dòng
+            overflow: hidden; // ẩn chữ tràn
+            text-overflow: ellipsis; // nếu quá dài hiển thị "..."
+            margin-right: 0; // bỏ margin quá lớn
+            text-align: left;
+        }
 
-        li {
-            list-style: none;
+        h3 {
+            margin-left: 10px;
+        }
+
+        .see-icon {
             display: flex;
-            column-gap: 20px;
-            line-height: 35px;
+            align-items: center;
+            font-size: 15px;
+            line-height: 30px;
+            column-gap: 5px;
+            margin-left: 10px;
+        }
 
-            b {
-                width: 150px;
+        ul {
+            margin: 20px 0;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
 
-            }
-
-            span {
+            li {
+                list-style: none;
                 display: flex;
-                column-gap: 10px;
-                align-items: center;
+                column-gap: 20px;
+                line-height: 35px;
 
-                svg{
-                    font-size: 30px;
-                    cursor: pointer;
+                b {
+                    width: 150px;
+
+                }
+
+                span {
+                    display: flex;
+                    column-gap: 10px;
+                    align-items: center;
+
+                    svg {
+                        font-size: 30px;
+                        cursor: pointer;
+                    }
                 }
             }
         }
     }
 }
-

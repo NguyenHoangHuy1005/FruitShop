@@ -6,7 +6,6 @@ import { AiFillFacebook, AiFillInstagram, AiFillLinkedin, AiFillMail, AiFillTikT
 import { BiSolidUserCircle } from "react-icons/bi";
 import { FaCartShopping } from "react-icons/fa6";
 import { FaListUl, FaPhone } from "react-icons/fa";
-import { renderFeatProducts } from "../../homePage/index";
 import { featProducts } from "../../../../utils/common";
 // import { ROUTERS } from "utils/router";
 import { ROUTERS } from "../../../../utils/router";

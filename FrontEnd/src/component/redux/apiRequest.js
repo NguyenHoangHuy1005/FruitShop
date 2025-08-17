@@ -136,8 +136,6 @@ export const createProduct = async (product, dispatch) => {
     }
 };
 
-
-
 export const getAllProduct = async (dispatch) => {
     dispatch(getProductStart());
     try {
@@ -149,12 +147,26 @@ export const getAllProduct = async (dispatch) => {
     }
 };
 
-// export const updateProduct = async (id, products, dispatch) => {
-//   dispatch(updateProductStart());
-//   try {
-//     const res = await axios.put(`http://localhost:3000/api/product/${id}`, products);
-//     dispatch(updateProductSuccess(res.data));
-//   } catch (err) {
-//     dispatch(updateProductFailure());
-//   }
-// };
+export const updateProduct = async (id, product, dispatch) => {
+    dispatch(updateProductStart());
+    try {
+        const res = await axios.put(`http://localhost:3000/api/product/${id}`, product);
+        dispatch(updateProductSuccess(res.data));
+    } catch (err) {
+        console.error(err);
+        dispatch(updateProductFailure());
+    }
+};
+
+export const deleteProduct = async (id, dispatch) => {
+    dispatch(deleteProductStart());
+    try {
+        await axios.delete(`http://localhost:3000/api/product/${id}`);
+        dispatch(deleteProductSuccess(id));
+        await getAllProduct(dispatch);
+        alert("Xóa sản phẩm thành công!");
+    } catch (err) {
+        console.error(err);
+        dispatch(deleteProductFailure());
+    }
+};

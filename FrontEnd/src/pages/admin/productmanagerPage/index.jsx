@@ -2,7 +2,7 @@ import { memo, useState, useEffect } from "react";
 import "./style.scss";
 import { useSelector, useDispatch } from "react-redux";
 import ProductForm from "../../../component/modals/addProductModal";
-import { getAllProduct, createProduct } from "../../../component/redux/apiRequest";
+import { getAllProduct, createProduct, updateProduct, deleteProduct } from "../../../component/redux/apiRequest";
 
 const ProductManagerPage = () => {
     const dispatch = useDispatch();
@@ -11,31 +11,30 @@ const ProductManagerPage = () => {
     const [editingProduct, setEditingProduct] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+    };
     useEffect(() => {
         getAllProduct(dispatch);
     }, [dispatch]);
 
-    const handleSearch = (e) => {
-        setSearchTerm(e.target.value);
-    };
-
-    const handleSubmitProduct = (newProduct) => {
-        setProducts([...products, { id: Date.now(), ...newProduct }]);
-        setShowModal(false); // đóng modal sau khi thêm
-    };
+    // const handleSubmitProduct = (newProduct) => {
+    //     setProducts([...products, { id: Date.now(), ...newProduct }]);
+    //     setShowModal(false); // đóng modal sau khi thêm
+    // };
 
     const handleCloseModal = () => {
         setShowModal(false);
     };
-
-    const handleEdit = (products) => {
-        setEditingProduct(products);  // lưu sản phẩm đang sửa
+    const handleEdit = (product) => {
+        // if (!editingProduct) return;
+        setEditingProduct(product);
         setShowModal(true);          // mở modal
     };
 
     const handleDelete = (id) => {
         if (window.confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-            setProducts(products.filter((p) => p.id !== id));
+            deleteProduct(id, dispatch);
         }
     };
 
@@ -83,12 +82,21 @@ const ProductManagerPage = () => {
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map((product) => (
                             <tr key={product._id}>
-                                <td>{product.name}</td>
+                                <td>{product.name || "—"}</td>
+
                                 <td>
-                                    <img src={product.image} alt={product.name} />
+                                    <img
+                                        src={product.image || "/placeholder.png"} // nếu chưa có ảnh thì hiển thị ảnh mặc định
+                                        alt={"Ảnh.jpg"}
+                                        style={{ width: "60px", height: "60px", objectFit: "cover" }}
+                                    />
                                 </td>
-                                <td>{product.price.toLocaleString()}</td>
-                                <td>{product.category}</td>
+
+                                <td>{(product.price ?? 0).toLocaleString()} VND</td>
+                                {/* dùng ?? để fallback về 0 nếu price = null/undefined */}
+
+                                <td>{product.category || "Chưa phân loại"}</td>
+
                                 <td>
                                     <span
                                         className={
@@ -100,10 +108,12 @@ const ProductManagerPage = () => {
                                         {product.status}
                                     </span>
                                 </td>
+
                                 <td>
                                     <button
                                         className="btn-edit"
-                                        onClick={() => handleEdit(product._id)}
+                                        onClick={() => handleEdit(product)}
+                                    // 👈 truyền luôn object để edit form có dữ liệu
                                     >
                                         Sửa
                                     </button>
@@ -115,6 +125,7 @@ const ProductManagerPage = () => {
                                     </button>
                                 </td>
                             </tr>
+
                         ))
                     ) : (
                         <tr>
@@ -135,10 +146,12 @@ const ProductManagerPage = () => {
                         <ProductForm
                             initialData={editingProduct}
                             onSubmit={async (data) => {
-                        
+
                                 if (editingProduct) {
-                                    // // Gọi API update sản phẩm
-                                    // await updateProduct(editingProduct.id, data, dispatch);
+                                    //goi requestapi
+
+                                    await updateProduct(editingProduct._id, data, dispatch);
+
                                 } else {
                                     // Gọi API tạo sản phẩm
                                     await createProduct(data, dispatch);

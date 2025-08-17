@@ -49,16 +49,23 @@ const productSlice = createSlice({
         // DELETE product
         deleteProductStart: (state) => {
             state.products.isFetching = true;
+            state.products.error = false;
         },
+
         deleteProductSuccess: (state, action) => {
             state.products.isFetching = false;
-            state.msg = action.payload;
+            state.products.allProducts = state.products.allProducts.filter(
+                (item) => item._id !== action.payload   // payload là id sản phẩm vừa xóa
+            );
+            state.msg = "Xóa sản phẩm thành công!";
         },
+
         deleteProductFailure: (state, action) => {
             state.products.isFetching = false;
             state.products.error = true;
-            state.msg = action.payload;
+            state.msg = action.payload || "Xóa sản phẩm thất bại!";
         },
+
 
         // UPDATE product
         updateProductStart: (state) => {
@@ -66,7 +73,14 @@ const productSlice = createSlice({
         },
         updateProductSuccess: (state, action) => {
             state.products.isFetching = false;
-            state.msg = action.payload;
+            state.products.error = false;
+            const index = state.products.allProducts.findIndex(
+                (item) => item._id === action.payload._id
+            );
+            if (index !== -1) {
+                // cập nhật sản phẩm trong danh sách
+                state.products.allProducts[index] = action.payload;
+            }
         },
         updateProductFailure: (state, action) => {
             state.products.isFetching = false;

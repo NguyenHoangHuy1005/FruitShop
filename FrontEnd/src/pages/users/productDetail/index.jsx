@@ -19,6 +19,11 @@ const ProductDetail = () => {
         return <h2>Không tìm thấy sản phẩm</h2>;
     }
 
+    // Lấy sản phẩm tương tự (ví dụ cùng category nhưng khác id)
+    const relatedProducts = products.filter(
+        (p) => p.category === product.category && p._id !== product._id
+    ).slice(0, 8); // lấy tối đa 4 sản phẩm
+
     return (
         <>
             <Breadcrumb name="Chi tiết sản phẩm" />
@@ -40,20 +45,37 @@ const ProductDetail = () => {
                         <h2 className="product__name">{product.name}</h2>
                         <h3>{formatter(product.price)}</h3>
                         <Quantity />
+                        <div className="product__options">
+                            <p>Chọn kiểu:</p>
+                            <div className="options">
+                                <label className="option">
+                                    <input type="radio" name="type" value="ki" defaultChecked />
+                                    <span>Kí</span>
+                                </label>
+                                <label className="option">
+                                    <input type="radio" name="type" value="hop" />
+                                    <span>Hộp</span>
+                                </label>
+                            </div>
+                        </div>
                         <ul>
                             <li>
                                 <b>Tình trạng:</b>{" "}
                                 <span>{product.status}</span>
                             </li>
-                            <li>
-                                {/* <b>Số lượng:</b> <span>{product.status}</span> */}
-                            </li>
+
                             <li>
                                 <b>Chia sẻ:</b>{" "}
                                 <span>
                                     <AiFillFacebook />
                                     <AiFillTikTok />
                                     <AiOutlineCopy />
+                                </span>
+                            </li>
+                            <li>
+                                <b>Giới thiệu:</b>{" "}
+                                <span>
+                                    {product.description}
                                 </span>
                             </li>
                         </ul>
@@ -65,8 +87,11 @@ const ProductDetail = () => {
                     <h2>Sản phẩm tương tự</h2>
                 </div>
                 <div className="row">
-                    {featProducts.all.products.map((item, key) => (
-                        <div key={key} className="col-lg-3 col-md-4 col-sm-6 col-xs-12">
+                    {relatedProducts.map((item) => (
+                        <div
+                            key={item._id}
+                            className="col-lg-3 col-md-4 col-sm-6 col-xs-12"
+                        >
                             <ProductCard
                                 id={item._id}
                                 name={item.name}

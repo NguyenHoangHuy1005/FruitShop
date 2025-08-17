@@ -9,12 +9,13 @@
         flex: 0 0 45%;
         right: -20px;
         border-right: 2px solid #eee;
-        padding-left: 100px;
-        padding-top: 80px;
+        padding-left: 55px;
+        padding-top: 40px;
 
         img {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-
         }
 
         .main {
@@ -58,6 +59,44 @@
             column-gap: 5px;
             margin-left: 10px;
         }
+
+        .product__options {
+            margin: -20px 0 20px 0;
+        
+            p {
+                margin-bottom: 10px;
+                font-weight: 500;
+            }
+
+            .options {
+                display: flex;
+                gap: 10px;
+
+                .option {
+                    display: flex;
+                    align-items: center;
+                    cursor: pointer;
+
+                    input[type="radio"] {
+                        display: none; // ẩn radio mặc định
+                    }
+
+                    span {
+                        padding: 8px 16px;
+                        border: 2px solid #ccc;
+                        border-radius: 8px;
+                        transition: all 0.2s;
+                    }
+
+                    input[type="radio"]:checked+span {
+                        background: map.get(theme.$theme-colors, "main");
+                        color: #fff;
+                        border-color: map.get(theme.$theme-colors, "normal-text");;
+                    }
+                }
+            }
+        }
+
 
         ul {
             margin: 20px 0;

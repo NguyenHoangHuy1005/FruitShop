@@ -15,7 +15,7 @@ const middlewareController = {
                 next();
             });
         } else {
-           return res.status(401).json({message:"you are not authenticated"});
+            return res.status(401).json({message:"you are not authenticated"});
         }
     },
 
@@ -24,7 +24,7 @@ const middlewareController = {
             if(req.user.id == req.params.id || req.user.admin){
                 next();
             }else{
-               return res.status(403).json({message:"You are not allowed to delete others"});
+                return res.status(403).json({message:"You are not allowed to delete others"});
             }
         });
     },

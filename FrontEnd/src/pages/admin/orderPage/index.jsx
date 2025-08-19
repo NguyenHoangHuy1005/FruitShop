@@ -18,7 +18,7 @@ const OrderAdminPage = () => {
                         <th>Ngày đặt</th>
                         <th>Trạng thái</th>
                         </tr>
-                       
+                        
                         <tbody>
                             <tr>
                                 <td>1</td>

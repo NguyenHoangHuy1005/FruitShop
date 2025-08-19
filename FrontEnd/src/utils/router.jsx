@@ -9,7 +9,6 @@ export const ROUTERS = {
     SHOPPINGCART: "/cart",
     CHECKOUT: "/checkout",
   },
-
   ADMIN: {
     LOGIN: `${ADMIN_PATH}/login`,
     ORDERS: `${ADMIN_PATH}/orders`,
@@ -17,5 +16,6 @@ export const ROUTERS = {
     SIGNUP: `${ADMIN_PATH}/signup`,
     PRODUCTS: `${ADMIN_PATH}/products`,
     USERMANAGER: `${ADMIN_PATH}/usermanager`,
+    AUTH: `${ADMIN_PATH}/auth`,
   },
 };

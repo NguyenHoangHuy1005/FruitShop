@@ -1,69 +1,90 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-
 const authSlice = createSlice({
     name: "auth",
     initialState: {
         login: {
-            currentUser: null,
-            isFetching: false,
-            error: false,
+        currentUser: null,
+        isFetching: false,
+        error: false,
         },
         register: {
-            isFetching: false,
-            error: false,
-            success: false,
-
+        isFetching: false,
+        error: false,
+        success: false,
         },
+        verify: {
+        isFetching: false,
+        error: false,
+        success: false,
+        },
+        // lưu email đang chờ xác minh (đồng bộ với localStorage.PENDING_EMAIL)
+        pendingEmail: localStorage.getItem("PENDING_EMAIL") || null,
     },
     reducers: {
-        loginStart: (state) => {
-            state.login.isFetching = true;
-
-        },
-        loginSuccess: (state, action) => {
-            state.login.isFetching = false;
-            state.login.currentUser = action.payload;
-            state.login.error = false;
+        /* ===== Login ===== */
+    loginStart: (state) => { state.login.isFetching = true; },
+    loginSuccess: (state, action) => {
+        state.login.isFetching = false;
+        state.login.currentUser = action.payload;
+        state.login.error = false;
         },
         loginFailure: (state) => {
-            state.login.isFetching = false;
-            state.login.error = true;
+        state.login.isFetching = false;
+        state.login.error = true;
         },
 
-        //register
-        registerStart: (state) => {
-            state.register.isFetching = true;
-
-        },
+        /* ===== Register ===== */
+        registerStart: (state) => { state.register.isFetching = true; },
         registerSuccess: (state) => {
-            state.register.isFetching = false;
-            state.register.error = false;
-            state.register.success = true;
+        state.register.isFetching = false;
+        state.register.error = false;
+        state.register.success = true;
         },
         registerFailure: (state) => {
-            state.register.isFetching = false;
-            state.register.error = true;
-            state.register.success = false;
+        state.register.isFetching = false;
+        state.register.error = true;
+        state.register.success = false;
         },
 
-        //logout
-        logoutStart: (state) => {
-            state.login.isFetching = true;
-
+        /* ===== Verify (OTP) ===== */
+        verifyStart: (state) => { state.verify.isFetching = true; },
+        verifySuccess: (state) => {
+        state.verify.isFetching = false;
+        state.verify.error = false;
+        state.verify.success = true;
         },
+        verifyFailure: (state) => {
+        state.verify.isFetching = false;
+        state.verify.error = true;
+        state.verify.success = false;
+        },
+
+        /* ===== Pending email ===== */
+        setPendingEmail: (state, action) => {
+        state.pendingEmail = action.payload;
+        },
+
+        /* ===== Logout ===== */
+        logoutStart: (state) => { state.login.isFetching = true; },
         logoutSuccess: (state) => {
-            state.login.isFetching = false;
-            state.login.currentUser = null;
-            state.login.error = false;
+        state.login.isFetching = false;
+        state.login.currentUser = null;
+        state.login.error = false;
         },
         logoutFailure: (state) => {
-            state.login.isFetching = false;
-            state.login.error = true;
+        state.login.isFetching = false;
+        state.login.error = true;
         },
     }
-})
+});
 
-export const { loginStart, loginSuccess, loginFailure, registerStart, registerSuccess, registerFailure, logoutStart, logoutSuccess, logoutFailure } = authSlice.actions;
+export const {
+    loginStart, loginSuccess, loginFailure,
+    registerStart, registerSuccess, registerFailure,
+    verifyStart, verifySuccess, verifyFailure,
+    setPendingEmail,
+    logoutStart, logoutSuccess, logoutFailure
+} = authSlice.actions;
 
 export default authSlice.reducer;

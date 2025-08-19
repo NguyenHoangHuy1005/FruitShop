@@ -10,6 +10,7 @@ import CheckoutPage from "./pages/users/checkoutPage";
 
 import LoginPage from "./pages/admin/loginPage";
 import SignupPage from "./pages/admin/signupPage";
+import Auth from "./pages/admin/auth";
 import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
@@ -59,11 +60,14 @@ const renderAdminRouter = () => {
       path: ROUTERS.ADMIN.LOGIN,
       element: <LoginPage />,
     },
-     {
+    {
       path: ROUTERS.ADMIN.SIGNUP,
       element: <SignupPage/>,
+    },{
+      path: ROUTERS.ADMIN.AUTH,
+      element: <Auth/>,
     },
-     {
+    {
       path: ROUTERS.ADMIN.PRODUCTS,
       element: <ProductManagerPage />,
     },
@@ -91,12 +95,14 @@ const renderAdminRouter = () => {
 
 const RouterCustom = () => {
   const location = useLocation();
-  const isAdminrouters = 
+  const isAdminrouters =
     location.pathname.startsWith(ROUTERS.ADMIN.LOGIN) ||
     location.pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)||
     location.pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
     location.pathname.startsWith(ROUTERS.ADMIN.ORDERS)||
-    location.pathname.startsWith(ROUTERS.ADMIN.SIGNUP);
+    location.pathname.startsWith(ROUTERS.ADMIN.SIGNUP)||
+    location.pathname.startsWith(ROUTERS.ADMIN.AUTH);
+
   return isAdminrouters ? renderAdminRouter() : renderUserRouter();
 };
 

@@ -3,6 +3,7 @@ export const ADMIN_PATH = "/admin";
 export const ROUTERS = {
   USER: {
     HOME: "",
+    ORDERS: "/orders",
     PROFILE: "/profile",
     PRODUCTS: "/product",
     PRODUCT: "/product/detail/:id",

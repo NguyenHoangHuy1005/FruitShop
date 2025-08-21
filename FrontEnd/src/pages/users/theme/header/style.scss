@@ -4,10 +4,9 @@
 @use "../../../../style/pages/responsive";
 @use "../../../../style/pages/theme";
 
-
-
 $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploads/pn9qsmkbijuvqan7yp5m.png";
 
+/* ===== Top bar ===== */
 .header__top {
     background: #f3f6fa;
     height: 45px;
@@ -20,6 +19,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         list-style: none;
         column-gap: 50px;
         margin-top: -5px;
+
         li {
             font-size: 16px;
             color: map.get(theme.$theme-colors, "normal-text");
@@ -27,8 +27,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             align-items: center;
             column-gap: 10px;
             position: relative;
-            
-            svg{
+
+            svg {
                 font-size: 20px;
             }
         }
@@ -44,7 +44,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 width: 2px;
                 background: #000000;
                 opacity: 0.5;
-                content: ""
+                content: "";
             }
         }
     }
@@ -55,6 +55,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     justify-content: flex-end;
     align-items: center;
     margin-top: -2px;
+
     ul {
         display: flex;
         column-gap: 10px;
@@ -64,27 +65,113 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             font-size: 24px;
             display: inline-block;
             color: map.get(theme.$theme-colors, "normal-text");
-        }
 
-        li:last-child {
-            cursor: pointer;
-            margin-left: 10px;
-
-            span {
-                font-size: 15px;
-                margin-left: 2px;
-                position: relative;
-                top: -5px;
-                font-weight: bold;
-               // font-family: "Roboto", sans-serif;
+            &:hover {
+                color: map.get(theme.$theme-colors, "main");
             }
         }
+
+        /* ====== User dropdown (desktop) ====== */
+        .user-menu {
+            position: relative;
+            list-style: none;
+            margin-left: 10px;
+
+            .user-trigger {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: transparent;
+                border: 0;
+                cursor: pointer;
+                padding: 0;
+            }
+
+            .user-avatar {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                object-fit: cover;
+            }
+
+            .user-name {
+                color: #000;
+                font-weight: 600;
+                font-size: 15px;
+                line-height: 1;
+                position: relative;
+                top: -2px;
+                max-width: 200px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .user-dropdown {
+                position: absolute;
+                top: 36px;
+                right: -20px;
+                width: 230px;
+                background: #fff;
+                border-radius: 10px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+                display: none;
+                z-index: 1000;
+
+                overflow: hidden;     /* cắt nền hover theo border-radius */
+                margin: 0;            /* bỏ margin mặc định của <ul> */
+                padding: 6px 0;       /* chỉ giữ padding dọc */
+                padding-left: 0;      /* bỏ thụt lề mặc định của <ul> */
+                list-style: none;     /* bỏ bullet */
+
+                li {
+                    padding: 0;
+                    list-style: none;
+                }
+
+                a,
+                .logout-btn {
+                    display: block;
+                    width: 100%;
+                    box-sizing: border-box;   /* tránh nở ngang khi có padding */
+                    text-align: left;
+                    padding: 12px 14px;
+                    background: none;
+                    border: 0;
+                    font-size: 14px;
+                    color: #0f172a;
+                    cursor: pointer;
+                    text-decoration: none;
+
+                    &:hover {
+                        background: #f3f4f6;
+                        color: map.get(theme.$theme-colors, "bold-text");
+                    }
+                }
+                /* bo tròn mượt phần tử đầu/cuối khi hover */
+                li:first-child a:hover,
+                li:first-child .logout-btn:hover {
+                    border-top-left-radius: 10px;
+                    border-top-right-radius: 10px;
+                }
+                li:last-child a:hover,
+                li:last-child .logout-btn:hover {
+                    border-bottom-left-radius: 10px;
+                    border-bottom-right-radius: 10px;
+                }
+            }
+
+            .user-dropdown.open {
+                display: block;
+            }
+        }
+        /* ====== End user dropdown ====== */
     }
 }
 
+/* ===== Brand, main nav ===== */
 .header__logo {
     padding: 15px 0;
-
 }
 
 .header__menu {
@@ -107,7 +194,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 font-weight: bold;
                 font-family: "Roboto", sans-serif;
                 letter-spacing: 2px;
-                transform: all 0.3s;
+                transition: all 0.3s; /* sửa transform -> transition */
                 padding: 5px 0;
                 display: block;
             }
@@ -132,7 +219,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             height: 140px;
             z-index: 9;
             margin-left: 0px;
-            transition: all, 0.3s;
+            transition: all 0.3s; /* sửa cú pháp */
             opacity: 0;
             visibility: hidden;
 
@@ -145,18 +232,16 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 }
 
                 :hover {
-                    color: white;
+                    color: #fff;
                     background: map.get(theme.$theme-colors, "main");
                     font-weight: 600;
                 }
             }
         }
-
-
     }
 }
 
-
+/* ===== Cart ===== */
 .header__cart {
     display: flex;
     justify-content: center;
@@ -178,7 +263,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             }
 
             span {
-                color: white;
+                color: #fff;
                 background: map.get(theme.$theme-colors, "main");
                 position: absolute;
                 height: 20px;
@@ -191,16 +276,16 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 font-weight: 500;
                 left: 16px;
                 top: -8px;
-
             }
         }
     }
 }
 
-
+/* ===== Left categories ===== */
 .l__categories {
     position: relative;
     padding-bottom: 20px;
+
     .categories__all {
         background: map.get(theme.$theme-colors, "main");
         padding: 15px 25px 15px 40px;
@@ -244,15 +329,13 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 line-height: 39px;
                 padding-left: 40px;
                 font-family: "Roboto", sans-serif;
-
             }
 
             &:hover {
                 background: map.get(theme.$theme-colors, "main");
 
-
                 a {
-                    color: white;
+                    color: #fff;
                     font-weight: 600;
                 }
             }
@@ -264,8 +347,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     }
 }
 
+/* ===== Right area: search + hero ===== */
 .r__categories {
-    
     .r__search_form {
         width: 610px;
         height: 50px;
@@ -275,7 +358,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         form {
             display: flex;
             align-items: center;
-
         }
 
         input {
@@ -325,16 +407,15 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             display: flex;
             align-items: center;
             color: map.get(theme.$theme-colors, "main");
-        }
+            }
 
-        .r__search_phone_text {
+            .r__search_phone_text {
             display: inline-block;
 
             p {
                 color: map.get(theme.$theme-colors, "normal-text");
                 font-weight: bold;
                 margin-bottom: 5px;
-
             }
 
             span {
@@ -354,7 +435,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         display: flex;
         align-items: center;
         width: 100%;
-
 
         .r__text {
             padding-left: 50px;
@@ -400,17 +480,61 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 text-decoration: none;
                 font-family: "Roboto", sans-serif;
             }
-
         }
     }
 }
 
+/* ===== Hamburger (PC ẩn) ===== */
 .humberger__menu__wrapper,
 .humberger__open {
     display: none;
-
 }
 
+/* Nút Đăng nhập (dùng chung desktop + mobile) */
+.login-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;          /* pill nhỏ gọn */
+    border-radius: 9999px;
+    border: 0;
+    background: transparent;
+    color: map.get(theme.$theme-colors, "normal-text");
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+
+    svg {                       /* icon user */
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    &:hover {
+        background: #ccd0d7;      /* nền xám nhẹ khi hover */
+        color: map.get(theme.$theme-colors, "bold-text");
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(0,0,0,.06), 0 0 0 4px color-mix(in srgb, #{map.get(theme.$theme-colors,"main")} 30%, transparent);
+    }
+
+    &:active {
+        transform: translateY(0.5px);
+        background: #eaecf0;
+    }
+}
+.header__top__right .login-inline {
+    color: map.get(theme.$theme-colors, "normal-text");
+}
+
+/* ===== Responsive ===== */
 @include responsive.Responsive(responsive.$MEDIUM_DEVICE) {
     .r__search_form {
         padding: 5px;
@@ -423,7 +547,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     @include header.header-small-divice;
 }
 
-@include responsive.Responsive(responsive.$WIDE_MOBILE){
+@include responsive.Responsive(responsive.$WIDE_MOBILE) {
     @include header.header-small-divice;
-
 }

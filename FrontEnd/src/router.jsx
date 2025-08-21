@@ -2,6 +2,8 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import HomePage from "./pages/users/homePage";
 import { ROUTERS } from "./utils/router";
 import MasterLayout from "./pages/users/theme/masterLayout";
+
+import OrderUserPage from "./pages/users/ordersPage";
 import ProfilePage from "./pages/users/profilePage";
 import ProductsPage from "./pages/users/productsPage";
 import ProductDetail from "./pages/users/productDetail";
@@ -15,11 +17,16 @@ import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
+import OrderPage from "./pages/admin/orderPage";
 const renderUserRouter = () => {
   const userRouters = [
     {
       path: ROUTERS.USER.HOME,
       element: <HomePage />,
+    },
+    {
+      path: ROUTERS.USER.ORDERS,
+      element: <OrderUserPage />,
     },
     {
       path: ROUTERS.USER.PROFILE,

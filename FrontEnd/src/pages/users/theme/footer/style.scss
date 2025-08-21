@@ -1,11 +1,12 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../../../style/pages/theme";
 
 .footer {
     background: #F3F6FA;
     padding-top: 70px;
     padding-bottom: 0;
-   
+
     .footer__about{
         margin-bottom: 30px;
         .footer__about__logo {
@@ -31,17 +32,17 @@
         overflow: hidden;
 
         h6 {
-             color: map.get(theme.$theme-colors, "normal-text");
-             margin-bottom: 10px;
-             font-size: 16px;
-             font-weight: 700;
+            color: map.get(theme.$theme-colors, "normal-text");
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: 700;
             font-family: "Roboto", sans-serif;
 
         }
         p {
             font-size: 14px;
-             font-family: "Roboto", sans-serif;
-             margin-bottom: 10px;
+            font-family: "Roboto", sans-serif;
+            margin-bottom: 10px;
 
         }
         form {
@@ -58,7 +59,7 @@
                 color: map.get(theme.$theme-colors, "normal-text");
                 height: 46px;
                 border: 1px solid #ededed;
-                 font-family: "Roboto", sans-serif;
+                font-family: "Roboto", sans-serif;
                 ::placeholder {
                     color: map.get(theme.$theme-colors, "normal-text");
                 }
@@ -78,7 +79,7 @@
             li {
                 list-style: none;
                 white-space: nowrap;
-                width: auto;     
+                width: auto;
             }
             a {
                 color: map.get(theme.$theme-colors, "normal-text");
@@ -112,6 +113,24 @@
                 background: #ffffff;
                 cursor: pointer;
             }
+        }
+    }
+    .footer__copyright {
+        clear: both; /* QUAN TRỌNG: không bị các float “kéo sập” chiều cao */
+        margin-top: 40px;
+
+        /* Màu nền tự động theo theme, giống thanh đậm trong hình */
+        $main: map.get(theme.$theme-colors, "main");
+        background: color.scale($main, $lightness: -35%);
+        border-top: 1px solid color.scale($main, $lightness: 20%);
+
+        .container { padding: 14px 0; }
+        p {
+        margin: 0;
+        text-align: center;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+        color: rgba(#fff, 0.75);
         }
     }
 }

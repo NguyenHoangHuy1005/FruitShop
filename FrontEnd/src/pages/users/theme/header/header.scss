@@ -2,17 +2,15 @@
 @use "../../../../style/pages/all";
 @use "../../../../style/pages/theme";
 
-
-
 @mixin header-small-divice {
-    .l__catagories {
+    /* Sửa chính tả: l__categories  */
+    .l__categories {
         margin-bottom: 20px;
     }
 
     .r__search_form {
         padding-left: unset !important;
         width: 550px !important;
-
     }
 
     .header__top,
@@ -28,8 +26,8 @@
         height: 100%;
 
         svg {
-            font-size: 30px;
-            color: map.get(theme.$theme-colors, "normal-text");
+        font-size: 30px;
+        color: map.get(theme.$theme-colors, "normal-text");
         }
     }
 
@@ -47,8 +45,8 @@
         transition: all 0.2s;
 
         &.show {
-            opacity: 1;
-            z-index: 9999;
+        opacity: 1;
+        z-index: 9999;
         }
     }
 
@@ -61,10 +59,10 @@
         background: rgba(0, 0, 0, 0.5);
         z-index: 100;
         visibility: hidden;
-        transition: all, 0.2;
+        transition: all 0.2s;
 
         &.active {
-            visibility: visible !important;
+        visibility: visible !important;
         }
     }
 
@@ -73,14 +71,14 @@
         margin-bottom: 25px;
 
         .header__cart__price {
-            font-size: 20px;
-            color: #000000;
-            margin-top: 24px;
-            margin-left: 10px;
+        font-size: 20px;
+        color: #000000;
+        margin-top: 24px;
+        margin-left: 10px;
 
-            span {
-                color: black;
-            }
+        span {
+            color: black;
+        }
         }
 
         ul {
@@ -100,7 +98,7 @@
                     color: map.get(theme.$theme-colors, "normal-text");
 
                     span {
-                        color: rgb(255, 255, 255);
+                        color: #fff;
                         background: map.get(theme.$theme-colors, "main");
                         position: absolute;
                         height: 25px;
@@ -118,6 +116,7 @@
         }
     }
 
+    /* ===== Mobile user area ===== */
     .humberger__menu_widget {
         margin-bottom: 20px;
 
@@ -128,7 +127,52 @@
 
             svg {
                 font-size: 25px;
+            }
+        }
 
+        /* Nút đăng nhập inline (chưa login) */
+        .login-inline {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            background: transparent;
+            border: 0;
+            padding: 0;
+            color: map.get(theme.$theme-colors, "normal-text");
+            cursor: pointer;
+
+            svg {
+                font-size: 24px;
+            }
+        }
+
+        /* Khối user khi đã login trên mobile (không dropdown) */
+        .mobile-user-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            .user-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                object-fit: cover;
+            }
+
+            .mobile-user-links {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+
+                a {
+                    color: map.get(theme.$theme-colors, "normal-text");
+                    text-decoration: none;
+                    font-size: 16px;
+
+                    &:hover {
+                        color: map.get(theme.$theme-colors, "main");
+                    }
+                }
             }
         }
     }
@@ -149,12 +193,10 @@
                     font-weight: 500;
                     text-decoration: none;
 
-
                     svg {
                         vertical-align: middle;
                         margin-left: 5px;
                         font-size: 19px;
-
                     }
                 }
             }
@@ -170,13 +212,13 @@
                 margin-right: 0px;
 
                 &:last-child {
-                    border-bottom: none;
+                border-bottom: none;
                 }
             }
         }
 
         .show__submenu {
-            display: block;
+        display: block;
         }
     }
 
@@ -193,9 +235,7 @@
 
             svg {
                 font-size: 50px;
-
             }
-
         }
     }
 
@@ -209,9 +249,9 @@
             display: inline-block;
             font-size: 17px;
             margin-bottom: 10px;
-
         }
     }
+
     .header__logo {
         width: max-content;
     }

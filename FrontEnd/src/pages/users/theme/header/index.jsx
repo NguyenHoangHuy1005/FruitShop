@@ -1,141 +1,216 @@
-import { memo, use, useEffect } from 'react';
-import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { memo, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { logout } from "../../../../component/redux/apiRequest";
 import "./style.scss";
-import { AiFillFacebook, AiFillInstagram, AiFillLinkedin, AiFillMail, AiFillTikTok, AiOutlineAlipayCircle, AiFillCaretUp, AiFillCaretDown } from "react-icons/ai";
+import "./header.scss";
+import {
+    AiFillFacebook,
+    AiFillInstagram,
+    AiFillLinkedin,
+    AiFillMail,
+    AiFillTikTok,
+    AiFillCaretUp,
+    AiFillCaretDown,
+} from "react-icons/ai";
 import { BiSolidUserCircle } from "react-icons/bi";
-import { FaCartShopping } from "react-icons/fa6";
+import { FaCartShopping } from "react-icons/fa6"; 
 import { FaListUl, FaPhone } from "react-icons/fa";
-import { featProducts } from "../../../../utils/common";
-// import { ROUTERS } from "utils/router";
 import { ROUTERS } from "../../../../utils/router";
 import { formatter } from "../../../../utils/fomater";
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from "react-redux";
 
-export const categories = [
-  "Rau củ",
-  "Trái cây",
-  "Hải sản",
-  "Thịt tươi",
-  "Thực phẩm khô",
-];
+export const categories = ["Rau củ", "Trái cây", "Hải sản", "Thịt tươi", "Thực phẩm khô"];
+
+/* ===================== User dropdown ===================== */
+const UserMenu = ({ onLoginClick }) => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth?.login?.currentUser);
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Đóng menu khi click ra ngoài
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("touchstart", onClickOutside); // hỗ trợ mobile
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("touchstart", onClickOutside);
+    };
+  }, []);
+
+  // Đóng menu khi đổi route
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location]);
+
+  if (!user) {
+    // ===== Chưa đăng nhập =====
+    return (
+      <li>
+        <button type="button" className="login-inline" onClick={onLoginClick}>
+          <BiSolidUserCircle />
+          <span>Đăng nhập</span>
+        </button>
+      </li>
+    );
+  }
+
+  const displayName = user.fullname || user.username || "Tài khoản";
+  const avatar =
+    user.avatar ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&background=%23e2e8f0`;
+
+  const handleLogout = async (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    const accessToken = user?.accessToken;
+    const id = user?._id;
+    await logout(dispatch, navigate, accessToken, id);
+  };
+
+
+  return (
+    <li className="user-menu" ref={ref}>
+      <button
+        type="button"
+        className="user-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <img className="user-avatar" src={avatar} alt={displayName} />
+        <span className="user-name">{displayName}</span>
+      </button>
+
+      <ul className={`user-dropdown ${open ? "open" : ""}`} role="menu">
+        <li>
+          <Link to={ROUTERS.USER.PROFILE} role="menuitem">Tài khoản của tôi</Link>
+        </li>
+        <li>
+          <Link to={ROUTERS.USER.ORDERS} role="menuitem">Đơn mua</Link>
+        </li>
+        <li>
+          <button type="button" className="logout-btn" role="menuitem" onClick={handleLogout}>
+            Đăng xuất
+          </button>
+        </li>
+      </ul>
+    </li>
+  );
+};
+
+/* =================== End User dropdown =================== */
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  //const [isShowCategories, setShowCategories] = useState(true);
+
   const [isShowHumberger, setShowHumberger] = useState(false);
-  const [isHome, setisHome] = useState(location.pathname.length <= 1);
+  const [isHome, setIsHome] = useState(location.pathname.length <= 1);
   const [isShowCategories, setShowCategories] = useState(isHome);
 
   const [menus, setMenus] = useState([
-    {
-      name: "Trang chủ",
-      path: ROUTERS.USER.HOME,
-    },
-    // {
-    //   name: "Cửa hàng",
-    //   path: ROUTERS.USER.PRODUCTS,
-    // },
+    { name: "Trang chủ", path: ROUTERS.USER.HOME },
     {
       name: "Sản phẩm",
       path: ROUTERS.USER.PRODUCTS,
       isShowSubmenu: false,
       child: [
-        {
-          name: "Rau củ",
-          path: "",
-        },
-        {
-          name: "Trái cây",
-          path: "",
-        },
-        {
-          name: "Hải sản",
-          path: "",
-        },
-        {
-          name: "Thịt tươi",
-          path: "",
-        },
-        {
-          name: "Thực phẩm khô",
-          path: "",
-        },
-      ]
+        { name: "Rau củ", path: "" },
+        { name: "Trái cây", path: "" },
+        { name: "Hải sản", path: "" },
+        { name: "Thịt tươi", path: "" },
+        { name: "Thực phẩm khô", path: "" },
+      ],
     },
-    {
-      name: "Bài viết",
-      path: "",
-    },
-    {
-      name: "Liên hệ",
-      path: "",
-    },
+    { name: "Bài viết", path: "" },
+    { name: "Liên hệ", path: "" },
   ]);
 
   useEffect(() => {
-    const isHome = location.pathname.length <= 1;
-    setisHome(isHome);
-    setShowCategories(isHome);
+    const _isHome = location.pathname.length <= 1;
+    setIsHome(_isHome);
+    setShowCategories(_isHome);
   }, [location]);
 
-  const user = useSelector((state) => state.auth.login.currentUser);
+  const user = useSelector((state) => state.auth?.login?.currentUser);
 
   return (
     <>
-      <div className={`humberger__menu__overlay ${isShowHumberger ? "active" : ""}`}
+      {/* ===== Overlay & mobile drawer ===== */}
+      <div
+        className={`humberger__menu__overlay ${isShowHumberger ? "active" : ""}`}
         onClick={() => setShowHumberger(false)}
       />
       <div className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}>
         <div className="header__logo">
           <h1>FRUITSHOP</h1>
         </div>
+
         <div className="humberger__menu__cart">
           <ul>
             <li>
-              <Link to={""}>
+              <Link to={ROUTERS.USER.SHOPPINGCART}>
                 <FaCartShopping /> <span>4</span>
               </Link>
             </li>
           </ul>
-          <div className="header__cart__price">
-            Giỏ hàng: <span>{formatter(123456)}</span>
-          </div>
+          <div className="header__cart__price">Giỏ hàng: <span>{formatter(123456)}</span></div>
         </div>
 
+        {/* Mobile user area */}
         <div className="humberger__menu_widget">
           <div className="header__top__right__auth">
-            <Link to={""}>
-              <BiSolidUserCircle /> <span>Đăng nhập</span>
-            </Link>
-
+            {!user ? (
+              <button className="login-inline" onClick={() => navigate(ROUTERS.ADMIN.LOGIN)}>
+                <BiSolidUserCircle /> <span>Đăng nhập</span>
+              </button>
+            ) : (
+              <div className="mobile-user-block">
+                <img
+                  className="user-avatar"
+                  src={
+                    user.avatar ||
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                      user.fullname || user.username || "User"
+                    )}&background=%23e2e8f0`
+                  }
+                  alt={user.fullname || user.username}
+                />
+                <div className="mobile-user-links">
+                  <Link to={ROUTERS.USER.ACCOUNT}>Tài khoản của tôi</Link>
+                  <Link to={ROUTERS.USER.ORDERS}>Đơn mua</Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Mobile nav */}
         <div className="humberger__menu__nav">
           <ul>
             {menus.map((menu, menuKey) => (
               <li key={menuKey} to={menu.path}>
-                <Link to={menu.path}
+                <Link
+                  to={menu.path}
                   onClick={() => {
                     const newMenus = [...menus];
                     newMenus[menuKey].isShowSubmenu = !menu.isShowSubmenu;
-                    setMenus(newMenus)
-                  }}>
+                    setMenus(newMenus);
+                  }}
+                >
                   {menu.name}
-                  {menu.child && (
-                    menu.isShowSubmenu ? (
-                      <AiFillCaretDown />
-                    )
-                      : <AiFillCaretUp />
-                  )}
+                  {menu.child && (menu.isShowSubmenu ? <AiFillCaretDown /> : <AiFillCaretUp />)}
                 </Link>
+
                 {menu.child && (
                   <ul className={`header__menu__dropdown ${menu.isShowSubmenu ? "show__submenu" : ""}`}>
                     {menu.child.map((childItem, childKey) => (
                       <li key={childKey}>
-                        <Link to={childItem.name}>{childItem.name}</Link>
+                        <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>{childItem.name}</Link>
                       </li>
                     ))}
                   </ul>
@@ -144,41 +219,31 @@ const Header = () => {
             ))}
           </ul>
         </div>
+
         <div className="header__top__right__social">
           <ul>
-            <Link to={""}>
-              <AiFillFacebook />
-            </Link>
-            <Link to={""}>
-              <AiFillInstagram />
-            </Link>
-            <Link to={""}>
-              <AiFillLinkedin />
-            </Link>
-            <Link to={""}>
-              <AiFillTikTok />
-            </Link>
+            <Link to={""}><AiFillFacebook /></Link>
+            <Link to={""}><AiFillInstagram /></Link>
+            <Link to={""}><AiFillLinkedin /></Link>
+            <Link to={""}><AiFillTikTok /></Link>
           </ul>
         </div>
+
         <div className="humberger__menu__contact">
           <ul>
-            <li>
-              <AiFillMail /> Hoanghuy100503@gmail.com
-            </li>
+            <li><AiFillMail /> Hoanghuy100503@gmail.com</li>
             <li>Miễn phí giao hàng cho đơn từ {formatter(199000)}</li>
           </ul>
         </div>
-      </div >
+      </div>
 
+      {/* ===== Top bar ===== */}
       <div className="header__top">
         <div className="container">
           <div className="row">
             <div className="col-6 header__top__left">
               <ul>
-                <li>
-                  <AiFillMail />
-                  Hoanghuy100503@gmail.com
-                </li>
+                <li><AiFillMail /> Hoanghuy100503@gmail.com</li>
                 <li className="top_header_freeship">
                   Miễn phí vẫn chuyển cho đơn từ {formatter(199000)}
                 </li>
@@ -186,88 +251,51 @@ const Header = () => {
             </div>
             <div className="col-6 header__top__right">
               <ul>
-                <li>
-                  <Link to={""}>
-                    <AiFillFacebook />
-                  </Link>
-                </li>
-                <li>
-                  <Link to={""}>
-                    <AiFillInstagram />
-                  </Link>
-                </li>
-                <li>
-                  <Link to={""}>
-                    <AiFillLinkedin />
-                  </Link>
-                </li>
-                <li>
-                  <Link to={""}>
-                    <AiFillTikTok />
-                  </Link>
-                </li>
+                <li><Link to={""}><AiFillFacebook /></Link></li>
+                <li><Link to={""}><AiFillInstagram /></Link></li>
+                <li><Link to={""}><AiFillLinkedin /></Link></li>
+                <li><Link to={""}><AiFillTikTok /></Link></li>
 
-                <li onClick={() => navigate(ROUTERS.ADMIN.LOGIN)}>
-                  <Link to={""}>
-                    <BiSolidUserCircle />
-                  </Link>
-                  {user ? (
-                    <span>{user.username}</span>
-                  ) : (
-                    <span>Đăng nhập</span>
-                  )}
-                </li>
-
+                {/* === Đây là phần user: giữ nguyên khi chưa login, dropdown khi đã login === */}
+                <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
               </ul>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ===== Main bar ===== */}
       <div className="container">
         <div className="row">
           <div className="col-lg-3">
-            <div className="header__logo">
-              <h1>FRUIT SHOP</h1>
-
-            </div>
+            <div className="header__logo"><h1>FRUIT SHOP</h1></div>
           </div>
+
           <div className="col-lg-6">
             <nav className="header__menu">
               <ul>
-                {
-                  menus?.map((menu, menuKey) => (
-                    <li key={menuKey} className={menuKey === 0 ? "active" : ""}>
-                      <Link to={menu?.path}>{menu?.name}</Link>
-                      {
-                        menu.child && (
-                          <ul className="header__menu__dropdown">
-                            {
-                              menu.child.map((childItem, childKey) => (
-                                <li key={`${menuKey}-${childKey}`}>
-                                  <Link to={childItem.path}>{childItem.name}</Link>
-                                </li>
-                              ))
-                            }
-                            <li>
-                              <Link></Link>
-                            </li>
-                          </ul>
-                        )
-                      }
-                    </li>
-                  ))
-                }
+                {menus.map((menu, menuKey) => (
+                  <li key={menuKey} className={menuKey === 0 ? "active" : ""}>
+                    <Link to={menu.path}>{menu.name}</Link>
+                    {menu.child && (
+                      <ul className="header__menu__dropdown">
+                        {menu.child.map((childItem, childKey) => (
+                          <li key={`${menuKey}-${childKey}`}>
+                            <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>{childItem.name}</Link>
+                          </li>
+                        ))}
+                        <li><Link></Link></li>
+                      </ul>
+                    )}
+                  </li>
+                ))}
               </ul>
             </nav>
           </div>
+
           <div className="col-lg-3">
             <div className="header__cart">
-              <div className="header__cart__price">
-                <span>
-                  5.200,000VND
-                </span>
-              </div>
+              <div className="header__cart__price"><span>5.200,000VND</span></div>
               <ul>
                 <li>
                   <Link to={ROUTERS.USER.SHOPPINGCART}>
@@ -278,18 +306,20 @@ const Header = () => {
             </div>
 
             <div className="humberger__open">
-              <FaListUl
-                onClick={() => setShowHumberger(true)}
-              />
+              <FaListUl onClick={() => setShowHumberger(true)} />
             </div>
           </div>
         </div>
       </div>
 
+      {/* ===== Categories + Search + Hero ===== */}
       <div className="container">
         <div className="row categories">
           <div className="col-lg-3 col-md-12 col-sm-12 col-xs-12 l__categories">
-            <div className="categories__all" onClick={() => setShowCategories(!isShowCategories)}>
+            <div
+              className="categories__all"
+              onClick={() => setShowCategories(!isShowCategories)}
+            >
               <FaListUl />
               Danh mục sản phẩm
             </div>
@@ -302,6 +332,7 @@ const Header = () => {
               ))}
             </ul>
           </div>
+
           <div className="col-lg-9 col-md-12 col-sm-12 col-xs-12 r__categories">
             <div className="r__search">
               <div className="r__search_form">
@@ -312,9 +343,7 @@ const Header = () => {
               </div>
 
               <div className="r__search_phone">
-                <div className="r__search_phone_icon">
-                  <FaPhone />
-                </div>
+                <div className="r__search_phone_icon"><FaPhone /></div>
                 <div className="r__search_phone_text">
                   <p>0374.675.671</p>
                   <span>Hỗ trợ 24/7</span>
@@ -326,10 +355,7 @@ const Header = () => {
               <div className="r__item">
                 <div className="r__text">
                   <span>Trái cây tươi</span>
-                  <h2>
-                    Rau củ quả<br />
-                    100% sạch
-                  </h2>
+                  <h2>Rau củ quả<br />100% sạch</h2>
                   <p>Giao hàng miễn phí tận nơi</p>
                   <Link to="#" className="primary-btn">Mua ngay</Link>
                 </div>
@@ -338,11 +364,8 @@ const Header = () => {
           </div>
         </div>
       </div>
-
     </>
-
-  )
-
+  );
 };
 
 export default memo(Header);

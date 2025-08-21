@@ -3,6 +3,7 @@ import "./style.scss";
 import { Link } from 'react-router-dom';
 import { AiFillFacebook, AiFillInstagram, AiFillLinkedin, AiFillMail, AiFillTikTok } from "react-icons/ai";
 const Footer = () => {
+  const year = new Date().getFullYear();
   return (
     <footer className="footer">
       <div className="container">
@@ -84,6 +85,13 @@ const Footer = () => {
           </div>
         </div>
       </div>
+        {/* === Thanh bản quyền ở đáy footer === */}
+      <div className="footer__copyright">
+        <div className="container">
+          <p>© {year} ThếSơn Shop. All rights reserved.</p>
+        </div>
+      </div>
+      
     </footer>
   );
 };

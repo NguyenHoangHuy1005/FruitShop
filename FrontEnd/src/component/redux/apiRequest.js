@@ -123,21 +123,44 @@ export const resendCode = async (email, dispatch) => {
     }
 };
 
+// LOG OUT
+// câp nhật 2024-06: thêm xóa sessionStorage, xóa token trong axios default headers
 export const logout = async (dispatch, navigate, accessToken, id) => {
     dispatch(logoutStart());
+    let ok = true;
+
     try {
-        await API.post("/auth/logout", { id }, {
-        headers: { token: `Bearer ${accessToken}` },
-        });
-        dispatch(logoutSuccess());
-        alert("Đăng xuất thành công!");
-        navigate(ROUTERS.ADMIN?.LOGIN || "/admin/login");
+        await API.post(
+            "/auth/logout",
+            { id }, // server không dùng id cũng không sao
+            {
+                headers: { token: `Bearer ${accessToken}` },
+                withCredentials: true, // QUAN TRỌNG: để clearCookie hoạt động
+            }
+        );
     } catch (error) {
+        ok = false;
         console.error("Logout error:", error?.response?.data || error?.message);
-        dispatch(logoutFailure());
-        alert("Đăng xuất thất bại!");
+    } finally {
+        // === Dọn toàn bộ session phía client (an toàn, idempotent) ===
+        try { localStorage.removeItem("persist:root"); } catch {}
+        try { sessionStorage.clear(); } catch {}
+        try { if (API?.defaults?.headers?.common?.token) delete API.defaults.headers.common.token; } catch {}
+
+        dispatch(logoutSuccess());
+
+        if (ok) {
+            alert("Đăng xuất thành công!");
+        } else {
+            // Server có thể chưa thu hồi token cũ, nhưng phiên phía client đã được xóa.
+            alert("Đã xóa phiên trên trình duyệt. (Máy chủ có thể chưa thu hồi token)");
+        }
+
+        // Về TRANG CHỦ
+        navigate("/", { replace: true });
     }
 };
+
 
 /* ======================= USER ======================= */
 

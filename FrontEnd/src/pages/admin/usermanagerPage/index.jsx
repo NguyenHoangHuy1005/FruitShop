@@ -54,11 +54,11 @@ const UserManagerPage = () => {
                                     <td>{u.phone}</td>
                                     <td>{new Date(u.createdAt).toLocaleString()}</td>
                                     <td>{u.totalOrders}</td>
-                                    <td>
+                                    <div className="action-buttons">
                                         <button className="view-btn">Xem</button>
                                         <button className="update-btn" onClick={() => setEditingUser(u)}>Sửa</button>
                                         <button className="ban-btn" onClick={() => handleDelete(u._id)}>Xóa</button>
-                                    </td>
+                                    </div>
                                 </tr>
                             ))}
                     </tbody>

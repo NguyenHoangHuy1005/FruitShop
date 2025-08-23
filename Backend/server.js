@@ -7,7 +7,8 @@ const authRoute = require("./auth-services/routes/auth");
 const userRoute = require("./auth-services/routes/user");
 const productRoute = require("./admin-services/routes/product");
 const uploadRoutes = require("./admin-services/routes/image");
-
+// session
+const session = require("express-session");
 
 dotenv.config();
 connectDB();
@@ -25,6 +26,14 @@ app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
 });
+
+//session
+app.use(session({
+  secret: "your_secret_key",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // để true nếu chạy HTTPS
+}));
 
 //upload ảnh lên cloudinary
 app.use("/api", uploadRoutes);

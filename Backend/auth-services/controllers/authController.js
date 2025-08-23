@@ -161,17 +161,33 @@ const authController = {
     },
 
     // ============== LOGOUT ==============
+    // câp nhật: xóa cookie trên trình duyệt
     userLogout: async (req, res) => {
         try {
-        const refreshToken = req.cookies.refreshToken;
-        res.clearCookie("refreshToken");
-        refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
-        return res.status(200).json({ message: "Logged out" });
+            const refreshToken = req.cookies.refreshToken;
+
+            const cookieOptions = {
+            httpOnly: true,
+            path: "/", // phải trùng path khi set
+            sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+            secure: process.env.NODE_ENV === "production", // production mới bật Secure
+            };
+
+            res.clearCookie("refreshToken", cookieOptions);
+
+            // Nếu có quản lý refreshTokens trên RAM/DB:
+            if (refreshToken) {
+            refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
+            }
+
+            return res.status(200).json({ message: "Logged out" });
         } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Lỗi máy chủ." });
+            console.error(error);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
         }
     },
+
+
 
     // ============== VERIFY ACCOUNT ==============
     verifyAccount: async (req, res) => {

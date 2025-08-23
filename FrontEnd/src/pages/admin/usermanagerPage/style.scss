@@ -53,6 +53,14 @@
                 color: #c62828;
             }
         }
+        // mới đây nè
+        .action-buttons {
+            display: flex;
+            margin-top: 20px;
+            gap: 6px;
+            align-items: center;
+        }
+
 
         .view-btn,.update-btn,
         .ban-btn {

@@ -42,7 +42,7 @@ const UserSchema = new mongoose.Schema(
         // ============ XÁC MINH EMAIL ============
         isVerified: { type: Boolean, default: false },
         verificationToken: { type: String, default: null },
-        verificationExpiresAt: { type: Date, default: null },
+        // ============ ĐẶT LẠI MẬT KHẨU ============
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpiresAt: { type: Date, default: null },
 

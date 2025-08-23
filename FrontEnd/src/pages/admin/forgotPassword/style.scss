@@ -1,7 +1,4 @@
-/* =========================
-   Forgot Password – Elegant SCSS
-   Path: FE/src/pages/admin/forgotPassword/style.scss
-   ========================= */
+@use "sass:color";
 
 $primary: #4f46e5 !default; // Indigo 600
 $primary-700: #4338ca !default;
@@ -22,9 +19,9 @@ $radius-md: 12px !default;
 $shadow-sm: 0 4px 12px rgba(2, 6, 23, 0.06) !default;
 $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
 
-@mixin focus-ring($color: $primary) {
+@mixin focus-ring($c: $primary) {
     outline: none;
-    box-shadow: 0 0 0 3px rgba($color, 0.15), 0 0 0 1px rgba($color, 0.35);
+    box-shadow: 0 0 0 3px rgba($c, 0.15), 0 0 0 1px rgba($c, 0.35);
 }
 
 /* ===== Page wrapper ===== */
@@ -33,7 +30,7 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
     background:
         radial-gradient(1200px 600px at 100% -10%, rgba($accent, 0.12), transparent 60%),
         radial-gradient(900px 500px at -10% 110%, rgba($primary, 0.12), transparent 60%),
-        linear-gradient(180deg, $bg, lighten($bg, 2%));
+        linear-gradient(180deg, $bg, #{color.adjust($bg, $lightness: 2%)});
     display: grid;
     place-items: center;
     padding: 24px;
@@ -49,8 +46,8 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
         transition: box-shadow 0.25s ease, transform 0.25s ease;
 
         &:hover {
-            box-shadow: 0 16px 40px rgba(2, 6, 23, 0.12);
-            transform: translateY(-2px);
+        box-shadow: 0 16px 40px rgba(2, 6, 23, 0.12);
+        transform: translateY(-2px);
         }
     }
 
@@ -73,27 +70,27 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
     .alert {
         margin-bottom: 16px;
         padding: 12px 14px;
-        border: 1px solid lighten($border, 4%);
+        border: 1px solid #{color.adjust($border, $lightness: 4%)};
         border-left: 4px solid $accent;
         border-radius: $radius-md;
-        background: linear-gradient(0deg, #fff, rgba($accent, 0.03));
-        color: darken($muted, 10%);
+        background: linear-gradient(0deg, #fff, #{color.change($accent, $alpha: 0.03)});
+        color: #{color.adjust($muted, $lightness: -10%)};
         font-size: 14px;
 
         &--success {
-            border-left-color: $success;
-            background: linear-gradient(0deg, #fff, rgba($success, 0.06));
-            color: darken($success, 12%);
+        border-left-color: $success;
+        background: linear-gradient(0deg, #fff, #{color.change($success, $alpha: 0.06)});
+        color: #{color.adjust($success, $lightness: -12%)};
         }
         &--error {
-            border-left-color: $error;
-            background: linear-gradient(0deg, #fff, rgba($error, 0.06));
-            color: darken($error, 12%);
+        border-left-color: $error;
+        background: linear-gradient(0deg, #fff, #{color.change($error, $alpha: 0.06)});
+        color: #{color.adjust($error, $lightness: -12%)};
         }
         &--warning {
-            border-left-color: $warning;
-            background: linear-gradient(0deg, #fff, rgba($warning, 0.06));
-            color: darken($warning, 12%);
+        border-left-color: $warning;
+        background: linear-gradient(0deg, #fff, #{color.change($warning, $alpha: 0.06)});
+        color: #{color.adjust($warning, $lightness: -12%)};
         }
     }
 
@@ -109,7 +106,7 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
         label {
             font-size: 14px;
             font-weight: 600;
-            color: darken($muted, 10%);
+            color: #{color.adjust($muted, $lightness: -10%)};
         }
 
         input {
@@ -122,27 +119,27 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
             font-size: 15px;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 
-            &::placeholder { color: lighten($muted, 12%); }
+            &::placeholder { color: #{color.adjust($muted, $lightness: 12%)}; }
 
             &:hover {
-                background: #ffffff;
-                border-color: lighten($primary, 18%);
+            background: #ffffff;
+            border-color: #{color.adjust($primary, $lightness: 18%)};
             }
             &:focus {
-                background: #ffffff;
-                border-color: lighten($primary, 10%);
-                @include focus-ring($primary);
+            background: #ffffff;
+            border-color: #{color.adjust($primary, $lightness: 10%)};
+            @include focus-ring($primary);
             }
 
             &:disabled {
-                background: #f3f4f6;
-                color: $muted;
-                cursor: not-allowed;
+            background: #f3f4f6;
+            color: $muted;
+            cursor: not-allowed;
             }
 
             &.is-error {
-                border-color: $error;
-                @include focus-ring($error);
+            border-color: $error;
+            @include focus-ring($error);
             }
         }
         }
@@ -169,7 +166,7 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
     padding: 0 18px;
     border: 1px solid transparent;
     border-radius: $radius-lg;
-    background: linear-gradient(180deg, lighten($primary, 8%), $primary);
+    background: linear-gradient(180deg, #{color.adjust($primary, $lightness: 8%)}, $primary);
     color: #fff;
     font-weight: 600;
     letter-spacing: 0.2px;
@@ -179,7 +176,7 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
 
     &:hover {
         background: linear-gradient(180deg, $primary, $primary-700);
-        box-shadow: 0 8px 20px rgba(red($primary), green($primary), blue($primary), 0.25);
+        box-shadow: 0 8px 20px #{color.change($primary, $alpha: 0.25)};
         transform: translateY(-1px);
     }
     &:active {
@@ -197,12 +194,12 @@ $shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
 .btn-secondary {
     background: #ffffff;
     color: $primary;
-    border: 1px solid lighten($primary, 28%);
+    border: 1px solid #{color.adjust($primary, $lightness: 28%)};
     box-shadow: none;
 
     &:hover {
         background: linear-gradient(0deg, #fff, rgba($primary, 0.05));
-        border-color: lighten($primary, 15%);
+        border-color: #{color.adjust($primary, $lightness: 15%)};
     }
     &:active { filter: saturate(0.96); }
     &:disabled {

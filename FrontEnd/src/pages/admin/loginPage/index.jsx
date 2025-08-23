@@ -8,12 +8,18 @@ import { loginUser } from "../../../component/redux/apiRequest";
 const LoginAdminPage = () => {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+
+    // ----- verified message -----
     const [showVerifiedMsg, setShowVerifiedMsg] = useState(false);
+
+    // ----- reset password message -----
+    const [showResetMsg, setShowResetMsg] = useState(
+        () => sessionStorage.getItem("JUST_RESET") === "1"
+    );
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
-    const [showResetMsg, setShowResetMsg] = useState(false); //thêm mới reset password
 
     // Hiện thông báo khi vừa xác minh xong (kể cả user F5)
     useEffect(() => {
@@ -22,38 +28,27 @@ const LoginAdminPage = () => {
 
         if (fromState || fromSession) {
         setShowVerifiedMsg(true);
-
-        // Dọn cờ + reset state để không lặp lại
         sessionStorage.removeItem("JUST_VERIFIED");
         if (fromState) {
-            navigate(ROUTERS.ADMIN.LOGIN || "/admin/login", { replace: true, state: {} });
+            navigate(ROUTERS.ADMIN.LOGIN, { replace: true, state: {} });
         }
-
         const t = setTimeout(() => setShowVerifiedMsg(false), 3000);
         return () => clearTimeout(t);
         }
     }, [location.state, navigate]);
 
-    // thêm mới reset password
+    // Tự ẩn thông báo reset sau 3s & dọn cờ session
     useEffect(() => {
-        const justReset = sessionStorage.getItem("JUST_RESET") === "1";
-        if (justReset) {
-            setShowResetMsg(true);
-            sessionStorage.removeItem("JUST_RESET");
-            const t = setTimeout(() => setShowResetMsg(false), 3000);
-            return () => clearTimeout(t);
+        if (showResetMsg) {
+        sessionStorage.removeItem("JUST_RESET");
+        const t = setTimeout(() => setShowResetMsg(false), 3000);
+        return () => clearTimeout(t);
         }
-    }, []);
-    {showResetMsg && (
-        <div className="alert alert-success" role="status" aria-live="polite">
-            Đặt lại mật khẩu thành công! Hãy đăng nhập.
-        </div>
-    )}
+    }, [showResetMsg]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const newUser = { username, password };
-        loginUser(newUser, dispatch, navigate);
+        loginUser({ username, password }, dispatch, navigate);
     };
 
     return (
@@ -61,9 +56,16 @@ const LoginAdminPage = () => {
         <div className="login__container">
             <h2 className="login__title">---ĐĂNG NHẬP---</h2>
 
+            {/* ✅ Đặt alert bên trong return */}
             {showVerifiedMsg && (
             <div className="alert alert-success" role="status" aria-live="polite">
                 Xác minh thành công! Bạn có thể đăng nhập.
+            </div>
+            )}
+
+            {showResetMsg && (
+            <div className="alert alert-success" role="status" aria-live="polite">
+                Đặt lại mật khẩu thành công! Hãy đăng nhập.
             </div>
             )}
 

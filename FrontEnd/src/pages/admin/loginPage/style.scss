@@ -25,7 +25,7 @@
         font-weight: 700;
         color: map.get(theme.$theme-colors, "normal-text");
         margin-bottom: 20px;
-    }   
+    }
 
     &__form {
         display: flex;
@@ -58,9 +58,25 @@
         border: none;
         cursor: pointer;
     }
-   a,p{
-    display: flex;
-    justify-content: center;
-    color: map.get(theme.$theme-colors, "normal-text");
-   }
+    a,p{
+        display: flex;
+        justify-content: center;
+        color: map.get(theme.$theme-colors, "normal-text");
+    }
+    .alert {
+        margin-bottom: 16px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid #d1fae5;
+        background: #ecfdf5;
+        color: #166534;
+        border-left: 4px solid #10b981;
+        font-size: 14px;
+    }
+    .alert-success { /* nếu dùng class bootstrap-like */
+        background: #ecfdf5;
+        border-color: #10b981;
+        color: #166534;
+    }
+
 }

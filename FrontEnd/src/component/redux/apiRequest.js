@@ -25,6 +25,8 @@ const API = axios.create({
     withCredentials: true,
 });
 
+// Export nếu nơi khác cần dùng trực tiếp
+export { API };
 /* ======================= AUTH ======================= */
 
 export const loginUser = async (user, dispatch, navigate) => {
@@ -123,20 +125,19 @@ export const resendCode = async (email, dispatch) => {
     }
 };
 
-// LOG OUT
-// câp nhật 2024-06: thêm xóa sessionStorage, xóa token trong axios default headers
+// LOGOUT
 export const logout = async (dispatch, navigate, accessToken, id) => {
     dispatch(logoutStart());
     let ok = true;
 
     try {
         await API.post(
-            "/auth/logout",
-            { id }, // server không dùng id cũng không sao
-            {
-                headers: { token: `Bearer ${accessToken}` },
-                withCredentials: true, // QUAN TRỌNG: để clearCookie hoạt động
-            }
+        "/auth/logout",
+        { id }, // server không dùng id cũng không sao
+        {
+            headers: { token: `Bearer ${accessToken}` },
+            withCredentials: true, // QUAN TRỌNG: để clearCookie hoạt động
+        }
         );
     } catch (error) {
         ok = false;
@@ -150,10 +151,10 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
         dispatch(logoutSuccess());
 
         if (ok) {
-            alert("Đăng xuất thành công!");
+        alert("Đăng xuất thành công!");
         } else {
-            // Server có thể chưa thu hồi token cũ, nhưng phiên phía client đã được xóa.
-            alert("Đã xóa phiên trên trình duyệt. (Máy chủ có thể chưa thu hồi token)");
+        // Server có thể chưa thu hồi token cũ, nhưng phiên phía client đã được xóa.
+        alert("Đã xóa phiên trên trình duyệt. (Máy chủ có thể chưa thu hồi token)");
         }
 
         // Về TRANG CHỦ
@@ -161,35 +162,37 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
     }
 };
 
-// ========== Forgot password: yêu cầu mã ==========
+
+// === FORGOT PASSWORD: gửi mã (OTP) ===
 export const requestPasswordReset = async (email) => {
     try {
-        const res = await API.post("/auth/password/forgot", { email }, { withCredentials: false });
+        const res = await API.post("/auth/password/forgot", { email });
         return { ok: true, data: res.data };
-    } catch (error) {
-        return { ok: false, error: error?.response?.data?.message || "Lỗi gửi yêu cầu." };
+    } catch (e) {
+        const err = e?.response?.data || { message: e.message };
+        return { ok: false, error: err };
     }
 };
 
-// ========== Reset password: xác minh mã + đổi mật khẩu ==========
-export const resetPassword = async ({ email, token, newPassword, password_confirm }) => {
+// === RESET PASSWORD ===
+export const resetPassword = async (payload) => {
     try {
-        const res = await API.post(
-        "/auth/password/reset",
-        { email, token, newPassword, password_confirm },
-        { withCredentials: false, validateStatus: () => true } // luôn resolve
-        );
-        if (res.status === 200 && res.data && res.data.ok === false) {
-        return { ok: false, error: res.data };
+        const res = await API.post("/auth/password/reset", payload);
+        const data = res.data;
+        // ✅ Trả error khi BE trả ok:false (vẫn HTTP 200)
+        if (!data?.ok) {
+        return { ok: false, error: data || { code: "UNKNOWN", message: "Đổi mật khẩu thất bại." } };
         }
-        if (res.status === 200) {
-        return { ok: true, data: res.data };
-        }
-        return { ok: false, error: { message: res.data?.message || "Đổi mật khẩu thất bại." } };
-    } catch (error) {
-        return { ok: false, error: { message: "Không thể kết nối máy chủ." } };
+        return { ok: true, data };
+    } catch (e) {
+        const d = e?.response?.data;
+        const err = typeof d === "string"
+        ? { code: "HTTP_ERROR", message: d }
+        : (d || { code: "HTTP_ERROR", message: e.message });
+        return { ok: false, error: err };
     }
 };
+
 
 
 /* ======================= USER ======================= */

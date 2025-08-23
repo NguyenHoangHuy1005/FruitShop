@@ -268,7 +268,10 @@ const Header = () => {
       <div className="container">
         <div className="row">
           <div className="col-lg-3">
-            <div className="header__logo"><h1>FRUIT SHOP</h1></div>
+              <div className="header__logo"><img
+              src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+              className="logo"
+            /></div>
           </div>
 
           <div className="col-lg-6">

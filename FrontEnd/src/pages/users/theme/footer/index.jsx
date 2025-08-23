@@ -10,7 +10,14 @@ const Footer = () => {
         <div className="row">
           <div className="col-lg-3 col-md-3 col-sm-12 col-12">
             <div className="footer__about">
-              <h1 className="footer__about__logo">FRUIT SHOP</h1>
+              <div className="footer__about__logo">
+                <img
+                  src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+                  alt="Fruit_Shop_Logo"
+                  className="logo"
+                />
+              </div>
+
               <ul>
                 <h3>Thông tin liên hệ</h3>
                 <li>Địa chỉ: 105 Nguyễn Hoàng Huy</li>
@@ -85,13 +92,13 @@ const Footer = () => {
           </div>
         </div>
       </div>
-        {/* === Thanh bản quyền ở đáy footer === */}
+      {/* === Thanh bản quyền ở đáy footer === */}
       <div className="footer__copyright">
         <div className="container">
           <p>© {year} ThếSơn Shop. All rights reserved.</p>
         </div>
       </div>
-      
+
     </footer>
   );
 };

@@ -6,10 +6,10 @@
 
 
 // ===== Màu & fallback =====
-$txt:     map.get(theme.$theme-colors, "bold-text");
-$muted:   map.get(theme.$theme-colors, "normal-text");
-$brand:   map.get(theme.$theme-colors, "main");
-$border:  #e5e7eb;
+$txt: map.get(theme.$theme-colors, "bold-text");
+$muted: map.get(theme.$theme-colors, "normal-text");
+$brand: map.get(theme.$theme-colors, "main");
+$border: #e5e7eb;
 
 $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploads/pn9qsmkbijuvqan7yp5m.png";
 
@@ -125,11 +125,16 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 display: none;
                 z-index: 1000;
 
-                overflow: hidden;     /* cắt nền hover theo border-radius */
-                margin: 0;            /* bỏ margin mặc định của <ul> */
-                padding: 6px 0;       /* chỉ giữ padding dọc */
-                padding-left: 0;      /* bỏ thụt lề mặc định của <ul> */
-                list-style: none;     /* bỏ bullet */
+                overflow: hidden;
+                /* cắt nền hover theo border-radius */
+                margin: 0;
+                /* bỏ margin mặc định của <ul> */
+                padding: 6px 0;
+                /* chỉ giữ padding dọc */
+                padding-left: 0;
+                /* bỏ thụt lề mặc định của <ul> */
+                list-style: none;
+                /* bỏ bullet */
 
                 li {
                     padding: 0;
@@ -140,7 +145,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 .logout-btn {
                     display: block;
                     width: 100%;
-                    box-sizing: border-box;   /* tránh nở ngang khi có padding */
+                    box-sizing: border-box;
+                    /* tránh nở ngang khi có padding */
                     text-align: left;
                     padding: 12px 14px;
                     background: none;
@@ -155,12 +161,14 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                         color: map.get(theme.$theme-colors, "bold-text");
                     }
                 }
+
                 /* bo tròn mượt phần tử đầu/cuối khi hover */
                 li:first-child a:hover,
                 li:first-child .logout-btn:hover {
                     border-top-left-radius: 10px;
                     border-top-right-radius: 10px;
                 }
+
                 li:last-child a:hover,
                 li:last-child .logout-btn:hover {
                     border-bottom-left-radius: 10px;
@@ -172,13 +180,20 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 display: block;
             }
         }
+
         /* ====== End user dropdown ====== */
     }
 }
 
 /* ===== Brand, main nav ===== */
 .header__logo {
-    padding: 15px 0;
+    display: flex;
+}
+
+.header__logo img.logo {
+    height: 80px;
+    padding-left: 35px;
+
 }
 
 .header__menu {
@@ -201,7 +216,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 font-weight: bold;
                 font-family: "Roboto", sans-serif;
                 letter-spacing: 2px;
-                transition: all 0.3s; /* sửa transform -> transition */
+                transition: all 0.3s;
+                /* sửa transform -> transition */
                 padding: 5px 0;
                 display: block;
             }
@@ -226,7 +242,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             height: 140px;
             z-index: 9;
             margin-left: 0px;
-            transition: all 0.3s; /* sửa cú pháp */
+            transition: all 0.3s;
+            /* sửa cú pháp */
             opacity: 0;
             visibility: hidden;
 
@@ -414,9 +431,9 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             display: flex;
             align-items: center;
             color: map.get(theme.$theme-colors, "main");
-            }
+        }
 
-            .r__search_phone_text {
+        .r__search_phone_text {
             display: inline-block;
 
             p {
@@ -502,7 +519,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;          /* pill nhỏ gọn */
+    padding: 6px 12px;
+    /* pill nhỏ gọn */
     border-radius: 9999px;
     border: 0;
     background: transparent;
@@ -517,19 +535,22 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     appearance: none;
     transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
 
-    svg {                       /* icon user */
+    svg {
+        /* icon user */
         font-size: 20px;
         flex-shrink: 0;
     }
 
     &:hover {
-        background: #ccd0d7;      /* nền xám nhẹ khi hover */
+        background: #ccd0d7;
+        /* nền xám nhẹ khi hover */
         color: map.get(theme.$theme-colors, "bold-text");
     }
 
     &:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 2px rgba(0,0,0,.06), 0 0 0 4px color-mix(in srgb, #{map.get(theme.$theme-colors,"main")} 30%, transparent);
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, .06),
+        0 0 0 4px color-mix(in srgb, #{map.get(theme.$theme-colors,"main")} 30%, transparent);
     }
 
     &:active {
@@ -537,6 +558,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         background: #eaecf0;
     }
 }
+
 .header__top__right .login-inline {
     color: map.get(theme.$theme-colors, "normal-text");
 }

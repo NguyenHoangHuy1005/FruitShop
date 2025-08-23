@@ -1,0 +1,232 @@
+/* =========================
+   Forgot Password – Elegant SCSS
+   Path: FE/src/pages/admin/forgotPassword/style.scss
+   ========================= */
+
+$primary: #4f46e5 !default; // Indigo 600
+$primary-700: #4338ca !default;
+$accent: #06b6d4 !default;  // Cyan 500
+$bg: #f7f8fc !default;      // Soft canvas
+$card-bg: #ffffff !default;
+$text: #0f172a !default;    // Slate 900
+$muted: #64748b !default;   // Slate 500
+$border: #e2e8f0 !default;  // Slate 200
+$success: #16a34a !default; // Green 600
+$error: #ef4444 !default;   // Red 500
+$warning: #f59e0b !default; // Amber 500
+
+$radius-xl: 20px !default;
+$radius-lg: 14px !default;
+$radius-md: 12px !default;
+
+$shadow-sm: 0 4px 12px rgba(2, 6, 23, 0.06) !default;
+$shadow-md: 0 10px 30px rgba(2, 6, 23, 0.10) !default;
+
+@mixin focus-ring($color: $primary) {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba($color, 0.15), 0 0 0 1px rgba($color, 0.35);
+}
+
+/* ===== Page wrapper ===== */
+.forgot {
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 600px at 100% -10%, rgba($accent, 0.12), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba($primary, 0.12), transparent 60%),
+        linear-gradient(180deg, $bg, lighten($bg, 2%));
+    display: grid;
+    place-items: center;
+    padding: 24px;
+
+    &__container {
+        width: 100%;
+        max-width: 480px;
+        background: $card-bg;
+        border: 1px solid $border;
+        border-radius: $radius-xl;
+        box-shadow: $shadow-md;
+        padding: 32px;
+        transition: box-shadow 0.25s ease, transform 0.25s ease;
+
+        &:hover {
+            box-shadow: 0 16px 40px rgba(2, 6, 23, 0.12);
+            transform: translateY(-2px);
+        }
+    }
+
+    &__title {
+        margin: 0 0 20px;
+        font-size: 22px;
+        line-height: 1.2;
+        text-align: center;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        color: $text;
+
+        /* Subtle gradient text */
+        background: linear-gradient(90deg, $primary, $accent);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .alert {
+        margin-bottom: 16px;
+        padding: 12px 14px;
+        border: 1px solid lighten($border, 4%);
+        border-left: 4px solid $accent;
+        border-radius: $radius-md;
+        background: linear-gradient(0deg, #fff, rgba($accent, 0.03));
+        color: darken($muted, 10%);
+        font-size: 14px;
+
+        &--success {
+            border-left-color: $success;
+            background: linear-gradient(0deg, #fff, rgba($success, 0.06));
+            color: darken($success, 12%);
+        }
+        &--error {
+            border-left-color: $error;
+            background: linear-gradient(0deg, #fff, rgba($error, 0.06));
+            color: darken($error, 12%);
+        }
+        &--warning {
+            border-left-color: $warning;
+            background: linear-gradient(0deg, #fff, rgba($warning, 0.06));
+            color: darken($warning, 12%);
+        }
+    }
+
+    &__form {
+        display: block;
+
+        .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: darken($muted, 10%);
+        }
+
+        input {
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid $border;
+            border-radius: $radius-lg;
+            background: #f8fafc;
+            color: $text;
+            font-size: 15px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+
+            &::placeholder { color: lighten($muted, 12%); }
+
+            &:hover {
+                background: #ffffff;
+                border-color: lighten($primary, 18%);
+            }
+            &:focus {
+                background: #ffffff;
+                border-color: lighten($primary, 10%);
+                @include focus-ring($primary);
+            }
+
+            &:disabled {
+                background: #f3f4f6;
+                color: $muted;
+                cursor: not-allowed;
+            }
+
+            &.is-error {
+                border-color: $error;
+                @include focus-ring($error);
+            }
+        }
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+}
+
+/* ===== Buttons ===== */
+.btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: $radius-lg;
+    background: linear-gradient(180deg, lighten($primary, 8%), $primary);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    box-shadow: $shadow-sm;
+    transition: transform 0.1s ease, box-shadow 0.2s ease, background 0.2s ease, filter 0.2s ease;
+
+    &:hover {
+        background: linear-gradient(180deg, $primary, $primary-700);
+        box-shadow: 0 8px 20px rgba(red($primary), green($primary), blue($primary), 0.25);
+        transform: translateY(-1px);
+    }
+    &:active {
+        transform: translateY(0);
+        filter: saturate(0.96);
+    }
+    &:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        box-shadow: none;
+        background: linear-gradient(180deg, #cbd5e1, #94a3b8);
+    }
+}
+
+.btn-secondary {
+    background: #ffffff;
+    color: $primary;
+    border: 1px solid lighten($primary, 28%);
+    box-shadow: none;
+
+    &:hover {
+        background: linear-gradient(0deg, #fff, rgba($primary, 0.05));
+        border-color: lighten($primary, 15%);
+    }
+    &:active { filter: saturate(0.96); }
+    &:disabled {
+        color: $muted;
+        border-color: $border;
+        background: #f8fafc;
+    }
+}
+
+/* ===== Small helpers ===== */
+.text-center { text-align: center; }
+.help { color: #ef4444; font-size: 12px; margin-top: -2px; }
+.is-error { border-color: #ef4444 !important; }
+
+/* ===== Responsive ===== */
+@media (max-width: 520px) {
+    .forgot__container {
+        padding: 24px;
+        border-radius: $radius-lg;
+    }
+    .btn { height: 42px; }
+}
+
+@media (max-width: 360px) {
+    .forgot__container { padding: 20px; }
+    .forgot__title { font-size: 20px; }
+}

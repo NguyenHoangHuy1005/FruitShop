@@ -13,6 +13,7 @@ const LoginAdminPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
+    const [showResetMsg, setShowResetMsg] = useState(false); //thêm mới reset password
 
     // Hiện thông báo khi vừa xác minh xong (kể cả user F5)
     useEffect(() => {
@@ -32,6 +33,22 @@ const LoginAdminPage = () => {
         return () => clearTimeout(t);
         }
     }, [location.state, navigate]);
+
+    // thêm mới reset password
+    useEffect(() => {
+        const justReset = sessionStorage.getItem("JUST_RESET") === "1";
+        if (justReset) {
+            setShowResetMsg(true);
+            sessionStorage.removeItem("JUST_RESET");
+            const t = setTimeout(() => setShowResetMsg(false), 3000);
+            return () => clearTimeout(t);
+        }
+    }, []);
+    {showResetMsg && (
+        <div className="alert alert-success" role="status" aria-live="polite">
+            Đặt lại mật khẩu thành công! Hãy đăng nhập.
+        </div>
+    )}
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -79,7 +96,7 @@ const LoginAdminPage = () => {
 
             <Link to={ROUTERS.ADMIN.SIGNUP}>Đăng ký</Link>
             <p>Hoặc</p>
-            <Link to="#">Quên mật khẩu?</Link>
+            <Link to={ROUTERS.ADMIN.FORGOT}>Quên mật khẩu?</Link>
             </form>
         </div>
         </div>

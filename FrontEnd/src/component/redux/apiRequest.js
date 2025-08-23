@@ -27,7 +27,7 @@ const API = axios.create({
 
 /* ======================= AUTH ======================= */
 
-export const loginUser = async (user, dispatch, navigate) => {  
+export const loginUser = async (user, dispatch, navigate) => {
     dispatch(loginStart());
     try {
         const res = await API.post("/auth/login", user);
@@ -158,6 +158,36 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
 
         // Về TRANG CHỦ
         navigate("/", { replace: true });
+    }
+};
+
+// ========== Forgot password: yêu cầu mã ==========
+export const requestPasswordReset = async (email) => {
+    try {
+        const res = await API.post("/auth/password/forgot", { email }, { withCredentials: false });
+        return { ok: true, data: res.data };
+    } catch (error) {
+        return { ok: false, error: error?.response?.data?.message || "Lỗi gửi yêu cầu." };
+    }
+};
+
+// ========== Reset password: xác minh mã + đổi mật khẩu ==========
+export const resetPassword = async ({ email, token, newPassword, password_confirm }) => {
+    try {
+        const res = await API.post(
+        "/auth/password/reset",
+        { email, token, newPassword, password_confirm },
+        { withCredentials: false, validateStatus: () => true } // luôn resolve
+        );
+        if (res.status === 200 && res.data && res.data.ok === false) {
+        return { ok: false, error: res.data };
+        }
+        if (res.status === 200) {
+        return { ok: true, data: res.data };
+        }
+        return { ok: false, error: { message: res.data?.message || "Đổi mật khẩu thất bại." } };
+    } catch (error) {
+        return { ok: false, error: { message: "Không thể kết nối máy chủ." } };
     }
 };
 

@@ -56,8 +56,9 @@
         // mới đây nè
         .action-buttons {
             display: flex;
-            margin-top: 20px;
+            margin-top: 10px;
             gap: 6px;
+            justify-content: flex-start;
             align-items: center;
         }
 

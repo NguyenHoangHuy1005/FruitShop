@@ -18,5 +18,6 @@ export const ROUTERS = {
     PRODUCTS: `${ADMIN_PATH}/products`,
     USERMANAGER: `${ADMIN_PATH}/usermanager`,
     AUTH: `${ADMIN_PATH}/auth`,
+    FORGOT: `${ADMIN_PATH}/forgot`, // thêm mới reset password
   },
 };

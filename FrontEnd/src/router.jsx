@@ -13,104 +13,86 @@ import CheckoutPage from "./pages/users/checkoutPage";
 import LoginPage from "./pages/admin/loginPage";
 import SignupPage from "./pages/admin/signupPage";
 import Auth from "./pages/admin/auth";
+import ForgotPasswordPage from "./pages/admin/forgotPassword";
 import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
-import OrderPage from "./pages/admin/orderPage";
+
+// ---------- USER ROUTES ----------
 const renderUserRouter = () => {
   const userRouters = [
-    {
-      path: ROUTERS.USER.HOME,
-      element: <HomePage />,
-    },
-    {
-      path: ROUTERS.USER.ORDERS,
-      element: <OrderUserPage />,
-    },
-    {
-      path: ROUTERS.USER.PROFILE,
-      element: <ProfilePage />,
-    },
-    {
-      path: ROUTERS.USER.PRODUCTS,
-      element: <ProductsPage />,
-    },
-    {
-      path: ROUTERS.USER.PRODUCT,
-      element: <ProductDetail />,
-    },
-    {
-      path: ROUTERS.USER.SHOPPINGCART,
-      element: <ShoppingCart />,
-    },
-    {
-      path: ROUTERS.USER.CHECKOUT,
-      element: <CheckoutPage />,
-    },
+    { path: ROUTERS.USER.HOME,         element: <HomePage /> },
+    { path: ROUTERS.USER.ORDERS,       element: <OrderUserPage /> },
+    { path: ROUTERS.USER.PROFILE,      element: <ProfilePage /> },
+    { path: ROUTERS.USER.PRODUCTS,     element: <ProductsPage /> },
+    { path: ROUTERS.USER.PRODUCT,      element: <ProductDetail /> },
+    { path: ROUTERS.USER.SHOPPINGCART, element: <ShoppingCart /> },
+    { path: ROUTERS.USER.CHECKOUT,     element: <CheckoutPage /> },
   ];
   return (
     <MasterLayout>
       <Routes>
-        {userRouters.map((item, key) => (
-          <Route key={key} path={item.path} element={item.element} />
+        {userRouters.map((r, i) => (
+          <Route key={i} path={r.path} element={r.element} />
         ))}
       </Routes>
     </MasterLayout>
-
   );
 };
 
-const renderAdminRouter = () => {
-  const adminRouters = [
-    {
-      path: ROUTERS.ADMIN.LOGIN,
-      element: <LoginPage />,
-    },
-    {
-      path: ROUTERS.ADMIN.SIGNUP,
-      element: <SignupPage/>,
-    },{
-      path: ROUTERS.ADMIN.AUTH,
-      element: <Auth/>,
-    },
-    {
-      path: ROUTERS.ADMIN.PRODUCTS,
-      element: <ProductManagerPage />,
-    },
-    {
-      path: ROUTERS.ADMIN.USERMANAGER,
-      element: <UserManagerPage />,
-    },
-    {
-      path: ROUTERS.ADMIN.ORDERS,
-      element: <OrderAdminPage />,
-    },
+// ---------- ADMIN AUTH (no layout) ----------
+const renderAdminAuthRouter = () => {
+  const authRouters = [
+    { path: ROUTERS.ADMIN.LOGIN,  element: <LoginPage /> },
+    { path: ROUTERS.ADMIN.SIGNUP, element: <SignupPage /> },
+    { path: ROUTERS.ADMIN.AUTH,   element: <Auth /> },
+    { path: ROUTERS.ADMIN.FORGOT, element: <ForgotPasswordPage /> },
+  ];
+  return (
+    <Routes>
+      {authRouters.map((r, i) => (
+        <Route key={i} path={r.path} element={r.element} />
+      ))}
+    </Routes>
+  );
+};
 
+// ---------- ADMIN APP (with layout) ----------
+const renderAdminAppRouter = () => {
+  const appRouters = [
+    { path: ROUTERS.ADMIN.PRODUCTS,    element: <ProductManagerPage /> },
+    { path: ROUTERS.ADMIN.USERMANAGER, element: <UserManagerPage /> },
+    { path: ROUTERS.ADMIN.ORDERS,      element: <OrderAdminPage /> },
   ];
   return (
     <MasterAdLayout>
       <Routes>
-        {adminRouters.map((item, key) => (
-          <Route key={key} path={item.path} element={item.element} />
+        {appRouters.map((r, i) => (
+          <Route key={i} path={r.path} element={r.element} />
         ))}
       </Routes>
     </MasterAdLayout>
-
   );
 };
 
 const RouterCustom = () => {
-  const location = useLocation();
-  const isAdminrouters =
-    location.pathname.startsWith(ROUTERS.ADMIN.LOGIN) ||
-    location.pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)||
-    location.pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
-    location.pathname.startsWith(ROUTERS.ADMIN.ORDERS)||
-    location.pathname.startsWith(ROUTERS.ADMIN.SIGNUP)||
-    location.pathname.startsWith(ROUTERS.ADMIN.AUTH);
+  const { pathname } = useLocation();
 
-  return isAdminrouters ? renderAdminRouter() : renderUserRouter();
+  const isAdminAuth =
+    pathname.startsWith(ROUTERS.ADMIN.LOGIN)  ||
+    pathname.startsWith(ROUTERS.ADMIN.SIGNUP) ||
+    pathname.startsWith(ROUTERS.ADMIN.AUTH)   ||
+    pathname.startsWith(ROUTERS.ADMIN.FORGOT);
+
+  const isAdminApp =
+    pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)   ||
+    pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
+    pathname.startsWith(ROUTERS.ADMIN.ORDERS);
+
+  if (isAdminAuth) return renderAdminAuthRouter();
+  if (isAdminApp)  return renderAdminAppRouter();
+  return renderUserRouter();
 };
 
 export default RouterCustom;

@@ -96,9 +96,9 @@ const LoginAdminPage = () => {
 
             <button type="submit" className="login__button">Đăng nhập</button>
 
-            <Link to={ROUTERS.ADMIN.SIGNUP}>Đăng ký</Link>
+            <Link to={ROUTERS.ADMIN.SIGNUP} className="register__button">Đăng ký</Link>
             <p>Hoặc</p>
-            <Link to={ROUTERS.ADMIN.FORGOT}>Quên mật khẩu?</Link>
+            <Link to={ROUTERS.ADMIN.FORGOT} className="forgot-password__button">Quên mật khẩu?</Link>
             </form>
         </div>
         </div>

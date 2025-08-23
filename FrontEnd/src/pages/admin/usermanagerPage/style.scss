@@ -35,6 +35,12 @@
         td {
             color: map.get(theme.$theme-colors, "normal-text");
         }
+        td .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            /* không cần margin-top trong bảng */
+        }
 
         .status {
             padding: 4px 10px;
@@ -53,43 +59,26 @@
                 color: #c62828;
             }
         }
-        // mới đây nè
-        .action-buttons {
-            display: flex;
-            margin-top: 10px;
-            gap: 6px;
-            justify-content: flex-start;
-            align-items: center;
-        }
 
-
-        .view-btn,.update-btn,
-        .ban-btn {
-            margin-right: 8px;
+        .view-btn, .update-btn, .ban-btn {
             padding: 6px 12px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
+            line-height: 1;
+            white-space: nowrap;
+            transition: filter .15s ease, transform .02s ease;
         }
+        .view-btn   { background: #1976d2; color: #fff; }
+        .update-btn { background: #fbbf24; color: #111827; }
+        .ban-btn    { background: #dc2626; color: #fff; }
 
-        .view-btn {
-            background-color: #1976d2;
-            color: white;
-        }
-        .update-btn {
-            background-color: #fbc02d;
-            color: white; 
-        }
-        
-
-        .ban-btn {
-            background-color: #d32f2f;
-            color: white;
-        }
-
-        tr:hover {
-            background-color: #f9f9f9;
-        }
+        .view-btn:hover,
+        .update-btn:hover,
+        .ban-btn:hover { filter: brightness(1.05); }
+        .view-btn:active,
+        .update-btn:active,
+        .ban-btn:active { transform: translateY(0.5px); }
     }
 }

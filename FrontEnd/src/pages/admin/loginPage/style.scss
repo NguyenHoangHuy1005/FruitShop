@@ -1,6 +1,16 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../../style/pages/all";
 @use "../../../style/pages/theme";
+
+$main:   map.get(theme.$theme-colors, "main");
+$accent: map.get(theme.$theme-colors, "accent");
+$error:  map.get(theme.$theme-colors, "error");
+
+// Fallback an toàn nếu thiếu key trong theme
+$main:   if($main == null, #4f46e5, $main);
+$accent: if($accent == null, #06b6d4, $accent);
+$error:  if($error == null, #ef4444, $error);
 
 
 .login{
@@ -80,3 +90,28 @@
     }
 
 }
+
+
+.forgot-password__button,
+.register__button {
+    text-decoration: none;
+    color: $main;
+    transition: color .18s ease, font-weight .18s ease, text-decoration-color .18s ease;
+
+    &:hover {
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-thickness: 1.25px;
+    }
+    &:active { font-weight: 700; }
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgb(6 182 212 / 25%);
+        border-radius: 6px;
+    }
+    &:visited { color: $main; }
+}
+
+.forgot-password__button:hover { color: $error; }
+.register__button:hover { color: $accent; }

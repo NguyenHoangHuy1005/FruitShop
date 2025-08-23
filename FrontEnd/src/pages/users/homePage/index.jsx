@@ -18,7 +18,6 @@ const botbanner3Img = "https://res.cloudinary.com/dnk3xed3n/image/upload/v175517
 const RenderFeatProducts = () => {
     const dispatch = useDispatch();
     const products = useSelector((state) => state.product.products?.allProducts || []);
-
     useEffect(() => {
         getAllProduct(dispatch);
     }, [dispatch]);

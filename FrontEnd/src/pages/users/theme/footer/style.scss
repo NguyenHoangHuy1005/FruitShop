@@ -4,12 +4,10 @@
 
 .footer {
     background: #F3F6FA;
-    padding-top: 70px;
-    padding-bottom: 0;
+    padding-top: 40px;
+
 
     .footer__about {
-        margin-bottom: 30px;
-
         .footer__about__logo {
             margin-bottom: 15px;
             display: inline-block;
@@ -23,7 +21,6 @@
 
         h3 {
             font-size: 16px;
-            font-family: "Roboto", sans-serif;
         }
 
         ul li {
@@ -36,7 +33,6 @@
     }
 
     .footer__widget {
-        margin-bottom: 30px;
         overflow: hidden;
 
         h6 {
@@ -44,13 +40,10 @@
             margin-bottom: 10px;
             font-size: 16px;
             font-weight: 700;
-            font-family: "Roboto", sans-serif;
-
         }
 
         p {
             font-size: 14px;
-            font-family: "Roboto", sans-serif;
             margin-bottom: 10px;
 
         }
@@ -69,7 +62,76 @@
                     color: map.get(theme.$theme-colors, "normal-text");
                     height: 46px;
                     border: 1px solid #ededed;
-                    font-family: "Roboto", sans-serif;
+
+
+                    ::placeholder {
+                        color: map.get(theme.$theme-colors, "normal-text");
+                    }
+                }
+
+                button {
+                    padding: 0 26px;
+                    height: 46px;
+                    min-width: max-content;
+                    letter-spacing: 2px;
+                }
+            }
+        }
+
+        ul {
+            float: left;
+            width: 50%;
+
+            li {
+                list-style: none;
+                white-space: nowrap;
+                width: auto;
+                max-width: 1000px;
+            }
+
+            a {
+                color: map.get(theme.$theme-colors, "normal-text");
+                font-size: 14px;
+                line-height: 32px;
+                text-decoration: none;
+
+
+            }
+        }
+    }
+
+    .footer__widget__bonus {
+        overflow: hidden;
+        padding-left: 60px;
+
+        h6 {
+            color: map.get(theme.$theme-colors, "normal-text");
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 14px;
+            margin-bottom: 10px;
+
+        }
+
+        form {
+            margin-bottom: 30px;
+
+            .input-group {
+                display: flex;
+                align-items: center;
+
+                input {
+                    width: 100%;
+                    font-size: 16px;
+                    padding-left: 20px;
+                    color: map.get(theme.$theme-colors, "normal-text");
+                    height: 46px;
+                    border: 1px solid #ededed;
+
 
                     ::placeholder {
                         color: map.get(theme.$theme-colors, "normal-text");
@@ -100,8 +162,6 @@
                 font-size: 14px;
                 line-height: 32px;
                 text-decoration: none;
-                font-family: "Roboto", sans-serif;
-
             }
         }
     }
@@ -140,11 +200,11 @@
 
         /* Màu nền tự động theo theme, giống thanh đậm trong hình */
         $main: map.get(theme.$theme-colors, "main");
-        background: color.scale($main, $lightness: -35%);
+        background: color.scale($main, $lightness: -30%);
         border-top: 1px solid color.scale($main, $lightness: 20%);
 
         .container {
-            padding: 14px 0;
+            padding: 15px 0;
         }
 
         p {

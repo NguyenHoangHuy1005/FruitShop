@@ -49,7 +49,7 @@ const Footer = () => {
             </div>
           </div>
           <div className="col-lg-3 col-md-3 col-sm-6 col-12">
-            <div className="footer__widget">
+            <div className="footer__widget__bonus">
               <h6>Quà Tặng</h6>
               <ul>
                 <li>
@@ -95,12 +95,11 @@ const Footer = () => {
       {/* === Thanh bản quyền ở đáy footer === */}
       <div className="footer__copyright">
         <div className="container">
-          <p>© {year} ThếSơn Shop. All rights reserved.</p>
+          <p>© {year} Thế Sơn Shop. All rights reserved.</p>
         </div>
       </div>
 
     </footer>
   );
 };
-
 export default memo(Footer);

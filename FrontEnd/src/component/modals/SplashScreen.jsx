@@ -9,7 +9,8 @@ const SplashScreen = () => {
         justifyContent: "center",
         alignItems: "center",
         height: "100vh",
-        backgroundColor: "#fff",
+        width: "100vw",
+        backgroundColor: "#e3e3e3ff",
         objectFit: 'cover',
       }}
     >

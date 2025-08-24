@@ -19,6 +19,7 @@ import {
     updateProductStart, updateProductSuccess, updateProductFailure
 } from './productSlice';
 
+import { cartStart, cartSuccess, cartFailure } from "./cartSlice";
 // Tạo axios instance để dễ đổi baseURL / bật cookie
 const API = axios.create({
     baseURL: import.meta?.env?.VITE_API_BASE || "http://localhost:3000/api",
@@ -133,34 +134,31 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
     try {
         await API.post(
         "/auth/logout",
-        { id }, // server không dùng id cũng không sao
+        { id },
         {
             headers: { token: `Bearer ${accessToken}` },
-            withCredentials: true, // QUAN TRỌNG: để clearCookie hoạt động
+            withCredentials: true, // để nhận Set-Cookie clear từ server
         }
         );
     } catch (error) {
         ok = false;
         console.error("Logout error:", error?.response?.data || error?.message);
     } finally {
-        // === Dọn toàn bộ session phía client (an toàn, idempotent) ===
+        // Dọn client
         try { localStorage.removeItem("persist:root"); } catch {}
+        try { localStorage.removeItem("PENDING_EMAIL"); } catch {}
         try { sessionStorage.clear(); } catch {}
-        try { if (API?.defaults?.headers?.common?.token) delete API.defaults.headers.common.token; } catch {}
+        try {
+        delete API.defaults.headers.common.token;
+        delete API.defaults.headers.common.Authorization; // thêm dòng này
+        } catch {}
 
         dispatch(logoutSuccess());
-
-        if (ok) {
-        alert("Đăng xuất thành công!");
-        } else {
-        // Server có thể chưa thu hồi token cũ, nhưng phiên phía client đã được xóa.
-        alert("Đã xóa phiên trên trình duyệt. (Máy chủ có thể chưa thu hồi token)");
-        }
-
-        // Về TRANG CHỦ
+        alert(ok ? "Đăng xuất thành công!" : "Đã xoá phiên trên trình duyệt (server có thể chưa thu hồi token).");
         navigate("/", { replace: true });
     }
 };
+
 
 
 // === FORGOT PASSWORD: gửi mã (OTP) ===
@@ -289,3 +287,112 @@ export const deleteProduct = async (id, dispatch) => {
         dispatch(deleteProductFailure());
     }
 };
+
+
+/* ======================= CART (AJAX) ======================= */
+// Tạo/lấy giỏ theo cookie CART_ID
+export const ensureCart = async (dispatch) => {
+    dispatch(cartStart());
+    try {
+        const res = await API.get("/cart"); // BE: app.use("/api/cart", cartRoutes)
+        dispatch(cartSuccess(res.data));
+    } catch (e) {
+        dispatch(cartFailure(e?.response?.data || e.message));
+    }
+};
+
+// Thêm SP vào giỏ
+export const addToCart = async (productId, quantity = 1, dispatch) => {
+    dispatch(cartStart());
+    try {
+        const res = await API.post("/cart/add", { productId, quantity });
+        dispatch(cartSuccess(res.data));
+        alert("Đã thêm vào giỏ!");
+    } catch (e) {
+        dispatch(cartFailure(e?.response?.data || e.message));
+        alert(e?.response?.data?.message || "Thêm giỏ thất bại!");
+    }
+};
+
+// Cập nhật số lượng 1 item (theo productId)
+// CHO PHÉP qty = 0 (BE của bạn xóa item khi qty = 0)
+export const updateCartItem = async (productId, quantity, dispatch) => {
+    dispatch(cartStart());
+    try {
+        if (!productId) throw new Error("Thiếu productId");
+
+        // Chuẩn hoá số lượng: số nguyên, không âm
+        const qty = Number.isFinite(+quantity) ? Math.max(0, Math.floor(+quantity)) : 0;
+
+        // Lấy URL cuối cùng để debug (không gửi request)
+        const url = API.getUri({ url: `/cart/item/${productId}` });
+        // Log trước khi bắn request để bạn thấy URL/Body
+        console.log("PUT", url, { quantity: qty });
+
+        // Dùng validateStatus để tự xử lý 4xx, tránh Axios ném lỗi mù
+        const res = await API.put(
+        `/cart/item/${productId}`,
+        { quantity: qty },
+        { validateStatus: () => true }
+        );
+
+        if (res.status >= 200 && res.status < 300) {
+        dispatch(cartSuccess(res.data));
+        return;
+        }
+
+        // 4xx/5xx: hiện thông điệp rõ ràng
+        const msg = res?.data?.message || `HTTP ${res.status} tại ${url}`;
+        console.error("updateCartItem FAIL ->", { status: res.status, data: res.data, url });
+        dispatch(cartFailure(msg));
+        alert(msg);
+    } catch (e) {
+        const url = API.getUri({ url: `/cart/item/${productId}` });
+        console.error("updateCartItem NETWORK ERROR ->", { url, error: e });
+        const msg = e?.response?.data?.message || e?.message || "Lỗi mạng khi cập nhật giỏ!";
+        dispatch(cartFailure(msg));
+        alert(msg);
+    }
+};
+
+
+
+// Xóa 1 item khỏi giỏ
+export const removeCartItem = async (productId, dispatch) => {
+    dispatch(cartStart());
+    try {
+        const res = await API.delete(`/cart/item/${productId}`);
+        dispatch(cartSuccess(res.data));
+    } catch (e) {
+        dispatch(cartFailure(e?.response?.data || e.message));
+        alert(e?.response?.data?.message || "Xóa sản phẩm thất bại!");
+    }
+};
+
+// Xóa toàn bộ giỏ
+export const clearCart = async (dispatch) => {
+    dispatch(cartStart());
+    try {
+        const res = await API.delete("/cart");
+        dispatch(cartSuccess(res.data));
+    } catch (e) {
+        dispatch(cartFailure(e?.response?.data || e.message));
+    }
+};
+
+/* ======================= ORDER (Checkout) ======================= */
+// Lưu đơn hàng (MongoDB) từ giỏ hiện tại + thông tin form
+export const placeOrder = async (payload, dispatch, navigate) => {
+    // payload: { fullName, address, phone, email, note }
+    try {
+        const res = await API.post("/order", payload);
+        alert(res?.data?.message || "Đặt hàng thành công!");
+        // BE thường clear cart sau khi tạo order → làm mới cart:
+        await ensureCart(dispatch);
+        navigate(ROUTERS.USER.ORDERS);
+    } catch (e) {
+        const msg = e?.response?.data?.message || "Đặt hàng thất bại!";
+        alert(msg);
+    }
+};
+

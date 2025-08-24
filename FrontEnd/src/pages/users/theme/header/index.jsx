@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { logout } from "../../../../component/redux/apiRequest";
+import { logout, ensureCart } from "../../../../component/redux/apiRequest";
 import "./style.scss";
 import "./header.scss";
 import {
@@ -107,6 +107,12 @@ const UserMenu = ({ onLoginClick }) => {
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  //mới  thêm
+  const dispatch = useDispatch();
+  const cart = useSelector((state) => state.cart?.data);
+  useEffect(() => { ensureCart(dispatch); }, [dispatch]);
+  const count = cart?.items?.length || 0;
+  const subtotal = cart?.summary?.subtotal || 0;
 
   const [isShowHumberger, setShowHumberger] = useState(false);
   const [isHome, setIsHome] = useState(location.pathname.length <= 1);
@@ -154,11 +160,11 @@ const Header = () => {
           <ul>
             <li>
               <Link to={ROUTERS.USER.SHOPPINGCART}>
-                <FaCartShopping /> <span>4</span>
+                <FaCartShopping /> <span>{count}</span>
               </Link>
             </li>
           </ul>
-          <div className="header__cart__price">Giỏ hàng: <span>{formatter(123456)}</span></div>
+          <div className="header__cart__price">Giỏ hàng: <span>{formatter(subtotal)}</span></div>
         </div>
 
         {/* Mobile user area */}
@@ -298,11 +304,11 @@ const Header = () => {
 
           <div className="col-lg-3">
             <div className="header__cart">
-              <div className="header__cart__price"><span>5.200,000VND</span></div>
+              <div className="header__cart__price">Giỏ hàng: <span>{formatter(subtotal)}</span></div>
               <ul>
                 <li>
                   <Link to={ROUTERS.USER.SHOPPINGCART}>
-                    <FaCartShopping /> <span>5</span>
+                    <FaCartShopping /> <span>{count}</span>
                   </Link>
                 </li>
               </ul>

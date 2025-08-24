@@ -13,4 +13,5 @@ const ProductSchema = new mongoose.Schema(
     status: { type: String, default: "Còn hàng" },
     });
 
-module.exports = mongoose.model("Product", ProductSchema);
+module.exports = mongoose.models.Product || mongoose.model("Product", ProductSchema);
+

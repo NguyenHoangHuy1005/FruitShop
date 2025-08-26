@@ -1,4 +1,81 @@
-@use "sass:map";
-@use "sass:color";
-@use "../../../style/pages/all";
-@use "../../../style/pages/theme";
+.dashboard {
+  padding: 20px;
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+
+    .card {
+      padding: 20px;
+      border-radius: 16px;
+      color: #fff;
+      font-family: "Segoe UI", sans-serif;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease;
+
+      &:hover {
+        transform: translateY(-5px);
+      }
+
+      h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .value {
+        font-size: 26px;
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
+
+      .trend {
+        font-size: 14px;
+        &.up {
+          color: #e0ffe0;
+        }
+        &.down {
+          color: #ffe0e0;
+        }
+        &.warning {
+          color: #fff9c4;
+        }
+      }
+    }
+
+    /* 🎨 Màu nền cho từng loại */
+    .blue {
+      background: linear-gradient(135deg, #3f51b5, #5c6bc0);
+    }
+    .green {
+      background: linear-gradient(135deg, #4caf50, #66bb6a);
+    }
+    .purple {
+      background: linear-gradient(135deg, #9c27b0, #ba68c8);
+    }
+    .orange {
+      background: linear-gradient(135deg, #ff9800, #ffb74d);
+    }
+  }
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+
+    .chart {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+      h3 {
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+      }
+    }
+  }
+}

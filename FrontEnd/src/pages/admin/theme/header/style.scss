@@ -2,47 +2,176 @@
 @use "../../../../style/pages/all";
 @use "../../../../style/pages/theme";
 
-
-.admin__header{
-    background: white;
-    padding: 0;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-
-    &__nav{
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        height: 100px;
-        &-item{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
-            color: map.get(theme.$theme-colors, "normal-text");
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 15px;
-            transition: 0.2s ease;
-            border-radius: 6px;
-            cursor: pointer;
-
-            &:hover{
-                background: #3182ce18;
-                color: map.get(theme.$theme-colors, "main");
-
-            }
-
-            &--active{
-                background: #3182ce18;
-                color: map.get(theme.$theme-colors, "main")
-            }
+.admin-header {
+  background: linear-gradient(135deg, #2c3e50, #008874);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  color: white;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  
+  &__container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+  }
+  
+  &__logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    
+    &-icon {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      svg {
+        color: #64b5f6;
+        height: 1.75rem;
+        width: 1.75rem;
+      }
+    }
+    
+    &-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+  }
+  
+  &__nav {
+    display: flex;
+    gap: 0.5rem;
+    
+    &-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: 0.5rem;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      position: relative;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+      
+      &--active {
+        background: rgba(100, 181, 246, 0.2);
+        color: #90caf9;
+        
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: -1rem;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 50%;
+          height: 3px;
+          background: #64b5f6;
+          border-radius: 3px 3px 0 0;
         }
+      }
+    }
+    
+    &-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+    
+    &-label {
+      font-weight: 500;
+    }
+  }
+  
+  &__user {
+    display: flex;
+    align-items: center;
+    
+    &-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: background 0.3s ease;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+    
+    &-avatar {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #64b5f6, #42a5f5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: white;
+    }
+    
+    &-details {
+      display: flex;
+      flex-direction: column;
+      
+      @media (max-width: 768px) {
+        display: none;
+      }
+    }
+    
+    &-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    
+    &-role {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+}
 
-        &-icon{
-            display: flex;
-            align-items: center;
-        }
-    }   
+// Responsive adjustments
+@media (max-width: 1024px) {
+  .admin-header__nav-label {
+    display: none;
+  }
+  
+  .admin-header__nav-item {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-header__container {
+    padding: 1rem;
+  }
+  
+  .admin-header__logo-text {
+    display: none;
+  }
+  
+  .admin-header__nav {
+    gap: 0.25rem;
+  }
 }

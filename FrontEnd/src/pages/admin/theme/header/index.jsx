@@ -14,15 +14,23 @@ const HeaderAd = ({ children, ...props }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
   const accessToken = user?.accessToken;
   const id = user?._id;
-
+  
   const handleLogout = () => {
     logout(dispatch, navigate, accessToken, id);
   };
 
   const navItems = [
+    {
+      key: 'dashboard',
+      path: ROUTERS.ADMIN.DASHBOARD,
+      onClick: () => navigate(ROUTERS.ADMIN.DASHBOARD),
+      label: 'Dashboard',
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>,
+    },
     {
       key: 'products',
       path: ROUTERS.ADMIN.PRODUCTS,
@@ -41,7 +49,7 @@ const HeaderAd = ({ children, ...props }) => {
       key: 'users',
       path: ROUTERS.ADMIN.USERMANAGER,
       onClick: () => navigate(ROUTERS.ADMIN.USERMANAGER),
-      label: 'Usermanager',
+      label: 'Users',
       icon: <GrUserManager />,
     },
     {
@@ -53,26 +61,46 @@ const HeaderAd = ({ children, ...props }) => {
   ];
 
   return (
-    <div className="admin__header container" {...props}>
-      <nav className="admin__header__nav">
-        {navItems.map(({ key, path, onClick, label, icon }) => {
-          const isActive = path ? location.pathname.startsWith(path) : false;
-          return (
-            <div
-              key={key || path || label} // <-- KEY ỔN ĐỊNH
-              className={`admin__header__nav-item ${isActive ? "admin__header__nav-item--active" : ""}`}
-              onClick={onClick}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
-            >
-              <span className="admin__header__nav-icon">{icon}</span>
-              <span>{label}</span>
+    <header className="admin-header" {...props}>
+      <div className="admin-header__container">
+        <div className="admin-header__logo">
+          <div className="admin-header__logo-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <span className="admin-header__logo-text">Admin Panel</span>
+        </div>
+        
+        <nav className="admin-header__nav">
+          {navItems.map(({ key, path, onClick, label, icon }) => {
+            const isActive = path ? location.pathname === path : false;
+            return (
+              <button
+                key={key || path || label}
+                className={`admin-header__nav-item ${isActive ? "admin-header__nav-item--active" : ""}`}
+                onClick={onClick}
+              >
+                <span className="admin-header__nav-icon">{icon}</span>
+                <span className="admin-header__nav-label">{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        
+        <div className="admin-header__user">
+          <div className="admin-header__user-info">
+            <div className="admin-header__user-avatar">
+              {user?.username?.charAt(0).toUpperCase() || 'A'}
             </div>
-          );
-        })}
-      </nav>
-    </div>
+            <div className="admin-header__user-details">
+              <div className="admin-header__user-name">{user?.username || 'Admin'}</div>
+              <div className="admin-header__user-role">Administrator</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
   );
 };
 

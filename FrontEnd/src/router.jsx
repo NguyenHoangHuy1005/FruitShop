@@ -16,6 +16,7 @@ import Auth from "./pages/admin/auth";
 //mới đây nè
 import ForgotPasswordPage from "./pages/admin/forgotPassword";
 
+import Dashboard from "./pages/admin/dashboard";
 import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
@@ -43,7 +44,7 @@ const renderUserRouter = () => {
   );
 };
 
-// ---------- ADMIN AUTH (no layout) ----------
+// ---------- ADMIN AUTH (no layout) ---------
 const renderAdminAuthRouter = () => {
   const authRouters = [
     { path: ROUTERS.ADMIN.LOGIN,  element: <LoginPage /> },
@@ -63,6 +64,7 @@ const renderAdminAuthRouter = () => {
 // ---------- ADMIN APP (with layout) ----------
 const renderAdminAppRouter = () => {
   const appRouters = [
+    { path: ROUTERS.ADMIN.DASHBOARD,    element: <Dashboard /> },
     { path: ROUTERS.ADMIN.PRODUCTS,    element: <ProductManagerPage /> },
     { path: ROUTERS.ADMIN.USERMANAGER, element: <UserManagerPage /> },
     { path: ROUTERS.ADMIN.ORDERS,      element: <OrderAdminPage /> },
@@ -88,6 +90,7 @@ const RouterCustom = () => {
     pathname.startsWith(ROUTERS.ADMIN.FORGOT);
 
   const isAdminApp =
+    pathname.startsWith(ROUTERS.ADMIN.DASHBOARD)   ||
     pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)   ||
     pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
     pathname.startsWith(ROUTERS.ADMIN.ORDERS);

@@ -11,6 +11,7 @@ export const ROUTERS = {
     CHECKOUT: "/checkout",
   },
   ADMIN: {
+    DASHBOARD: `${ADMIN_PATH}/dashboard`,
     LOGIN: `${ADMIN_PATH}/login`,
     ORDERS: `${ADMIN_PATH}/orders`,
     LOGOUT: `${ADMIN_PATH}/logout`,

@@ -41,6 +41,7 @@ const ProductManagerPage = () => {
     const filteredProducts = products.filter((p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    
 
     return (
         <div className="container">

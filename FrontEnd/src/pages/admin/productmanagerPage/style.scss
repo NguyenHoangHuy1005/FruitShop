@@ -10,9 +10,9 @@ $product-gray: #f1f1f1;
 $product-main: map.get(theme.$theme-colors, "main");
 
 .container {
-    padding: 10px
-    h2 {
-        margin-bottom: 20px;
+    padding: 100px
+    h2{
+        margin-bottom: 100px;
         color: map.get(theme.$theme-colors, "main");
         text-align: center;
     }
@@ -37,7 +37,7 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
 
     .btn-add {
-        background: map.get(theme.$theme-colors, "main");
+        background: linear-gradient(135deg, #2c3e50, #008874);
         color: white;
         border: none;
         padding: 8px 14px;
@@ -46,7 +46,7 @@ $product-main: map.get(theme.$theme-colors, "main");
         font-weight: bold;
 
         &:hover {
-            background: color.adjust(map.get(theme.$theme-colors, "main"), $lightness: -5%);
+            background: linear-gradient(135deg, #2c3e50);
         }
     }
 }

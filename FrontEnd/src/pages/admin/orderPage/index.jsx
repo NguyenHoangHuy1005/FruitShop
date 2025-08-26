@@ -2,160 +2,293 @@ import "./style.scss";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { API } from "../../../component/redux/apiRequest"; // đường dẫn tới file export API
+import { API } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
 import { formatter } from "../../../utils/fomater";
 
 const formatDateTime = (iso) => {
-    try {
-        const d = new Date(iso);
-        const dd = String(d.getDate()).padStart(2, "0");
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, "0");
-        const mi = String(d.getMinutes()).padStart(2, "0");
-        return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-    } catch { return iso || ""; }
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso || "";
+  }
 };
 
 const OrderAdminPage = () => {
-    const navigate = useNavigate();
-    const user = useSelector((s) => s.auth?.login?.currentUser);
+  const navigate = useNavigate();
+  const user = useSelector((s) => s.auth?.login?.currentUser);
 
-    const [data, setData] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage]   = useState(1);
-    const [limit, setLimit] = useState(20);
-    const [q, setQ]         = useState("");
-    const [status, setStatus] = useState("");
-    const [loading, setLoading] = useState(true);
-    const [err, setErr] = useState("");
+  const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-    const headers = useMemo(() => {
-        const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
-        return bearer ? { Authorization: bearer } : {};
-    }, [user?.accessToken]);
+  const headers = useMemo(() => {
+    const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
+    return bearer ? { Authorization: bearer } : {};
+  }, [user?.accessToken]);
 
-    useEffect(() => {
-        // bảo vệ route admin
-        if (!user?.accessToken || user?.admin !== true) {
-        navigate(ROUTERS.ADMIN.LOGIN, { replace: true });
-        return;
-        }
-    }, [user?.accessToken, user?.admin, navigate]);
+  useEffect(() => {
+    if (!user?.accessToken || user?.admin !== true) {
+      navigate(ROUTERS.ADMIN.LOGIN, { replace: true });
+      return;
+    }
+  }, [user?.accessToken, user?.admin, navigate]);
 
-    useEffect(() => {
-        let alive = true;
-        (async () => {
-        setLoading(true); setErr("");
-        const params = new URLSearchParams({
-            page: String(page),
-            limit: String(limit),
-        });
-        if (q.trim())      params.set("q", q.trim());
-        if (status)        params.set("status", status);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setErr("");
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (q.trim()) params.set("q", q.trim());
+      if (status) params.set("status", status);
 
-        const res = await API.get(`/order?${params.toString()}`, {
-            headers, validateStatus: () => true,
-        });
+      const res = await API.get(`/order?${params.toString()}`, {
+        headers,
+        validateStatus: () => true,
+      });
 
-        if (!alive) return;
-        if (res.status === 200) {
-            setData(res.data?.data || []);
-            setTotal(res.data?.total || 0);
-        } else {
-            setErr(res?.data?.message || `Tải danh sách đơn thất bại (HTTP ${res.status}).`);
-        }
-        setLoading(false);
-        })();
-        return () => { alive = false; };
-    }, [page, limit, q, status, headers]);
+      if (!alive) return;
 
-    const pages = Math.max(1, Math.ceil(total / limit));
+      if (res.status === 200) {
+        setData(res.data?.data || []);
+        setTotal(res.data?.total || 0);
+      } else {
+        setErr(
+          res?.data?.message ||
+            `Tải danh sách đơn thất bại (HTTP ${res.status}).`
+        );
+      }
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [page, limit, q, status, headers]);
 
-    return (
-        <div className="container">
-        <div className="orders">
-            <h2>QUẢN LÝ ĐƠN HÀNG</h2>
+  const pages = Math.max(1, Math.ceil(total / limit));
 
-            <div className="orders__toolbar" style={{ display: "flex", gap: 12, margin: "12px 0" }}>
-            <input
-                value={q}
-                onChange={(e) => { setPage(1); setQ(e.target.value); }}
-                placeholder="Tìm tên/điện thoại/email/sản phẩm…"
-                style={{ flex: 1, padding: 8 }}
-            />
-            <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
-                <option value="">Tất cả trạng thái</option>
-                <option value="pending">pending</option>
-                <option value="paid">paid</option>
-                <option value="shipped">shipped</option>
-                <option value="completed">completed</option>
-                <option value="cancelled">cancelled</option>
-            </select>
-            <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
-                <option value={10}>10 / trang</option>
-                <option value={20}>20 / trang</option>
-                <option value={50}>50 / trang</option>
-            </select>
+  const getStatusClass = (status) => {
+    switch (status) {
+      case "pending":
+        return "status-pending";
+      case "paid":
+        return "status-paid";
+      case "shipped":
+        return "status-shipped";
+      case "completed":
+        return "status-completed";
+      case "cancelled":
+        return "status-cancelled";
+      default:
+        return "status-default";
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "pending":
+        return "Pending";
+      case "paid":
+        return "Paid";
+      case "shipped":
+        return "Shipped";
+      case "completed":
+        return "Completed";
+      case "cancelled":
+        return "Cancelled";
+      default:
+        return status;
+    }
+  };
+
+  return (
+    <div className="admin-orders-page">
+      <div className="container">
+          <h2>QUẢN LÝ ĐƠN HÀNG</h2>
+        <div className="admin-card">
+          {/* Bộ lọc */}
+          <div className="card-header">
+            <div className="filters">
+              <div className="search-box">
+                <input
+                  type="text"
+                  value={q}
+                  onChange={(e) => {
+                    setPage(1);
+                    setQ(e.target.value);
+                  }}
+                  placeholder="Tìm theo tên, số điện thoại, email..."
+                  className="search-input"
+                />
+              </div>
+
+              <div className="filter-group">
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    setPage(1);
+                    setStatus(e.target.value);
+                  }}
+                  className="filter-select"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="completed">completed</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setPage(1);
+                    setLimit(parseInt(e.target.value, 10));
+                  }}
+                  className="filter-select"
+                >
+                  <option value={10}>10 / trang</option>
+                  <option value={20}>20 / trang</option>
+                  <option value={50}>50 / trang</option>
+                </select>
+              </div>
             </div>
+          </div>
 
-            <div className="orders__content">
-            {loading && <p>Đang tải…</p>}
-            {!loading && err && <div className="alert alert-danger">{err}</div>}
+          {/* Nội dung */}
+          <div className="card-content">
+            {loading && (
+              <div className="loading-container">
+                <div className="spinner"></div>
+                <p>Đang tải dữ liệu...</p>
+              </div>
+            )}
+
+            {!loading && err && (
+              <div className="alert alert-error">
+                ⚠️ <span>{err}</span>
+              </div>
+            )}
 
             {!loading && !err && (
-                <table className="orders__table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                    <tr>
-                    <th style={{ textAlign: "left" }}>Mã đơn</th>
-                    <th style={{ textAlign: "right" }}>Tổng đơn</th>
-                    <th style={{ textAlign: "left" }}>Khách hàng</th>
-                    <th style={{ textAlign: "left" }}>Ngày đặt</th>
-                    <th style={{ textAlign: "left" }}>Trạng thái</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.map((o) => {
-                    const id = String(o._id || "");
-                    const total = o?.amount?.total ?? o?.amount ?? 0;
-                    return (
-                        <tr key={id} style={{ borderTop: "1px solid #eee" }}>
-                        <td>{id.slice(-8).toUpperCase()}</td>
-                        <td style={{ textAlign: "right", fontWeight: 600 }}>{formatter(total)}</td>
-                        <td>
-                            <div style={{ fontWeight: 600 }}>{o?.customer?.name}</div>
-                            <div style={{ color: "#64748b", fontSize: 12 }}>
-                            {o?.customer?.phone} • {o?.customer?.email}
-                            </div>
-                        </td>
-                        <td>{formatDateTime(o?.createdAt)}</td>
-                        <td>
-                            <span className={`badge status-${o?.status || "pending"}`}>{o?.status || "pending"}</span>
-                        </td>
-                        </tr>
-                    );
-                    })}
-                    {data.length === 0 && (
-                    <tr><td colSpan={5} style={{ textAlign: "center", padding: 16 }}>Không có đơn nào.</td></tr>
-                    )}
-                </tbody>
-                </table>
+              <div className="table-container">
+                {data.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>📋 Không có đơn hàng nào</h3>
+                    <p>Hãy thử thay đổi điều kiện lọc để tìm đơn hàng.</p>
+                  </div>
+                ) : (
+                  <table className="orders-table">
+                    <thead>
+                      <tr>
+                        <th>Mã đơn</th>
+                        <th>Tổng đơn</th>
+                        <th>Khách hàng</th>
+                        <th>Ngày đặt</th>
+                        <th>Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.map((o) => {
+                        const id = String(o._id || "");
+                        const total = o?.amount?.total ?? o?.amount ?? 0;
+                        return (
+                          <tr key={id}>
+                            <td className="order-id">
+                              #{id.slice(-8).toUpperCase()}
+                            </td>
+                            <td className="order-total">
+                              {formatter(total)}
+                            </td>
+                            <td className="customer-info">
+                              <div className="customer-name">
+                                {o?.customer?.name}
+                              </div>
+                              <div className="customer-contact">
+                                {o?.customer?.phone} • {o?.customer?.email}
+                              </div>
+                            </td>
+                            <td className="order-date">
+                              {formatDateTime(o?.createdAt)}
+                            </td>
+                            <td>
+                              <span
+                                className={`status-badge ${getStatusClass(
+                                  o?.status
+                                )}`}
+                              >
+                                {getStatusText(o?.status)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             )}
-            </div>
+          </div>
 
-            <div className="orders__footer" style={{ marginTop: 12, display: "flex", justifyContent: "space-between" }}>
-            <div>
-                Tổng: <b>{total}</b> đơn — Trang <b>{page}</b>/<b>{pages}</b>
+          {/* Pagination */}
+          {!loading && !err && (
+            <div className="card-footer">
+              <div className="pagination-info">
+                Tổng: <strong>{total}</strong> đơn — Trang{" "}
+                <strong>{page}</strong>/<strong>{pages}</strong>
+              </div>
+
+              <div className="pagination">
+                <button
+                  className="pagination-btn prev"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Trước
+                </button>
+
+                {[...Array(pages)].map((_, i) => (
+                  <button
+                    key={i}
+                    className={`pagination-btn ${
+                      page === i + 1 ? "active" : ""
+                    }`}
+                    onClick={() => setPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                <button
+                  className="pagination-btn next"
+                  disabled={page >= pages}
+                  onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                >
+                  Sau →
+                </button>
+              </div>
             </div>
-            <div className="orders__pagination" style={{ display: "flex", gap: 8 }}>
-                <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>← Trước</button>
-                <button disabled={page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>Sau →</button>
-            </div>
-            </div>
+          )}
         </div>
-        </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default memo(OrderAdminPage);

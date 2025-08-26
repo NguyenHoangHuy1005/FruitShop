@@ -28,6 +28,7 @@ const UserManagerPage = () => {
         updateUser(editingUser._id, updatedData, user?.accessToken, dispatch);
         setEditingUser(null); // đóng modal
     };
+  
 
     return (
         <div className="container">
@@ -48,43 +49,43 @@ const UserManagerPage = () => {
                     <tbody>
                         {Array.isArray(userList) && userList.length > 0 ? (
                             [...userList]
-                            .sort((a, b) => a._id.localeCompare(b._id))
-                            .map((u, index) => (
-                                <tr key={u._id}>
-                                <td>{index + 1}</td>
-                                <td>{u.username || "-"}</td>
-                                <td>{u.email || "-"}</td>
-                                <td>{u.phone || "-"}</td>
-                                <td>{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
-                                <td>{u.totalOrders ?? 0}</td>
+                                .sort((a, b) => a._id.localeCompare(b._id))
+                                .map((u, index) => (
+                                    <tr key={u._id}>
+                                        <td>{index + 1}</td>
+                                        <td>{u.username || "-"}</td>
+                                        <td>{u.email || "-"}</td>
+                                        <td>{u.phone || "-"}</td>
+                                        <td>{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
+                                        <td>{u.totalOrders ?? 0}</td>
 
-                                {/* ✅ Đặt action-buttons trong một ô <td> */}
-                                <td>
-                                    <div className="action-buttons">
-                                    <button type="button" className="view-btn">Xem</button>
-                                    <button
-                                        type="button"
-                                        className="update-btn"
-                                        onClick={() => setEditingUser(u)}
-                                    >
-                                        Sửa
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="ban-btn"
-                                        onClick={() => handleDelete(u._id)}
-                                    >
-                                        Xóa
-                                    </button>
-                                    </div>
-                                </td>
-                                </tr>
-                            ))
+                                        {/* ✅ Đặt action-buttons trong một ô <td> */}
+                                        <td>
+                                            <div className="action-buttons">
+                                                <button type="button" className="view-btn">Xem</button>
+                                                <button
+                                                    type="button"
+                                                    className="update-btn"
+                                                    onClick={() => setEditingUser(u)}
+                                                >
+                                                    Sửa
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="ban-btn"
+                                                    onClick={() => handleDelete(u._id)}
+                                                >
+                                                    Xóa
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                         ) : (
                             <tr>
-                            <td colSpan={7} style={{ textAlign: "center", color: "#64748b", padding: 20 }}>
-                                Không có khách hàng.
-                            </td>
+                                <td colSpan={7} style={{ textAlign: "center", color: "#64748b", padding: 20 }}>
+                                    Không có khách hàng.
+                                </td>
                             </tr>
                         )}
                     </tbody>

@@ -10,6 +10,7 @@ const CheckoutPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const cart = useSelector((s) => s.cart?.data);
+    const user = useSelector((s) => s.auth?.login?.currentUser);
 
     const [form, setForm] = useState({
         fullName: "",
@@ -25,7 +26,7 @@ const CheckoutPage = () => {
         alert("Giỏ hàng trống!");
         return;
         }
-        await placeOrder(form, dispatch, navigate);
+        await placeOrder(form, user?.accessToken, dispatch, navigate);
     };
 
     return (

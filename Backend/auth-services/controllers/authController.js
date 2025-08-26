@@ -5,20 +5,35 @@ const { sendVerificationMail, sendResetMail } = require("../utils/mailer");
 
 let refreshTokens = [];
 
-// helper
-const generate6Digit = () => String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+// Helper
+const generate6Digit = () =>
+  String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+
+const COOKIE_OPTS = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+};
 
 const authController = {
-     // ============== REGISTER (tạo user + OTP) ==============
+  // ============== REGISTER (tạo user + OTP) ==============
     registerUser: async (req, res) => {
         try {
         const { username, email, phone, password, password_confirm } = req.body;
 
         if (!username || !email || !phone || !password) {
-            return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin bắt buộc." });
+            return res
+            .status(400)
+            .json({ message: "Vui lòng nhập đầy đủ thông tin bắt buộc." });
         }
-        if (typeof password_confirm !== "undefined" && password !== password_confirm) {
-            return res.status(400).json({ message: "Xác nhận mật khẩu không khớp." });
+        if (
+            typeof password_confirm !== "undefined" &&
+            password !== password_confirm
+        ) {
+            return res
+            .status(400)
+            .json({ message: "Xác nhận mật khẩu không khớp." });
         }
 
         const emailLower = String(email).trim().toLowerCase();
@@ -33,9 +48,11 @@ const authController = {
         }).lean();
         if (duplicated) {
             const which =
-            duplicated.email === emailLower ? "Email"
-            : duplicated.username === username ? "Username"
-            : "Số điện thoại";
+            duplicated.email === emailLower
+                ? "Email"
+                : duplicated.username === username
+                ? "Username"
+                : "Số điện thoại";
             return res.status(409).json({ message: `${which} đã tồn tại.` });
         }
 
@@ -66,7 +83,6 @@ const authController = {
         });
         } catch (error) {
         console.error(error);
-        // Duplicate key (Mongo)
         if (error && error.code === 11000) {
             const key = Object.keys(error.keyPattern || { field: "Trường" })[0];
             return res.status(409).json({ message: `${key} đã tồn tại.` });
@@ -80,19 +96,30 @@ const authController = {
         try {
         const identifier = req.body.username || req.body.email;
         const user = await User.findOne({
-            $or: [{ username: identifier }, { email: identifier?.toLowerCase?.() }],
+            $or: [
+            { username: identifier },
+            { email: identifier?.toLowerCase?.() },
+            ],
         });
 
         if (!user) {
-            return res.status(404).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác!" });
+            return res
+            .status(404)
+            .json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác!" });
         }
-        const validPassword = await bcrypt.compare(req.body.password, user.password);
+        const validPassword = await bcrypt.compare(
+            req.body.password,
+            user.password
+        );
         if (!validPassword) {
-            return res.status(404).json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác!" });
+            return res
+            .status(404)
+            .json({ message: "Tên đăng nhập hoặc mật khẩu không chính xác!" });
         }
         if (!user.isVerified) {
             return res.status(403).json({
-            message: "Tài khoản chưa xác minh email. Vui lòng nhập mã hoặc bấm 'Gửi lại mã'.",
+            message:
+                "Tài khoản chưa xác minh email. Vui lòng nhập mã hoặc bấm 'Gửi lại mã'.",
             pendingEmail: user.email,
             });
         }
@@ -101,12 +128,7 @@ const authController = {
         const refreshToken = authController.generateRefreshToken(user);
         refreshTokens.push(refreshToken);
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            path: "/",
-            sameSite: "strict",
-        });
+        res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
 
         const { password, ...others } = user._doc;
         return res.status(200).json({ ...others, accessToken });
@@ -133,29 +155,25 @@ const authController = {
         );
     },
 
-    // ============== REFRESH TOKEN (SỬA set cookie token mới) ==============
+    // ============== REFRESH TOKEN ==============
     requestRefreshToken: async (req, res) => {
         const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken) return res.status(401).json({ message: "You are not logged in" });
-        if (!refreshTokens.includes(refreshToken)) return res.status(403).json({ message: "Invalid refresh token" });
+        if (!refreshToken)
+        return res.status(401).json({ message: "You are not logged in" });
+        if (!refreshTokens.includes(refreshToken))
+        return res.status(403).json({ message: "Invalid refresh token" });
 
         jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY, (err, user) => {
         if (err) {
             return res.status(403).json({ message: "Invalid refresh token" });
         }
-        refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+        refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
 
         const newAccessToken = authController.generateAccessToken(user);
         const newRefreshToken = authController.generateRefreshToken(user);
         refreshTokens.push(newRefreshToken);
 
-        // SỬA: phải set cookie = newRefreshToken
-        res.cookie("refreshToken", newRefreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            path: "/",
-            sameSite: "strict",
-        });
+        res.cookie("refreshToken", newRefreshToken, COOKIE_OPTS);
         return res.status(200).json({ accessToken: newAccessToken });
         });
     },
@@ -163,160 +181,78 @@ const authController = {
     // ============== LOGOUT ==============
     userLogout: async (req, res) => {
         try {
-            const refreshToken = req.cookies.refreshToken;
+        const refreshToken = req.cookies.refreshToken;
 
-            const cookieOptions = {
-            httpOnly: true,
-            path: "/", // phải trùng path khi set
-            sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-            secure: process.env.NODE_ENV === "production", // production mới bật Secure
-            };
+        res.clearCookie("refreshToken", COOKIE_OPTS);
 
-            res.clearCookie("refreshToken", cookieOptions);
-
-            // Nếu có quản lý refreshTokens trên RAM/DB:
-            if (refreshToken) {
+        if (refreshToken) {
             refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
-            }
-
-            return res.status(200).json({ message: "Logged out" });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ message: "Lỗi máy chủ." });
-        }
-    },
-
-    
-    forgotPassword: async (req, res) => {
-        try {
-        const email = String(req.body.email || "").trim().toLowerCase();
-        if (!email) return res.status(400).json({ message: "Thiếu email." });
-
-        const genericMsg =
-            "Nếu email tồn tại trong hệ thống, chúng tôi đã gửi mã xác nhận để đặt lại mật khẩu (hết hạn sau 10 phút).";
-
-        const user = await User.findOne({ email }).select("username isVerified").lean();
-        if (!user) {
-            console.log("[forgot] email not found:", email);
-            return res.status(200).json({ message: genericMsg });
         }
 
-        const token = generate6Digit();
-        const expires = new Date(Date.now() + 10 * 60 * 1000);
-
-        await User.updateOne(
-            { email },
-            { $set: { resetPasswordToken: token, resetPasswordExpiresAt: expires } }
-        );
-
-        try {
-            await sendResetMail(email, user.username || email, token);
-        } catch (e) {
-            console.error("[forgot] send mail error:", e?.message || e);
-            // vẫn trả 200 để không lộ tồn tại email
-        }
-        return res.status(200).json({ message: genericMsg, pendingEmail: email });
+        return res.status(200).json({ message: "Logged out" });
         } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Lỗi máy chủ." });
         }
     },
-
-    resetPassword: async (req, res) => {
-        try {
-        const email = String(req.body.email || "").trim().toLowerCase();
-        const token = String(req.body.token || "").trim();
-        const newPassword = String(req.body.newPassword || "");
-        const confirm = String(req.body.password_confirm || "");
-
-        if (!email || !token || !newPassword) {
-            return res.status(200).json({ ok: false, code: "MISSING", message: "Thiếu email, mã hoặc mật khẩu mới." });
-        }
-        if (newPassword !== confirm) {
-            return res.status(200).json({ ok: false, code: "MISMATCH", message: "Xác nhận mật khẩu không khớp." });
-        }
-        if (newPassword.length < 6) {
-            return res.status(200).json({ ok: false, code: "WEAK_PASSWORD", message: "Mật khẩu phải có ít nhất 6 ký tự." });
-        }
-
-        const user = await User.findOne({
-            email,
-            resetPasswordToken: token,
-            resetPasswordExpiresAt: { $ne: null, $gte: new Date() },
-        });
-
-        if (!user) {
-            const expired = await User.findOne({
-            email,
-            resetPasswordToken: token,
-            $or: [{ resetPasswordExpiresAt: null }, { resetPasswordExpiresAt: { $lt: new Date() } }],
-            }).lean();
-
-            if (expired) {
-            return res.status(200).json({ ok: false, code: "EXPIRED", expired: true, message: "Mã đã hết hạn. Vui lòng bấm 'Gửi lại mã'." });
-            }
-            return res.status(200).json({ ok: false, code: "INVALID_TOKEN", message: "Mã không đúng." });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(newPassword, salt);
-
-        await User.updateOne(
-            { _id: user._id },
-            { $set: { password: hashed }, $unset: { resetPasswordToken: 1, resetPasswordExpiresAt: 1 } }
-        );
-
-        return res.status(200).json({ ok: true, message: "Đặt lại mật khẩu thành công! Hãy đăng nhập." });
-        } catch (error) {
-        console.error(error);
-        return res.status(500).json({ ok: false, message: "Lỗi máy chủ." });
-        }
-    },
-
-
 
     // ============== VERIFY ACCOUNT ==============
     verifyAccount: async (req, res) => {
         try {
-        const email = String(req.body.email || "").trim().toLowerCase();
-        const token = String(req.body.token || "").trim();
+            const email = String(req.body.email || "").trim().toLowerCase();
+            const token = String(req.body.token || "").trim();
 
-        if (!email || !token) {
+            if (!email || !token) {
             return res.status(400).json({ message: "Thiếu email hoặc mã xác minh." });
         }
 
-        const r = await User.updateOne(
-            {
-            email,
-            isVerified: false,
-            verificationToken: token,
-            verificationExpiresAt: { $ne: null, $gte: new Date() },
-            },
-            {
-            $set: { isVerified: true },
-            $unset: { verificationToken: 1, verificationExpiresAt: 1 },
+            // Đọc trước để trả đúng loại lỗi
+            const snap = await User.findOne({
+                email,
+                isVerified: false,
+                verificationToken: token,
+            }).select("verificationExpiresAt").lean();
+
+            if (!snap) {
+                // Không có bản ghi phù hợp: sai mã / đã verify / mã đã thay đổi do 'gửi lại'
+                return res.status(400).json({ message: "Mã không đúng hoặc đã được sử dụng." });
             }
-        );
 
-        if (r.modifiedCount === 1) {
-            return res.status(200).json({ message: "Xác minh thành công! Bạn có thể đăng nhập.", verified: true });
-        }
+            // Hết hạn chỉ khi có Date và < now
+            if (snap.verificationExpiresAt && snap.verificationExpiresAt < new Date()) {
+                return res.status(400).json({
+                    message: 'Mã đã hết hạn. Vui lòng bấm "Gửi lại mã".',
+                    expired: true
+                });
+            }
 
-        const expired = await User.findOne({
-            email,
-            isVerified: false,
-            verificationToken: token,
-            $or: [{ verificationExpiresAt: null }, { verificationExpiresAt: { $lt: new Date() } }],
-        }).lean();
+            // Cập nhật xác minh (atomic điều kiện còn hạn)
+            const r = await User.updateOne(
+            {
+                email,
+                isVerified: false,
+                verificationToken: token,
+                // nếu có expires thì bắt buộc còn hạn; nếu null thì vẫn cho pass
+                $or: [
+                { verificationExpiresAt: null },
+                { verificationExpiresAt: { $gte: new Date() } }
+                ]
+            },
+            { $set: { isVerified: true }, $unset: { verificationToken: 1, verificationExpiresAt: 1 } }
+            );
 
-        if (expired) {
-            return res.status(400).json({ message: 'Mã đã hết hạn. Vui lòng bấm "Gửi lại mã".', expired: true });
-        }
+            if (r.modifiedCount === 1) {
+                return res.status(200).json({
+                    message: "Xác minh thành công! Bạn có thể đăng nhập.",
+                    verified: true
+                });
+            }
 
-        return res.status(400).json({ message: "Mã không đúng hoặc đã được sử dụng." });
+            // Nếu tới đây mà không modified thì coi như mã không còn hợp lệ
+            return res.status(400).json({ message: "Mã không đúng hoặc đã được sử dụng." });
         } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Lỗi máy chủ." });
+            console.error(error);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
         }
     },
 
@@ -326,7 +262,9 @@ const authController = {
         const email = String(req.body.email || "").trim().toLowerCase();
         if (!email) return res.status(400).json({ message: "Thiếu email để gửi lại mã." });
 
-        const user = await User.findOne({ email }).select("username isVerified").lean();
+        const user = await User.findOne({ email })
+            .select("username isVerified")
+            .lean();
         if (!user || user.isVerified) {
             return res.status(400).json({ message: "Email không tồn tại hoặc đã xác minh." });
         }
@@ -357,7 +295,8 @@ const authController = {
         }
     },
 
-    // forgot password
+
+        // ============== FORGOT PASSWORD ==============
     forgotPassword: async (req, res) => {
         try {
         const email = String(req.body.email || "").trim().toLowerCase();
@@ -366,7 +305,9 @@ const authController = {
         const genericMsg =
             "Nếu email tồn tại trong hệ thống, chúng tôi đã gửi mã xác nhận để đặt lại mật khẩu (hết hạn sau 10 phút).";
 
-        const user = await User.findOne({ email }).select("username isVerified").lean();
+        const user = await User.findOne({ email })
+            .select("username isVerified")
+            .lean();
         if (!user) {
             console.log("[forgot] email not found:", email);
             return res.status(200).json({ message: genericMsg });
@@ -381,22 +322,17 @@ const authController = {
         );
 
         try {
-            // GỬI EMAIL 1 LẦN Ở ĐÂY
             await sendResetMail(email, user.username || email, token);
         } catch (e) {
             console.error("[forgot] send mail error:", e?.message || e);
-            // vẫn trả 200 để không lộ tồn tại email
         }
-
-        return res.status(200).json({
-            message: genericMsg,
-            pendingEmail: email,
-        });
+        return res.status(200).json({ message: genericMsg, pendingEmail: email });
         } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Lỗi máy chủ." });
         }
     },
+
     // ============== RESET PASSWORD ==============
     resetPassword: async (req, res) => {
         try {
@@ -406,13 +342,19 @@ const authController = {
         const confirm = String(req.body.password_confirm || "");
 
         if (!email || !token || !newPassword) {
-            return res.status(200).json({ ok: false, code: "MISSING", message: "Thiếu email, mã hoặc mật khẩu mới." });
+            return res
+            .status(200)
+            .json({ ok: false, code: "MISSING", message: "Thiếu email, mã hoặc mật khẩu mới." });
         }
         if (newPassword !== confirm) {
-            return res.status(200).json({ ok: false, code: "MISMATCH", message: "Xác nhận mật khẩu không khớp." });
+            return res
+            .status(200)
+            .json({ ok: false, code: "MISMATCH", message: "Xác nhận mật khẩu không khớp." });
         }
         if (newPassword.length < 6) {
-            return res.status(200).json({ ok: false, code: "WEAK_PASSWORD", message: "Mật khẩu phải có ít nhất 6 ký tự." });
+            return res
+            .status(200)
+            .json({ ok: false, code: "WEAK_PASSWORD", message: "Mật khẩu phải có ít nhất 6 ký tự." });
         }
 
         const user = await User.findOne({
@@ -425,7 +367,10 @@ const authController = {
             const expired = await User.findOne({
             email,
             resetPasswordToken: token,
-            $or: [{ resetPasswordExpiresAt: null }, { resetPasswordExpiresAt: { $lt: new Date() } }],
+            $or: [
+                { resetPasswordExpiresAt: null },
+                { resetPasswordExpiresAt: { $lt: new Date() } },
+            ],
             }).lean();
 
             if (expired) {
@@ -436,11 +381,9 @@ const authController = {
                 message: "Mã đã hết hạn. Vui lòng bấm 'Gửi lại mã'.",
             });
             }
-            return res.status(200).json({
-            ok: false,
-            code: "INVALID_TOKEN",
-            message: "Mã không đúng.",
-            });
+            return res
+            .status(200)
+            .json({ ok: false, code: "INVALID_TOKEN", message: "Mã không đúng." });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -448,16 +391,20 @@ const authController = {
 
         await User.updateOne(
             { _id: user._id },
-            { $set: { password: hashed }, $unset: { resetPasswordToken: 1, resetPasswordExpiresAt: 1 } }
+            {
+            $set: { password: hashed },
+            $unset: { resetPasswordToken: 1, resetPasswordExpiresAt: 1 },
+            }
         );
 
-        return res.status(200).json({ ok: true, message: "Đặt lại mật khẩu thành công! Hãy đăng nhập." });
+        return res
+            .status(200)
+            .json({ ok: true, message: "Đặt lại mật khẩu thành công! Hãy đăng nhập." });
         } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: "Lỗi máy chủ." });
         }
     },
-
 };
 
 module.exports = authController;

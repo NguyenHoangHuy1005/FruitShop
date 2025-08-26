@@ -28,6 +28,23 @@ const API = axios.create({
 
 // Export nếu nơi khác cần dùng trực tiếp
 export { API };
+
+const getPendingEmail = () =>
+    (localStorage.getItem("PENDING_EMAIL") || "").trim().toLowerCase();
+/* ========= AUTH HELPERS (silent refresh) ========= */
+// Cố gắng lấy/đảm bảo accessToken: nếu có sẵn thì dùng, nếu chưa có thì gọi /auth/refresh
+export const ensureAccessToken = async (maybeToken) => {
+    if (maybeToken) return maybeToken;
+    try {
+        const r = await API.post("/auth/refresh", null, { validateStatus: () => true });
+        if (r.status === 200 && r.data?.accessToken) {
+        const t = r.data.accessToken;
+        API.defaults.headers.common.Authorization = `Bearer ${t}`;
+        return t;
+        }
+    } catch (_) {}
+    return null; // không có token
+};
 /* ======================= AUTH ======================= */
 
 export const loginUser = async (user, dispatch, navigate) => {
@@ -35,7 +52,10 @@ export const loginUser = async (user, dispatch, navigate) => {
     try {
         const res = await API.post("/auth/login", user);
         dispatch(loginSuccess(res.data));
-
+        // Gắn Authorization cho mọi request tiếp theo
+        if (res.data?.accessToken) {
+            API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
+        }
         const msg = res?.data?.message || "Đăng nhập thành công!";
         alert(msg);
 
@@ -45,7 +65,7 @@ export const loginUser = async (user, dispatch, navigate) => {
         navigate("/");
         }
     } catch (error) {
-        // Nếu chưa verify: backend trả 403 + pendingEmail
+        // Nếu chưa verify: backend trả 403  pendingEmail
         if (error?.response?.status === 403 && error?.response?.data?.pendingEmail) {
         const pending = error.response.data.pendingEmail;
         localStorage.setItem("PENDING_EMAIL", pending);
@@ -94,10 +114,25 @@ export const registerUser = async (user, dispatch, navigate) => {
 };
 
 // Xác minh OTP
-export const verifyAccount = async ({ email, token }, dispatch) => {
+// Xác minh OTP (luôn dùng email đã lưu)
+export const verifyAccount = async ({ token }, dispatch) => {
     dispatch(verifyStart());
     try {
-        await API.post("/auth/verify", { email, token });
+        const email = getPendingEmail();
+        const code = String(token || "").trim(); // giữ '0' đầu
+        if (!email) {
+        dispatch(verifyFailure());
+        return { ok: false, message: "Thiếu email cần xác minh." };
+        }
+        if (!/^\d{6}$/.test(code)) {
+        dispatch(verifyFailure());
+        return { ok: false, message: "Mã OTP phải gồm 6 chữ số." };
+        }
+
+        // debug nhẹ (có thể bỏ sau)
+        console.log("[VERIFY] payload:", { email, token: code });
+
+        await API.post("/auth/verify", { email, token: code });
         dispatch(verifySuccess());
         return { ok: true };
     } catch (error) {
@@ -109,9 +144,13 @@ export const verifyAccount = async ({ email, token }, dispatch) => {
 
 
 // Gửi lại mã
+// Gửi lại mã (đọc email từ localStorage nếu param trống)
 export const resendCode = async (email, dispatch) => {
     try {
-        const res = await API.post("/auth/verify/resend", { email });
+        const mail = (email || getPendingEmail());
+        if (!mail) { alert("Thiếu email để gửi lại mã."); return false; }
+
+        const res = await API.post("/auth/verify/resend", { email: mail });
         const pending = res.data?.pendingEmail;
         if (pending) {
         localStorage.setItem("PENDING_EMAIL", pending);
@@ -322,7 +361,7 @@ export const updateCartItem = async (productId, quantity, dispatch) => {
         if (!productId) throw new Error("Thiếu productId");
 
         // Chuẩn hoá số lượng: số nguyên, không âm
-        const qty = Number.isFinite(+quantity) ? Math.max(0, Math.floor(+quantity)) : 0;
+        const qty = Number.isFinite(quantity) ? Math.max(0, Math.floor(quantity)) : 0;
 
         // Lấy URL cuối cùng để debug (không gửi request)
         const url = API.getUri({ url: `/cart/item/${productId}` });
@@ -381,11 +420,13 @@ export const clearCart = async (dispatch) => {
 };
 
 /* ======================= ORDER (Checkout) ======================= */
-// Lưu đơn hàng (MongoDB) từ giỏ hiện tại + thông tin form
-export const placeOrder = async (payload, dispatch, navigate) => {
+// Lưu đơn hàng (MongoDB) từ giỏ hiện tại  thông tin form
+export const placeOrder = async (payload, accessToken, dispatch, navigate) => {
     // payload: { fullName, address, phone, email, note }
     try {
-        const res = await API.post("/order", payload);
+        const res = await API.post("/order", payload, {
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
         alert(res?.data?.message || "Đặt hàng thành công!");
         // BE thường clear cart sau khi tạo order → làm mới cart:
         await ensureCart(dispatch);
@@ -396,3 +437,41 @@ export const placeOrder = async (payload, dispatch, navigate) => {
     }
 };
 
+export const fetchMyOrders = async (accessToken) => {
+    // B1: đảm bảo token (nếu FE bị mất sau reload, sẽ refresh tại đây)
+    let token = await ensureAccessToken(accessToken);
+    if (!token) {
+        // chưa lấy được token từ refresh => báo cần đăng nhập
+        const err = new Error("AUTH_REQUIRED");
+        err.code = "AUTH_REQUIRED";
+        throw err;
+    }
+
+    // B2: gọi API; nếu 401 thì thử refresh lần cuối rồi retry
+    let res = await API.get("/order/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+
+    if (res.status === 401) {
+        // refresh lần nữa (phòng khi token vừa hết hạn)
+        token = await ensureAccessToken(null);
+        if (!token) {
+        const err = new Error("AUTH_REQUIRED");
+        err.code = "AUTH_REQUIRED";
+        throw err;
+        }
+        res = await API.get("/order/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+        });
+    }
+
+    if (res.status !== 200) {
+        const msg = res?.data?.message || `Không tải được đơn hàng (HTTP ${res.status}).`;
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+    }
+    return res.data;
+};

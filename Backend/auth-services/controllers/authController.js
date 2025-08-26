@@ -2,6 +2,8 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { sendVerificationMail, sendResetMail } = require("../utils/mailer");
+const Cart = require("../../product-services/models/Carts");
+
 
 let refreshTokens = [];
 
@@ -11,8 +13,8 @@ const generate6Digit = () =>
 
 const COOKIE_OPTS = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production" ? true : false,
+    sameSite: "lax",
     path: "/",
 };
 
@@ -130,8 +132,51 @@ const authController = {
 
         res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
 
+        // ✅ merge giỏ guest (nếu có CART_ID) vào giỏ user
+        const guestKey = req.cookies.CART_ID;
+        let userCart = await Cart.findOne({ user: user._id, status: "active" });
+
+        if (guestKey) {
+            const guestCart = await Cart.findOne({ cartKey: guestKey, status: "active" });
+            if (guestCart && guestCart.items.length) {
+                if (!userCart) {
+                    guestCart.user = user._id;
+                    guestCart.cartKey = null;
+                    await guestCart.save();
+                    userCart = guestCart;
+                } else {
+                    for (const gItem of guestCart.items) {
+                        const idx = userCart.items.findIndex(i => i.product.equals(gItem.product));
+                        if (idx >= 0) {
+                            userCart.items[idx].quantity += gItem.quantity;
+                            userCart.items[idx].total = userCart.items[idx].quantity * userCart.items[idx].price;
+                        } else {
+                            userCart.items.push(gItem);
+                        }
+                    }
+                    userCart.summary.totalItems = userCart.items.reduce((s, i) => s + i.quantity, 0);
+                    userCart.summary.subtotal   = userCart.items.reduce((s, i) => s + i.total, 0);
+                    await userCart.save();
+                    await Cart.deleteOne({ _id: guestCart._id });
+                }
+            }
+            res.clearCookie("CART_ID", { path: "/" }); // ❌ clear cookie guest sau khi merge
+        }
+
+
         const { password, ...others } = user._doc;
-        return res.status(200).json({ ...others, accessToken });
+        
+        // Lấy giỏ hiện tại của user (sau khi merge)
+        userCart = await Cart.findOne({ user: user._id, status: "active" })
+        .populate("items.product");
+
+        if (!userCart) {
+            userCart = { items: [], summary: { totalItems: 0, subtotal: 0 } }; // ⚡ fallback rỗng
+        }
+
+        return res.status(200).json({ ...others, accessToken, cart: userCart });
+
+
         } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Lỗi máy chủ." });
@@ -181,20 +226,23 @@ const authController = {
     // ============== LOGOUT ==============
     userLogout: async (req, res) => {
         try {
-        const refreshToken = req.cookies.refreshToken;
+            const refreshToken = req.cookies.refreshToken;
 
-        res.clearCookie("refreshToken", COOKIE_OPTS);
+            // ❌ xoá cả refreshToken và CART_ID cookie
+            res.clearCookie("refreshToken", COOKIE_OPTS);
+            res.clearCookie("CART_ID", { path: "/" });
 
-        if (refreshToken) {
+            if (refreshToken) {
             refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
-        }
+            }
 
-        return res.status(200).json({ message: "Logged out" });
+            return res.status(200).json({ message: "Đăng xuất thành công, giỏ hàng đã được lưu cho tài khoản." });
         } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Lỗi máy chủ." });
+            console.error(error);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
         }
     },
+
 
     // ============== VERIFY ACCOUNT ==============
     verifyAccount: async (req, res) => {

@@ -52,6 +52,18 @@ export const loginUser = async (user, dispatch, navigate) => {
     try {
         const res = await API.post("/auth/login", user);
         dispatch(loginSuccess(res.data));
+
+        // ⚡ nếu BE trả về cart thì chuẩn hóa lại cho Redux
+        if (res.data?.cart) {
+            const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
+            dispatch(cartSuccess({ items, summary }));
+        } else {
+            // ⚡ fallback: gọi API /cart để load lại từ BE
+            await ensureCart(dispatch);
+        }
+
+
+
         // Gắn Authorization cho mọi request tiếp theo
         if (res.data?.accessToken) {
             API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
@@ -60,19 +72,18 @@ export const loginUser = async (user, dispatch, navigate) => {
         alert(msg);
 
         if (res.data.admin === true) {
-        navigate(ROUTERS.ADMIN?.USERMANAGER || "/admin/users");
+            navigate(ROUTERS.ADMIN?.USERMANAGER || "/admin/users");
         } else {
-        navigate("/");
+            navigate("/");
         }
     } catch (error) {
-        // Nếu chưa verify: backend trả 403  pendingEmail
         if (error?.response?.status === 403 && error?.response?.data?.pendingEmail) {
-        const pending = error.response.data.pendingEmail;
-        localStorage.setItem("PENDING_EMAIL", pending);
-        dispatch(setPendingEmail(pending));
-        alert("Tài khoản chưa xác minh. Vui lòng nhập mã OTP.");
-        navigate(ROUTERS.ADMIN?.AUTH     || "/admin/auth");
-        return;
+            const pending = error.response.data.pendingEmail;
+            localStorage.setItem("PENDING_EMAIL", pending);
+            dispatch(setPendingEmail(pending));
+            alert("Tài khoản chưa xác minh. Vui lòng nhập mã OTP.");
+            navigate(ROUTERS.ADMIN?.AUTH || "/admin/auth");
+            return;
         }
         const errMsg = error?.response?.data?.message || "Đăng nhập thất bại!";
         alert(errMsg);
@@ -175,28 +186,30 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
         "/auth/logout",
         { id },
         {
-            headers: { token: `Bearer ${accessToken}` },
-            withCredentials: true, // để nhận Set-Cookie clear từ server
+            headers: { Authorization: `Bearer ${accessToken}` }, // dùng Authorization thay vì token
+            withCredentials: true,
         }
         );
     } catch (error) {
         ok = false;
         console.error("Logout error:", error?.response?.data || error?.message);
     } finally {
-        // Dọn client
-        try { localStorage.removeItem("persist:root"); } catch {}
-        try { localStorage.removeItem("PENDING_EMAIL"); } catch {}
+        // Dọn client triệt để
+        try { localStorage.clear(); } catch {}
         try { sessionStorage.clear(); } catch {}
         try {
+        delete API.defaults.headers.common.Authorization;
         delete API.defaults.headers.common.token;
-        delete API.defaults.headers.common.Authorization; // thêm dòng này
         } catch {}
 
         dispatch(logoutSuccess());
-        alert(ok ? "Đăng xuất thành công!" : "Đã xoá phiên trên trình duyệt (server có thể chưa thu hồi token).");
+        await ensureCart(dispatch);  // gọi lại API /cart → Redux.cart sẽ về giỏ guest (trống)
+
+        alert(ok ? "Đăng xuất thành công!" : "Đăng xuất cục bộ (server có thể chưa thu hồi token).");
         navigate("/", { replace: true });
     }
 };
+
 
 
 

@@ -2,16 +2,23 @@
 @use "../../../style/pages/all";
 @use "../../../style/pages/theme";
 
-// ===== Tokens (tự rơi về fallback nếu thiếu trong theme) =====
-$primary: map.get(theme.$theme-colors, "main");
-@if $primary == null { $primary: #10b981; } // emerald
-$text: map.get(theme.$theme-colors, "normal-text");
-@if $text == null { $text: #0f172a; }       // slate-900
-$muted: #64748b;    // slate-500
-$border: #e5e7eb;   // gray-200
-$bg: #ffffff;       // white
-$bg-soft: #f8fafc;  // slate-50
-$shadow: 0 8px 20px rgba(2, 6, 23, .06);
+// === Light Theme (default) ===
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f8fafc;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e5e7eb;
+}
+
+// === Dark Theme ===
+.dark {
+  --bg: #1e293b;      // slate-800
+  --bg-soft: #334155; // slate-700
+  --text: #f8fafc;    // slate-100
+  --muted: #94a3b8;   // slate-400
+  --border: #334155;  // slate-700
+}
 
 $green: #10b981;
 $blue: #3b82f6;
@@ -19,166 +26,174 @@ $amber: #f59e0b;
 $rose: #ef4444;
 $zinc: #71717a;
 
-// ===== Utilities =====
 @mixin ring($c) {
-  box-shadow: 0 0 0 3px rgba($c, .2);
+    box-shadow: 0 0 0 3px rgba($c, .2);
 }
 
-// ===== Page =====
 .orders {
-  background: $bg;
-  border: 1px solid $border;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: $shadow;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(2, 6, 23, .06);
 
-  h2 {
-    margin: 4px 0 18px;
-    text-align: center;
-    color: $text;
-    letter-spacing: .5px;
-  }
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
 
-  // ---- Toolbar ----
-  &__toolbar {
-    display: grid;
-    grid-template-columns: 1fr 220px 140px;
-    gap: 12px;
-    margin: 12px 0 16px;
+        h2 {
+            margin: 0;
+            color: var(--text);
+        }
 
-    input, select {
-      appearance: none;
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid $border;
-      border-radius: 10px;
-      background: $bg-soft;
-      color: $text;
-      transition: border-color .2s ease, box-shadow .2s ease, background .2s;
-      &:focus {
-        outline: none;
-        border-color: $primary;
-        @include ring($primary);
-        background: #fff;
-      }
-    }
-  }
-
-  // ---- Table container (responsive) ----
-  &__content {
-    overflow-x: auto;
-    border-radius: 12px;
-    border: 1px solid $border;
-    background: $bg;
-  }
-
-  // ---- Table ----
-  &__table {
-    width: 100%;
-    min-width: 860px;
-    border-collapse: collapse;
-
-    thead th {
-      position: sticky;
-      top: 0;
-      background: $bg-soft;
-      color: $muted;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 12px;
-      letter-spacing: .6px;
-      padding: 12px;
-      border-bottom: 1px solid $border;
-      text-align: left;
+        .btn-theme {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 10px;
+            background: var(--bg-soft);
+            color: var(--text);
+            cursor: pointer;
+            &:hover {
+                border-color: $blue;
+                @include ring($blue);
+            }
+        }
     }
 
-    tbody td {
-      padding: 14px 12px;
-      border-bottom: 1px solid $border;
-      vertical-align: middle;
-      color: $text;
+    &__toolbar {
+        display: grid;
+        grid-template-columns: 1fr 220px 140px;
+        gap: 12px;
+        margin: 12px 0 16px;
+
+        input, select {
+            appearance: none;
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-soft);
+            color: var(--text);
+            &:focus {
+                outline: none;
+                border-color: $blue;
+                @include ring($blue);
+                background: #fff;
+            }
+        }
     }
 
-    tbody tr {
-      transition: background .15s ease, transform .12s ease;
-      &:hover {
-        background: #f9fafb;
-      }
+    &__content {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--bg);
     }
 
-    // số tiền phải phải phải…
-    td.-right { text-align: right; }
-  }
+    &__table {
+        width: 100%;
+        min-width: 860px;
+        border-collapse: collapse;
 
-  // ---- Badges ----
-  .badge {
-    display: inline-block;
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: .3px;
-    border: 1px solid transparent;
-    &.status-pending   { color: $amber; border-color: rgba($amber,.35); background: rgba($amber,.10); }
-    &.status-paid      { color: $green; border-color: rgba($green,.35); background: rgba($green,.10); }
-    &.status-shipped   { color: $blue;  border-color: rgba($blue,.35);  background: rgba($blue,.10); }
-    &.status-completed { color: #0891b2; border-color: rgba(#0891b2,.35); background: rgba(#0891b2,.10); }
-    &.status-cancelled { color: $rose;  border-color: rgba($rose,.35);  background: rgba($rose,.10); }
-  }
+        thead th {
+            background: var(--bg-soft);
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: .6px;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
 
-  // ---- Footer / Pagination ----
-  &__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-top: 14px;
-    color: $muted;
+        tbody td {
+            padding: 14px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
 
-    .orders__pagination {
-      display: inline-flex;
-      gap: 8px;
+        tbody tr {
+            transition: background .15s ease;
+            &:hover { background: rgba(0,0,0,.03); }
+        }
+    }
 
-      button {
-        padding: 8px 12px;
-        border: 1px solid $border;
+    &__row { border-top: 1px solid var(--border); }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .3px;
+        border: 1px solid transparent;
+        &.status-pending   { color: $amber; border-color: rgba($amber,.35); background: rgba($amber,.10); }
+        &.status-paid      { color: $green; border-color: rgba($green,.35); background: rgba($green,.10); }
+        &.status-shipped   { color: $blue;  border-color: rgba($blue,.35);  background: rgba($blue,.10); }
+        &.status-completed { color: #0891b2; border-color: rgba(#0891b2,.35); background: rgba(#0891b2,.10); }
+        &.status-cancelled { color: $rose;  border-color: rgba($rose,.35);  background: rgba($rose,.10); }
+    }
+
+    &__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        color: var(--muted);
+
+        .orders__pagination {
+            display: inline-flex;
+            gap: 8px;
+
+            button {
+                padding: 8px 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--bg);
+                color: var(--text);
+                cursor: pointer;
+                &:hover:not(:disabled) {
+                    border-color: $blue;
+                    @include ring($blue);
+                }
+                &:active:not(:disabled) { transform: translateY(1px); }
+                &:disabled {
+                    color: $zinc;
+                    background: #f4f4f5;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+
+    .alert {
+        margin: 8px 0 14px;
+        padding: 12px 14px;
         border-radius: 10px;
-        background: $bg;
-        color: $text;
-        cursor: pointer;
-        transition: transform .08s ease, box-shadow .12s ease, border-color .2s;
-
-        &:hover:not(:disabled) {
-          border-color: $primary;
-          @include ring($primary);
-        }
-        &:active:not(:disabled) { transform: translateY(1px); }
-        &:disabled {
-          color: $zinc;
-          background: #f4f4f5;
-          cursor: not-allowed;
-        }
-      }
+        border: 1px solid transparent;
+        &.alert-danger { color: $rose; background: rgba($rose,.08); border-color: rgba($rose,.25); }
+        &.alert-info   { color: $blue; background: rgba($blue,.08); border-color: rgba($blue,.25); }
     }
-  }
-
-  // ---- Alerts (fallback nếu chưa có global) ----
-  .alert {
-    margin: 8px 0 14px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    &.alert-danger { color: $rose; background: rgba($rose,.08); border-color: rgba($rose,.25); }
-    &.alert-info   { color: $blue; background: rgba($blue,.08); border-color: rgba($blue,.25); }
-  }
 }
 
-// ===== RWD =====
+// Helpers
+.fw-bold { font-weight: 600; }
+.td-right { text-align: right; }
+.text-muted { color: var(--muted); font-size: 12px; }
+.no-data { text-align: center; padding: 16px; color: var(--muted); }
+
+// RWD
 @media (max-width: 992px) {
-  .orders__toolbar { grid-template-columns: 1fr 1fr; }
+    .orders__toolbar { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-  .orders { padding: 14px; }
-  .orders__toolbar { grid-template-columns: 1fr; }
-  .orders__table { min-width: 720px; }
+    .orders { padding: 14px; }
+    .orders__toolbar { grid-template-columns: 1fr; }
+    .orders__table { min-width: 720px; }
 }

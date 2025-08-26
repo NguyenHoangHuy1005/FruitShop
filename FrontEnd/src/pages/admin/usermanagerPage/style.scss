@@ -2,9 +2,9 @@
 @use "../../../style/pages/all";
 @use "../../../style/pages/theme";
 
-
 .container {
     padding: 10px;
+
     h2 {
         margin-bottom: 20px;
         color: map.get(theme.$theme-colors, "main");
@@ -16,7 +16,7 @@
         border-collapse: collapse;
         background-color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        border-radius: 8px;
+        border-radius: 10px;
         overflow: hidden;
 
         th,
@@ -24,24 +24,28 @@
             padding: 12px 16px;
             text-align: left;
             border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
         }
 
         th {
-            background-color: #f7f7f7;
+            background-color: #f9fafb;
             font-weight: 600;
             color: map.get(theme.$theme-colors, "normal-text");
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         td {
             color: map.get(theme.$theme-colors, "normal-text");
         }
+
         td .action-buttons {
             display: flex;
             gap: 8px;
             align-items: center;
-            /* không cần margin-top trong bảng */
-        }
+            }
 
+        // trạng thái user
         .status {
             padding: 4px 10px;
             border-radius: 20px;
@@ -60,25 +64,89 @@
             }
         }
 
-        .view-btn, .update-btn, .ban-btn {
+        // nút hành động
+        .view-btn,
+        .update-btn,
+        .ban-btn {
             padding: 6px 12px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
-            line-height: 1;
-            white-space: nowrap;
-            transition: filter .15s ease, transform .02s ease;
+            font-weight: 500;
+            transition: all 0.15s ease;
         }
-        .view-btn   { background: #1976d2; color: #fff; }
-        .update-btn { background: #fbbf24; color: #111827; }
-        .ban-btn    { background: #dc2626; color: #fff; }
+
+        .view-btn {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .update-btn {
+            background: #facc15;
+            color: #111827;
+        }
+
+        .ban-btn {
+            background: #dc2626;
+            color: #fff;
+        }
 
         .view-btn:hover,
         .update-btn:hover,
-        .ban-btn:hover { filter: brightness(1.05); }
+        .ban-btn:hover {
+            filter: brightness(1.05);
+        }
+
         .view-btn:active,
         .update-btn:active,
-        .ban-btn:active { transform: translateY(0.5px); }
+        .ban-btn:active {
+            transform: translateY(1px);
+        }
+    }
+
+    // ✅ phần chi tiết user hiển thị ngay trong trang
+    .user-details {
+        margin-top: 20px;
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+
+        h3 {
+            margin-top: 0;
+            margin-bottom: 14px;
+            color: map.get(theme.$theme-colors, "main");
+            font-size: 18px;
+            text-align: center;
+        }
+
+        p {
+            margin: 6px 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: map.get(theme.$theme-colors, "normal-text");
+        }
+
+        .close-btn {
+            margin-top: 16px;
+            display: inline-block;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.15s ease;
+
+            &:hover {
+                background: #2563eb;
+            }
+            &:active {
+                transform: translateY(1px);
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 
 
+
 // ==== helper dùng chung ====
 const readBearer = (req) => {
     const raw = req.headers?.authorization || req.headers?.Authorization || req.headers?.token || "";
@@ -118,3 +119,65 @@ exports.myOrders = async (req, res) => {
     }
 };
 
+// ===== Admin APIs =====
+exports.adminList = async (req, res) => {
+    const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip  = (page - 1) * limit;
+
+    const { status, q, user, from, to } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (user)   filter.user = user;
+
+    if (q && q.trim()) {
+        const esc = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const rx = new RegExp(esc, "i");
+        filter.$or = [
+        { "customer.name":  rx },
+        { "customer.phone": rx },
+        { "customer.email": rx },
+        { "items.name":     rx },
+        ];
+    }
+
+    if (from || to) {
+        filter.createdAt = {};
+        if (from) filter.createdAt.$gte = new Date(from);
+        if (to)   filter.createdAt.$lte = new Date(to);
+    }
+
+    const [total, rows] = await Promise.all([
+        Order.countDocuments(filter),
+        Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    ]);
+
+    return res.json({
+        page, limit, total, pages: Math.ceil(total / limit) || 1,
+        data: rows,
+    });
+};
+
+exports.adminGetOne = async (req, res) => {
+    const doc = await Order.findById(req.params.id).lean();
+    if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    return res.json(doc);
+};
+
+exports.adminUpdate = async (req, res) => {
+    const { status, payment } = req.body || {};
+    const update = {};
+    if (status)  update.status = status;   // pending|paid|shipped|completed|cancelled
+    if (payment) update.payment = payment; // COD|BANK|VNPAY
+    if (!Object.keys(update).length) {
+        return res.status(400).json({ message: "Không có trường nào để cập nhật." });
+    }
+    const doc = await Order.findByIdAndUpdate(
+        req.params.id,
+        { $set: update },
+        { new: true, runValidators: true }
+    ).lean();
+    if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    return res.json({ ok: true, data: doc });
+};

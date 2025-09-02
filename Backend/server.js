@@ -42,7 +42,7 @@ app.use(express.json());
 app.use((req, _res, next) => { console.log(`[${req.method}] ${req.originalUrl}`); next(); });
 
 // ===== Mount routes 1 LẦN =====
-app.use("/api/upload",  uploadRoutes);
+app.use("/api",  uploadRoutes);
 app.use("/api/auth",    authRoute);
 app.use("/api/user",    userRoute);
 app.use("/api/product", productRoute);

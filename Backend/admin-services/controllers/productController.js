@@ -24,15 +24,26 @@ const productControllers = {
             res.status(500).json({ message: "Lỗi thêm sản phẩm", error: err.message });
         }
     },
-    // Lấy danh sách sản phẩm
-    getAllProducts: async (req, res) => {
-        try {
-            const products = await Product.find();
-            res.status(200).json(products);
-        } catch (err) {
-            res.status(500).json({ message: "Lỗi lấy danh sách sản phẩm", error: err.message });
+   // Lấy danh sách sản phẩm (xáo trộn bằng JS)
+getAllProducts: async (req, res) => {
+    try {
+        let products = await Product.find();
+
+        // Shuffle (Fisher-Yates)
+        for (let i = products.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [products[i], products[j]] = [products[j], products[i]];
         }
-    },
+
+        res.status(200).json(products);
+    } catch (err) {
+        res.status(500).json({ 
+            message: "Lỗi lấy danh sách sản phẩm", 
+            error: err.message 
+        });
+    }
+},
+
 
     // Xóa sản phẩm
     deleteProduct: async (req, res) => {

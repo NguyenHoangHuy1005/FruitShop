@@ -165,16 +165,24 @@ const authController = {
 
 
         const { password, ...others } = user._doc;
-        
+
         // Lấy giỏ hiện tại của user (sau khi merge)
         userCart = await Cart.findOne({ user: user._id, status: "active" })
         .populate("items.product");
 
         if (!userCart) {
-            userCart = { items: [], summary: { totalItems: 0, subtotal: 0 } }; // ⚡ fallback rỗng
+            userCart = await Cart.create({
+                user: user._id,
+                items: [],
+                summary: { totalItems: 0, subtotal: 0 }
+            });
+            userCart = await userCart.populate("items.product");
         }
 
+
+        console.log("LOGIN -> return cart:", JSON.stringify(userCart, null, 2));
         return res.status(200).json({ ...others, accessToken, cart: userCart });
+
 
 
         } catch (error) {

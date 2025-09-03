@@ -53,21 +53,20 @@ export const loginUser = async (user, dispatch, navigate) => {
         const res = await API.post("/auth/login", user);
         dispatch(loginSuccess(res.data));
 
-        // ⚡ nếu BE trả về cart thì chuẩn hóa lại cho Redux
-        if (res.data?.cart) {
-            const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
-            dispatch(cartSuccess({ items, summary }));
-        } else {
-            // ⚡ fallback: gọi API /cart để load lại từ BE
-            await ensureCart(dispatch);
-        }
-
-
-
         // Gắn Authorization cho mọi request tiếp theo
         if (res.data?.accessToken) {
             API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
         }
+
+        // ⚡ sync giỏ
+        if (res.data?.cart) {
+            const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
+            dispatch(cartSuccess({ items, summary }));
+        } else {
+            await ensureCart(dispatch); // fallback
+        }
+
+
         const msg = res?.data?.message || "Đăng nhập thành công!";
         alert(msg);
 

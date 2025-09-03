@@ -1,9 +1,9 @@
 // product-services/controllers/orderController.js
+const crypto = require("crypto"); // đầu file
 const Carts = require("../models/Carts");
 const Order = require("../models/Order");
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
-
 
 
 // ==== helper dùng chung ====
@@ -69,22 +69,25 @@ exports.createOrder = async (req, res) => {
         payment: "COD",
         });
 
+        //  Đánh dấu giỏ hiện tại là "ordered"
         cart.status = "ordered";
         await cart.save();
 
+        // Tạo giỏ mới luôn có cartKey mới
         const newCart = await Carts.create({
-        user: cart.user || null,
-        cartKey: cart.cartKey || null,
-        status: "active",
-        items: [],
-        summary: { totalItems: 0, subtotal: 0 },
+            user: cart.user || null,
+            cartKey: crypto.randomUUID(),   // ⚡ luôn tạo UUID mới
+            status: "active",
+            items: [],
+            summary: { totalItems: 0, subtotal: 0 },
         });
 
-        res.cookie("CART_ID", newCart._id.toString(), {
-        httpOnly: true,
-        sameSite: "Lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
+        // set lại cookie CART_ID = cartKey mới
+        res.cookie("CART_ID", newCart.cartKey, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
         });
 
         return res.status(201).json({

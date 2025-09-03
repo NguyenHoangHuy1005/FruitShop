@@ -6,18 +6,22 @@ const Product = require("../../admin-services/models/Product");
 function getUserIdFromToken(req) {
     try {
         const raw =
-        req.headers?.authorization ||
-        req.headers?.Authorization ||
-        req.headers?.token; // FE đang dùng 'token'
+            req.headers?.authorization ||
+            req.headers?.Authorization ||
+            req.headers?.token; // FE đang dùng 'token'
         const token = raw?.split(" ")?.[1];
-        if (!token || !process.env.JWT_SECRET) return null;
+        if (!token) return null;
+
         const jwt = require("jsonwebtoken");
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        // ⚡ phải verify bằng ACCESS_KEY, không phải JWT_SECRET
+        const payload = jwt.verify(token, process.env.JWT_ACCESS_KEY);
+
         return payload?.id || payload?._id || null;
     } catch (_) {
         return null;
     }
 }
+
 
 function ensureCartCookie(req, res) {
     let cartKey = req.cookies?.CART_ID;
@@ -38,22 +42,34 @@ async function getOrCreateCart(req, res) {
     const cartKey = ensureCartCookie(req, res);
 
     let cart = null;
+
     if (userId) {
-        cart = await Carts.findOne({ user: userId, status: "active" }); // dùng Carts
+        // ưu tiên giỏ user
+        cart = await Carts.findOne({ user: userId, status: "active" });
+        if (!cart) {
+            cart = await Carts.create({
+                user: userId,
+                cartKey,   // ⚡ luôn gắn cartKey để tracking session song song
+                items: [],
+                summary: { totalItems: 0, subtotal: 0 },
+            });
+        }
+    } else {
+        // guest
+        cart = await Carts.findOne({ cartKey, status: "active" });
+        if (!cart) {
+            cart = await Carts.create({
+                cartKey,
+                items: [],
+                summary: { totalItems: 0, subtotal: 0 },
+            });
+        }
     }
-    if (!cart) {
-        cart = await Carts.findOne({ cartKey, status: "active" });       // dùng Carts
-    }
-    if (!cart) {
-        cart = await Carts.create({
-        user: userId || null,
-        cartKey,
-        items: [],
-        summary: { totalItems: 0, subtotal: 0 },
-        }); // dùng Carts
-    }
+
     return cart;
 }
+
+
 
 function recalc(cart) {
     let totalItems = 0, subtotal = 0;
@@ -132,23 +148,48 @@ exports.updateItem = async (req, res) => {
 
 
 exports.removeItem = async (req, res) => {
-    const { productId } = req.params;
-    const cart = await getOrCreateCart(req, res);
-    const before = cart.items.length;
-    cart.items = cart.items.filter(i => String(i.product) !== String(productId));
-    if (before === cart.items.length) return res.status(404).json({ message: "Item không có trong giỏ." });
+    try {
+        const { productId } = req.params;
+        const cart = await getOrCreateCart(req, res);
+        const before = cart.items.length;
 
-    recalc(cart);
-    await cart.save();
-    return res.json(cart);
+        // ⚡ lọc item ra khỏi mảng
+        cart.items = cart.items.filter(
+            (i) => String(i.product) !== String(productId)
+        );
+
+        if (before === cart.items.length) {
+            return res.status(404).json({ message: "Item không có trong giỏ." });
+        }
+
+        // tính lại tổng
+        recalc(cart);
+        await cart.save();   // ✅ bắt buộc để ghi xuống MongoDB
+
+        return res.json(cart);
+    } catch (err) {
+        console.error("removeItem error:", err);
+        return res.status(500).json({ message: "Lỗi server khi xóa item." });
+    }
 };
+
 
 exports.clearCart = async (req, res) => {
-    const cart = await getOrCreateCart(req, res);
-    cart.items = [];
-    recalc(cart);
-    await cart.save();
-    return res.json(cart);
+    try {
+        const cart = await getOrCreateCart(req, res);
+
+        // ⚡ clear hết items
+        cart.items = [];
+
+        recalc(cart); // đặt lại summary về 0
+        await cart.save();   // ✅ lưu DB
+
+        return res.json(cart);
+    } catch (err) {
+        console.error("clearCart error:", err);
+        return res.status(500).json({ message: "Lỗi server khi xóa giỏ." });
+    }
 };
+
 
 exports.getOrCreateCart = getOrCreateCart;

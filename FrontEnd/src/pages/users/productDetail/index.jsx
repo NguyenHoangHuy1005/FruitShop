@@ -1,23 +1,26 @@
 import { memo } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
 import { AiOutlineEye, AiFillFacebook, AiOutlineCopy, AiFillTikTok } from "react-icons/ai";
 import { formatter } from "../../../utils/fomater";
-import { ProductCard } from "../../../component";
-import Quantity from "../../../component/quantity";          // <-- import đúng
-import { useDispatch } from "react-redux";
+import { ProductCard } from "../../../component/productCard";
+import Quantity from "../../../component/quantity";
 import { addToCart } from "../../../component/redux/apiRequest";
-// import { featProducts } from "../../../utils/common";      // (đang không dùng) có thể xóa
 
 const ProductDetail = () => {
     const dispatch = useDispatch();
     const { id } = useParams();
-    const products = useSelector((state) => state.product.products?.allProducts || []);
+    const products = useSelector((s) => s.product.products?.allProducts || []);
     const product = products.find((p) => String(p._id) === String(id));
 
     if (!product) return <h2>Không tìm thấy sản phẩm</h2>;
+
+    // ✅ Tính sau khi chắc chắn có product
+    const pct = Number(product.discountPercent) || 0;
+    const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
+    const mainImg = Array.isArray(product.image) ? product.image[0] : product.image;
 
     const relatedProducts = products
         .filter((p) => p.category === product.category && p._id !== product._id)
@@ -30,7 +33,8 @@ const ProductDetail = () => {
             <div className="row">
             <div className="col-lg-6 product__detail__pic">
                 <div className="main">
-                <img src={product.image} alt={product.name} />
+                    {pct > 0 && <span className="discount-badge">-{pct}%</span>}
+                    <img src={mainImg} alt={product.name} />
                 </div>
             </div>
 
@@ -40,8 +44,18 @@ const ProductDetail = () => {
                 <AiOutlineEye /> {`68 (lượt xem)`}
                 </div>
                 <h2 className="product__name">{product.name}</h2>
-                <h3>{formatter(product.price)}</h3>
 
+                {/* ✅ Ternary chỉ bao gồm phần hiển thị giá */}
+                {pct > 0 ? (
+                <div className="price-wrap">
+                    <del className="price-old">{formatter(product.price)}</del>
+                    <div className="price-new">{formatter(finalPrice)}</div>
+                </div>
+                ) : (
+                <h3>{formatter(product.price)}</h3>
+                )}
+
+                {/* ✅ Các phần dưới đây hiển thị cho cả 2 trường hợp */}
                 {/* Chọn số lượng + thêm vào giỏ */}
                 <Quantity
                 hasAddToCart
@@ -95,6 +109,7 @@ const ProductDetail = () => {
                     category={item.category}
                     image={item.image}
                     status={item.status}
+                    discountPercent={item.discountPercent}
                 />
                 </div>
             ))}

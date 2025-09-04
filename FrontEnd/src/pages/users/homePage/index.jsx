@@ -6,7 +6,7 @@ import "react-tabs/style/react-tabs.css";
 import "./style.scss";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { ProductCard } from "../../../component/ProductCard";
+import { ProductCard } from "../../../component/productCard";
 import { getAllProduct } from "../../../component/redux/apiRequest";
 
 // Banner ảnh
@@ -31,45 +31,58 @@ const RenderFeatProducts = () => {
                 <Tab>Sản phẩm mới</Tab>
             </TabList>
     
+            {/* Tất cả */}
             <TabPanel>
                 <div className="row">
-                    {products.map((item) => (
-                        <div className="col-lg-3 col-md-3 col-sm-6 col-xs-12" key={item._id}>
-                            <ProductCard
-                                id={item._id}
-                                name={item.name}
-                                description={item.description}
-                                price={item.price}
-                                category={item.category}
-                                image={item.image}
-                                status={item.status}
-                            />
-                        </div>
+                {products.map((item) => (
+                    <div
+                    className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                    key={item._id}
+                    >
+                    <ProductCard
+                        id={item._id}
+                        name={item.name}
+                        description={item.description}
+                        price={item.price}
+                        category={item.category}
+                        image={item.image}
+                        status={item.status}
+                        discountPercent={item.discountPercent}
+                    />
+                    </div>
+                ))}
+                </div>
+            </TabPanel>
+
+            {/* Đang giảm giá */}
+            <TabPanel>
+                <div className="row">
+                {products
+                    .filter((p) => Number(p.discountPercent) > 0)
+                    .map((item) => (
+                    <div
+                        className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                        key={item._id}
+                    >
+                        <ProductCard {...item} />
+                    </div>
                     ))}
                 </div>
             </TabPanel>
-    
+
+            {/* Sản phẩm mới */}
             <TabPanel>
                 <div className="row">
-                    {products
-                        .filter((p) => p.sale === true)
-                        .map((item) => (
-                            <div className="col-lg-3 col-md-3 col-sm-6 col-xs-12" key={item._id}>
-                                <ProductCard {...item} />
-                            </div>
-                        ))}
-                </div>
-            </TabPanel>
-    
-            <TabPanel>
-                <div className="row">
-                    {products
-                        .slice(-8) // lấy 8 sản phẩm mới nhất
-                        .map((item) => (
-                            <div className="col-lg-3 col-md-3 col-sm-6 col-xs-12" key={item._id}>
-                                <ProductCard {...item} />
-                            </div>
-                        ))}
+                {products
+                    .slice(-8)
+                    .map((item) => (
+                    <div
+                        className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                        key={item._id}
+                    >
+                        <ProductCard {...item} />
+                    </div>
+                    ))}
                 </div>
             </TabPanel>
         </Tabs>

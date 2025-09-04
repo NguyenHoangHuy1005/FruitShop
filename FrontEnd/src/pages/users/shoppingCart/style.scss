@@ -29,8 +29,24 @@
             display: flex;
             align-items: center;
             column-gap: 20px;
+        }
+        // ✅ Style giá
+        .price-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
 
-            img {}
+            .old-price {
+                text-decoration: line-through;
+                color: #888;
+                font-size: 14px;
+            }
+
+            .new-price {
+                color: red;
+                font-weight: 600;
+                font-size: 16px;
+            }
         }
 
         .icons-close {
@@ -90,7 +106,7 @@
         justify-content: space-between;
         margin: 20px 0;
     }
-     .button-submit{
-            width: 100%;
-        }
+    .button-submit{
+        width: 100%;
+    }
 }

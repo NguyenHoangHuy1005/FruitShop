@@ -21,18 +21,28 @@
 
         .badge {
             position: absolute;
-            left: 12px;
             top: 12px;
+            left: 12px;
+            z-index: 2;
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700;
             color: #fff;
 
+            // 🔥 Huy hiệu giảm giá ở góc trái
+            &--discount {
+                background: #e11d48; // đỏ hồng
+            }
+
+            // 🔥 Hết hàng ở góc phải để không đè lên discount
             &--soldout {
-                background: #ef4444; // đỏ
+                left: auto;
+                right: 12px;
+                background: #6b7280; // xám
             }
         }
+
 
         .featured__item__pic__hover {
             position: absolute;
@@ -110,6 +120,26 @@
         font-size: 18px;
         font-weight: 700;
         margin-top: 10px;
+        }
+        .price-wrap {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+
+            .price-old {
+                color: #9ca3af;
+                font-size: 14px;
+                text-decoration: line-through;
+                text-decoration-thickness: 1px;
+                text-decoration-color: #9ca3af;
+            }
+            .price-new {
+                color: map.get(theme.$theme-colors, "normal-text");
+                font-weight: 700;
+                font-size: 18px;
+            }
         }
     }
 }

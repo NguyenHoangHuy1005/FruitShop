@@ -1,6 +1,35 @@
 const Product = require('../models/Product');
 
+// helper: clamp %
+const clampPercent = (n) => {
+    n = Number.isFinite(+n) ? +n : 0;
+    if (n < 0) n = 0;
+    if (n > 100) n = 100;
+    return Math.floor(n);
+};
 
+// helper: normalize body trước khi lưu/cập nhật
+const normalizePayload = (body) => {
+    const out = { ...body };
+
+    // price về số >=0
+    if (out.price !== undefined) {
+        const p = Number(out.price);
+        out.price = Number.isFinite(p) && p >= 0 ? p : 0;
+    }
+
+    // discountPercent 0..100
+    if (out.discountPercent !== undefined) {
+        out.discountPercent = clampPercent(out.discountPercent);
+    }
+
+    // image: cho phép FE gửi string -> ép thành [string]
+    if (typeof out.image === "string" && out.image.trim()) {
+        out.image = [out.image.trim()];
+    }
+
+    return out;
+};
 
 const productControllers = {
     // Thêm sản phẩm

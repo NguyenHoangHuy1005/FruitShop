@@ -64,7 +64,19 @@ const ShoppingCart = () => {
                         <img src={imgSrc || "/placeholder.png"} alt={name} />
                         <h4 title={name}>{name}</h4>
                         </td>
-                        <td>{formatter(it.price || 0)}</td>
+                        <td>
+                            {it.discountPercent > 0 ? (
+                                <div className="price-box">
+                                <span className="old-price">
+                                    {formatter(Math.round((it.price * 100) / (100 - it.discountPercent)))}
+                                </span>
+                                <span className="new-price">{formatter(it.price)}</span>
+                                </div>
+                            ) : (
+                                <span>{formatter(it.price)}</span>
+                            )}
+                        </td>
+
                         <td style={{ minWidth: 140 }}>
                         <input
                             type="number"

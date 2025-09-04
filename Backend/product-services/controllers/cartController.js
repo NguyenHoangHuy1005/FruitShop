@@ -88,6 +88,7 @@ exports.getCart = async (req, res) => {
 };
 
 // ====== addItem (chỉ sửa phần push) ======
+// ====== addItem (đã chỉnh giá giảm) ======
 exports.addItem = async (req, res) => {
     const { productId, quantity } = req.body || {};
     const qty = Math.max(1, Number(quantity) || 1);
@@ -96,27 +97,33 @@ exports.addItem = async (req, res) => {
     const product = await Product.findById(productId).lean();
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
 
+    // ✅ tính giá sau giảm
+    const pct = Number(product.discountPercent) || 0;
+    const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
+
     const idx = cart.items.findIndex(i => String(i.product) === String(product._id));
     if (idx >= 0) {
         cart.items[idx].quantity += qty;
+        cart.items[idx].price = finalPrice; // cập nhật lại giá nếu SP đổi discount
+        cart.items[idx].discountPercent = pct;
     } else {
         cart.items.push({
-        product: product._id,
-        name: product.name,
-        // ✅ ép về string để tránh lỗi Cast to string failed (khi product.image là mảng)
-        image: Array.isArray(product.image) ? (product.image[0] || "") : (product.image || ""),
-        price: Number(product.price) || 0,
-        quantity: qty,
-        total: 0,
+            product: product._id,
+            name: product.name,
+            image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
+            price: finalPrice,   // ✅ giá đã giảm
+            quantity: qty,
+            total: 0,
+            discountPercent: product.discountPercent || 0,
         });
     }
+
     recalc(cart);
     await cart.save();
     return res.json(cart);
 };
 
-
-// ====== updateItem (vá khớp ID mọi kiểu) ======
+// ====== updateItem (đã chỉnh giá giảm) ======
 exports.updateItem = async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body || {};
@@ -124,7 +131,7 @@ exports.updateItem = async (req, res) => {
 
     const cart = await getOrCreateCart(req, res);
 
-    // ✅ Tìm item bằng equals() hoặc toString()
+    // ✅ tìm item trong giỏ
     const item = cart.items.find((i) =>
         (i.product?.equals && i.product.equals(productId)) ||
         i.product?.toString?.() === String(productId)
@@ -135,9 +142,16 @@ exports.updateItem = async (req, res) => {
     }
 
     if (qty === 0) {
-        // xoá item
         cart.items = cart.items.filter((i) => i !== item);
     } else {
+        // ✅ tính lại finalPrice từ DB để đảm bảo đúng
+        const product = await Product.findById(productId).lean();
+        if (product) {
+            const pct = Number(product.discountPercent) || 0;
+            const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
+            item.price = finalPrice; // ✅ luôn sync giá mới nhất
+            item.discountPercent = pct;
+        }
         item.quantity = qty;
     }
 
@@ -145,6 +159,7 @@ exports.updateItem = async (req, res) => {
     await cart.save();
     return res.json(cart);
 };
+
 
 
 exports.removeItem = async (req, res) => {

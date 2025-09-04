@@ -320,11 +320,16 @@ export const updateProduct = async (id, product, dispatch) => {
     try {
         const res = await API.put(`/product/${id}`, product);
         dispatch(updateProductSuccess(res.data));
+        // 🔥 đảm bảo UI đồng bộ với DB
+        await getAllProduct(dispatch);
+        alert("Cập nhật sản phẩm thành công!");
     } catch (err) {
         console.error(err);
         dispatch(updateProductFailure());
+        alert("Cập nhật thất bại!");
     }
 };
+
 
 export const deleteProduct = async (id, dispatch) => {
     dispatch(deleteProductStart());

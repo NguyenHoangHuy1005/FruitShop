@@ -193,7 +193,30 @@ const OrderAdminPage = () => {
                                             </td>
                                             <td>{formatDateTime(o?.createdAt)}</td>
                                             <td>
-                                                <span className={`badge status-${o?.status || "pending"}`}>{o?.status || "pending"}</span>
+                                              <select
+                                                value={o?.status}
+                                                onChange={async (e) => {
+                                                  const newStatus = e.target.value;
+                                                  try {
+                                                    await API.patch(`/order/${o._id}/status`, { status: newStatus }, { headers });
+                                                    // cập nhật lại state để FE phản ánh ngay
+                                                    setData((prev) =>
+                                                      prev.map((item) =>
+                                                        item._id === o._id ? { ...item, status: newStatus } : item
+                                                      )
+                                                    );
+                                                  } catch (err) {
+                                                    alert("Cập nhật trạng thái thất bại!");
+                                                  }
+                                                }}
+                                                className={`status-select status-${o?.status}`}
+                                              >
+                                                <option value="pending">Pending</option>
+                                                <option value="paid">Paid</option>
+                                                <option value="shipped">Shipped</option>
+                                                <option value="completed">Completed</option>
+                                                <option value="cancelled">Cancelled</option>
+                                              </select>
                                             </td>
                                         </tr>
                                     );

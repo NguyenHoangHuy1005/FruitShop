@@ -4,7 +4,7 @@ const Carts = require("../models/Carts");
 const Order = require("../models/Order");
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
-
+const Product = require("../../admin-services/models/Product");
 
 // ==== helper dùng chung ====
 const readBearer = (req) => {
@@ -16,13 +16,20 @@ const readBearer = (req) => {
 const JWT_SECRET = process.env.JWT_ACCESS_KEY || process.env.JWT_SECRET;
 
 // Tính tổng tiền đơn
+// Tính tổng tiền đơn (theo giỏ)
 function calcTotals(cart) {
-    const subtotal = cart.summary?.subtotal || 0;
+    let subtotal = 0;
+    let totalItems = 0;
+    for (const it of cart.items) {
+        subtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+        totalItems += Number(it.quantity) || 0;
+    }
     const shipping = 0;
     const discount = 0;
     const total = Math.max(0, subtotal + shipping - discount);
-    return { subtotal, shipping, discount, total };
+    return { subtotal, shipping, discount, total, totalItems };
 }
+
 
 exports.createOrder = async (req, res) => {
     try {
@@ -55,15 +62,24 @@ exports.createOrder = async (req, res) => {
         const order = await Order.create({
         user: userId || cart.user || null,
         customer: { name: customerName, address, phone, email, note: note || "" },
-        items: cart.items.map((i) => ({
-            product: i.product,
-            name: i.name,
-            // nếu i.image là mảng → lấy phần tử đầu, tránh lỗi cast
-            image: Array.isArray(i.image) ? (i.image[0] || "") : (i.image || ""),
-            price: Number(i.price) || 0,
-            quantity: Number(i.quantity) || 1,
-            total: typeof i.total === "number" ? i.total : ((Number(i.price) || 0) * (Number(i.quantity) || 1)),
+        items: await Promise.all(cart.items.map(async (i) => {
+            const product = await Product.findById(i.product).lean();
+            if (!product) return i; // fallback nếu sản phẩm bị xoá
+
+            const pct = Number(product.discountPercent) || 0;
+            const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
+
+            const quantity = Number(i.quantity) || 1;
+            return {
+                product: product._id,
+                name: product.name,
+                image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
+                price: finalPrice,                  // ✅ giá sau giảm
+                quantity,
+                total: finalPrice * quantity,
+            };
         })),
+
         amount,
         status: "pending",
         payment: "COD",
@@ -184,3 +200,31 @@ exports.adminUpdate = async (req, res) => {
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     return res.json({ ok: true, data: doc });
 };
+// PATCH /order/:id/status
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const allowed = ["pending", "paid", "shipped", "completed", "cancelled"];
+        if (!allowed.includes(status)) {
+        return res.status(400).json({ message: "Trạng thái không hợp lệ." });
+        }
+
+        const order = await Order.findByIdAndUpdate(
+        id,
+        { status },
+        { new: true }
+        );
+
+        if (!order) {
+        return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        }
+
+        return res.json(order);
+    } catch (err) {
+        console.error("updateOrderStatus error:", err);
+        return res.status(500).json({ message: "Lỗi server khi cập nhật trạng thái." });
+    }
+};
+

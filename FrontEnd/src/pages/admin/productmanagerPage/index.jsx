@@ -74,6 +74,7 @@ const ProductManagerPage = () => {
                         <th>Tên sản phẩm</th>
                         <th>Hình ảnh</th>
                         <th>Giá (VNĐ)</th>
+                        <th>Giảm (%)</th>
                         <th>Danh mục</th>
                         <th>Trạng thái</th>
                         <th>Hành động</th>
@@ -92,9 +93,8 @@ const ProductManagerPage = () => {
                                         style={{ width: "60px", height: "60px", objectFit: "cover" }}
                                     />
                                 </td>
-
-                                <td>{(product.price ?? 0).toLocaleString()} VND</td>
-                                {/* dùng ?? để fallback về 0 nếu price = null/undefined */}
+                                <td>{(Number(product.price) || 0).toLocaleString()} VND</td>
+                                <td>{Number(product.discountPercent || 0)}%</td>
 
                                 <td>{product.category || "Chưa phân loại"}</td>
 

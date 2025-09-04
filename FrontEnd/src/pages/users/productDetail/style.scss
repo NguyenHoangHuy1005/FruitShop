@@ -11,6 +11,7 @@
         border-right: 2px solid #eee;
         padding-left: 55px;
         padding-top: 40px;
+        position: relative;
 
         img {
             width: 100%;
@@ -19,6 +20,7 @@
         }
 
         .main {
+            position: relative;
             flex: 0 0 50%;
             display: grid;
             align-items: stretch;
@@ -26,6 +28,19 @@
             img {
                 width: 70%;
                 object-fit: cover;
+            }
+            .discount-badge {
+                position: absolute;
+                top: 15px;
+                left: 15px;
+                background: #e02424; // màu đỏ nổi bật
+                color: #fff;
+                font-size: 16px;
+                font-weight: 700;
+                padding: 6px 12px;
+                border-radius: 6px;
+                z-index: 3;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
             }
         }
     }
@@ -127,4 +142,8 @@
             }
         }
     }
+}
+.price-wrap { display:flex; align-items:baseline; gap:8px; 
+    .price-old{ color:#9ca3af; font-size:16px; } 
+    .price-new{ color:#111827; font-weight:700; font-size:22px; }
 }

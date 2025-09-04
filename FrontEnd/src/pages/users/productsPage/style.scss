@@ -8,36 +8,81 @@
         .sidebar_item {
             margin-bottom: 20px;
             margin-left: 10px;
+
             h2 {
                 color: rgb(28, 28, 28);
                 font-weight: 700;
                 margin-bottom: 10px;
                 padding-right: 80px;
+                text-align: left; // chữ thẳng hàng
             }
 
             .price-range-wrap {
                 display: flex;
                 flex-direction: column;
-                row-gap: 10px;
+                gap: 12px;
+
+                div {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 10px;
+
+                    p {
+                        margin: 0;
+                        font-size: 14px;
+                        color: #333;
+                        min-width: 40px; // giữ label "Từ", "Đến" thẳng hàng
+                        font-weight: 500;
+                    }
+
+                    input {
+                        flex: 1;
+                        max-width: 120px;
+                        padding: 6px 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        font-size: 14px;
+                        transition: all 0.3s ease;
+
+                        &:focus {
+                            border-color: map.get(theme.$theme-colors, "main");
+                            box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.1);
+                            outline: none;
+                        }
+                    }
+                }
             }
+
 
             .tags {
                 display: flex;
-                gap:10px;
+                gap: 10px;
                 flex-wrap: wrap;
+                flex-direction: column;
 
-                .tag{
-                    font-size: 12px;
+                .tag {
+                    font-size: 13px;
                     color: #6f6f6f;
                     display: inline-block;
-                    padding: 8px 25px 6px;
+                    padding: 8px 20px;
                     cursor: pointer;
                     background: #f5f5f5;
-                    margin-bottom: 0;
+                    border-radius: 5px;
+                    border: 1px solid transparent;
+                    transition: all 0.3s ease;
+                    
 
-                    &:hover, &:active{
+                    &:hover {
                         background: map.get(theme.$theme-colors, "main");
-                        color:#f5f5f5;
+                        color: #fff;
+                    }
+
+                    &.active {
+                        background: map.get(theme.$theme-colors, "main");
+                        color: #fff;
+                        font-weight: 600;
+                        border-color: map.get(theme.$theme-colors, "main");
                     }
                 }
             }
@@ -45,10 +90,12 @@
             ul li {
                 list-style: none;
                 margin-left: 45px;
-                a{
+
+                a {
                     text-decoration: none;
                     line-height: 30px;
                     color: map.get(theme.$theme-colors, "normal-text");
+
                     &:hover {
                         color: map.get(theme.$theme-colors, "main");
                         font-weight: bold;

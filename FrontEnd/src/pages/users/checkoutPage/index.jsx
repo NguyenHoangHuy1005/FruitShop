@@ -103,9 +103,8 @@ const CheckoutPage = () => {
                     {(cart?.items || []).map((it) => (
                     <li key={it.product}>
                         <span>{it.name}</span>
-                        <b>
-                        {formatter(it.price)} ({it.quantity})
-                        </b>
+                        <b>{formatter(it.price)} ({it.quantity})</b>
+
                     </li>
                     ))}
                     <li>

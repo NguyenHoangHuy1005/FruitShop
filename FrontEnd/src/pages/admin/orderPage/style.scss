@@ -190,6 +190,45 @@ $zinc: #71717a;
 .td-right { text-align: right; }
 .text-muted { color: var(--muted); font-size: 12px; }
 .no-data { text-align: center; padding: 16px; color: var(--muted); }
+// mới thêm
+.status-select {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 13px;
+    border: 1px solid #ddd;
+    cursor: pointer;
+
+    &.status-pending {
+        background: #fff7e6;
+        color: #fa8c16;
+        border-color: #ffd591;
+    }
+
+    &.status-paid {
+        background: #e6fffb;
+        color: #08979c;
+        border-color: #87e8de;
+    }
+
+    &.status-shipped {
+        background: #f0f5ff;
+        color: #2f54eb;
+        border-color: #adc6ff;
+    }
+
+    &.status-completed {
+        background: #f6ffed;
+        color: #389e0d;
+        border-color: #b7eb8f;
+    }
+
+    &.status-cancelled {
+        background: #fff1f0;
+        color: #cf1322;
+        border-color: #ffa39e;
+    }
+}
 
 // RWD
 @media (max-width: 992px) {

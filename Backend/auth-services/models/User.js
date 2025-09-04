@@ -38,6 +38,9 @@ const UserSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
         },
+        // hồ sơ người dùng
+        fullname: { type: String, default: "" },
+        avatar:   { type: String, default: "" },
 
         // ============ XÁC MINH EMAIL ============
         isVerified: { type: Boolean, default: false },
@@ -46,6 +49,10 @@ const UserSchema = new mongoose.Schema(
         // ============ ĐẶT LẠI MẬT KHẨU ============
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpiresAt: { type: Date, default: null },
+        // ============ ĐỔI EMAIL (OTP gửi về email hiện tại) ============
+        newEmailPending:      { type: String, default: null },
+        emailChangeToken:     { type: String, default: null },
+        emailChangeExpiresAt: { type: Date,   default: null },
 
     },
     { timestamps: true }

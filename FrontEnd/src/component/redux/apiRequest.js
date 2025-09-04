@@ -29,6 +29,7 @@ const API = axios.create({
 // Export nếu nơi khác cần dùng trực tiếp
 export { API };
 
+
 const getPendingEmail = () =>
     (localStorage.getItem("PENDING_EMAIL") || "").trim().toLowerCase();
 /* ========= AUTH HELPERS (silent refresh) ========= */
@@ -492,3 +493,48 @@ export const fetchMyOrders = async (accessToken) => {
     }
     return res.data;
 };
+
+// ===== Profile helpers (NEW) =====
+export const refreshCurrentUser = async (dispatch) => {
+    const token = await ensureAccessToken(null);
+    if (!token) return null;
+    const res = await API.get('/user/me', { headers: { Authorization: `Bearer ${token}` } });
+    dispatch(loginSuccess({ ...res.data, accessToken: token }));
+    return res.data;
+};
+
+export const updateProfile = async (payload, dispatch) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.put('/user/me', payload, { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true });
+    if (res.status === 200) { await refreshCurrentUser(dispatch); return { ok: true, data: res.data }; }
+    return { ok: false, error: res.data || { message: 'Cập nhật thất bại' } };
+};
+
+export const uploadAvatar = async (file, dispatch) => {
+    const token = await ensureAccessToken(null);
+    const form = new FormData();
+    form.append("avatar", file);
+    const res = await API.post("/user/me/avatar", form, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) {
+        throw new Error(res.data?.message || `Upload fail (${res.status})`);
+    }
+    await refreshCurrentUser(dispatch);
+    return res.data;
+};
+
+
+export const requestEmailChange = async (newEmail) => {
+    const token = await ensureAccessToken(null);
+    return API.post('/auth/email/change/request', { newEmail }, { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true });
+};
+
+export const confirmEmailChange = async (otp, dispatch) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post('/auth/email/change/confirm', { token: String(otp || '') }, { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true });
+    if (res.status === 200) await refreshCurrentUser(dispatch);
+    return res;
+};
+

@@ -461,6 +461,78 @@ const authController = {
         return res.status(500).json({ ok: false, message: "Lỗi máy chủ." });
         }
     },
+    // ============== REQUEST CHANGE EMAIL (OTP to current email) ==============
+    requestChangeEmail: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const newEmail = String(req.body?.newEmail || "").trim().toLowerCase();
+            if (!userId) return res.status(401).json({ message: "Not authenticated" });
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!newEmail || !emailRegex.test(newEmail)) return res.status(400).json({ message: "Email mới không hợp lệ." });
+
+            const me = await User.findById(userId).select("email username");
+            if (!me) return res.status(404).json({ message: "Không tìm thấy người dùng." });
+            if (newEmail === me.email) return res.status(400).json({ message: "Email mới trùng email hiện tại." });
+
+            const dup = await User.findOne({ email: newEmail }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Email mới đã được sử dụng." });
+
+            const token = generate6Digit();
+            const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+            await User.updateOne(
+            { _id: userId },
+            { $set: { newEmailPending: newEmail, emailChangeToken: token, emailChangeExpiresAt: expires } }
+            );
+
+            let sent = false;
+            try { sent = await sendVerificationMail(me.email, me.username || me.email, token); } catch(_) {}
+
+            return res.status(200).json({
+            message: sent
+                ? `Đã gửi mã xác minh tới ${me.email}. Mã sẽ hết hạn sau 10 phút.`
+                : "Chưa gửi được email xác minh. Vui lòng thử lại.",
+            emailSent: sent,
+            });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
+
+    // ============== CONFIRM CHANGE EMAIL ==============
+    confirmChangeEmail: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const token = String(req.body?.token || "").trim();
+            if (!userId) return res.status(401).json({ message: "Not authenticated" });
+            if (!/^\d{6}$/.test(token)) return res.status(400).json({ message: "Mã OTP không hợp lệ." });
+
+            const snap = await User.findOne({
+            _id: userId,
+            emailChangeToken: token,
+            newEmailPending: { $ne: null },
+            $or: [{ emailChangeExpiresAt: null }, { emailChangeExpiresAt: { $gte: new Date() } }],
+            }).select("email newEmailPending");
+
+            if (!snap) return res.status(400).json({ message: "Mã không đúng hoặc đã hết hạn." });
+
+            const dup = await User.findOne({ email: snap.newEmailPending }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Email mới đã được sử dụng." });
+
+            await User.updateOne(
+            { _id: userId },
+            { $set: { email: snap.newEmailPending }, $unset: { newEmailPending: 1, emailChangeToken: 1, emailChangeExpiresAt: 1 } }
+            );
+
+            const updated = await User.findById(userId).select("-password").lean();
+            return res.status(200).json({ message: "Đổi email thành công!", user: updated });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
+
 };
 
 module.exports = authController;

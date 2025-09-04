@@ -1,0 +1,207 @@
+@use "sass:map";
+@use "../../../style/pages/theme";
+.profile__wrap {
+    max-width: 920px;
+    margin: 24px auto 48px;
+    padding: 0 12px;
+
+    h1 {
+        font-size: 24px;
+        margin: 6px 0 18px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+
+    h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+        color: #111827;
+    }
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 720px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+
+    label {
+        font-size: 13px;
+        color: #6b7280;
+        margin-bottom: 6px;
+    }
+
+    input {
+        height: 40px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 0 12px;
+        font-size: 14px;
+        outline: none;
+
+        &:disabled {
+        background: #f3f4f6;
+        color: #6b7280;
+        }
+    }
+}
+
+.row { display: flex; align-items: center; }
+.gap { gap: 8px; }
+.wrap { flex-wrap: wrap; }
+
+.actions {
+    grid-column: 1 / -1;
+
+    .btn {
+        min-width: 140px;
+    }
+}
+
+.btn {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease, transform .02s ease;
+
+    &:hover { background: #eef2f7; }
+    &:active { transform: translateY(0.5px); }
+
+    &.primary {
+        background: #16a34a;
+        border-color: #16a34a;
+        color: #fff;
+
+        &:hover { background: #149344; }
+    }
+
+    &:disabled {
+        opacity: .6;
+        cursor: not-allowed;
+    }
+}
+
+.muted {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* ===== Avatar ===== */
+.avatar__row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.avatar__box {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+
+    .avatar {
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid #e5e7eb;
+        display: block;
+    }
+
+    .avatar__btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+
+        input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        }
+
+        &:hover { background: #eef2f7; }
+    }
+}
+
+.otp {
+    width: 160px;
+    height: 40px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+/* ===== Đổi email (OTP) ===== */
+.email-change {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+
+        input {
+        flex: 1;
+        }
+
+        .otp {
+        max-width: 140px;
+        text-align: center;
+        letter-spacing: 3px;
+        }
+
+        .btn {
+        height: 40px;
+        min-width: 100px;
+        white-space: nowrap;
+        }
+
+        .btn.primary {
+        flex: 0 0 auto;
+        }
+    }
+}
+
+.btn.cancel {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: #374151;
+
+    &:hover {
+        background: #d1d5db;
+    }
+}

@@ -4,22 +4,35 @@ import { logout, ensureCart } from "../../../../component/redux/apiRequest";
 import "./style.scss";
 import "./header.scss";
 import {
-    AiFillFacebook,
-    AiFillInstagram,
-    AiFillLinkedin,
-    AiFillMail,
-    AiFillTikTok,
-    AiFillCaretUp,
-    AiFillCaretDown,
+  AiFillFacebook,
+  AiFillInstagram,
+  AiFillLinkedin,
+  AiFillMail,
+  AiFillTikTok,
+  AiFillCaretUp,
+  AiFillCaretDown,
 } from "react-icons/ai";
 import { BiSolidUserCircle } from "react-icons/bi";
-import { FaCartShopping } from "react-icons/fa6"; 
+import { FaCartShopping } from "react-icons/fa6";
 import { FaListUl, FaPhone } from "react-icons/fa";
 import { ROUTERS } from "../../../../utils/router";
 import { formatter } from "../../../../utils/fomater";
 import { useDispatch, useSelector } from "react-redux";
 
 export const categories = ["Rau củ", "Trái cây", "Hải sản", "Thịt tươi", "Thực phẩm khô"];
+
+// ===== Helper avatar =====
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
+const baseUrl = API_BASE.replace("/api", "");
+
+const getAvatarUrl = (user) => {
+  if (!user || !user.avatar || user.avatar.trim() === "") {
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+      user?.fullname || user?.username || "User"
+    )}&background=%23e2e8f0`;
+  }
+  return user.avatar.startsWith("http") ? user.avatar : `${baseUrl}${user.avatar}`;
+};
 
 /* ===================== User dropdown ===================== */
 const UserMenu = ({ onLoginClick }) => {
@@ -35,7 +48,7 @@ const UserMenu = ({ onLoginClick }) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
-    document.addEventListener("touchstart", onClickOutside); // hỗ trợ mobile
+    document.addEventListener("touchstart", onClickOutside);
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("touchstart", onClickOutside);
@@ -59,9 +72,7 @@ const UserMenu = ({ onLoginClick }) => {
   }
 
   const displayName = user.fullname || user.username || "Tài khoản";
-  const avatar =
-    user.avatar ||
-    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&background=%23e2e8f0`;
+  const avatar = getAvatarUrl(user);
 
   const handleLogout = async (e) => {
     e?.preventDefault?.();
@@ -70,7 +81,6 @@ const UserMenu = ({ onLoginClick }) => {
     const id = user?._id;
     await logout(dispatch, navigate, accessToken, id);
   };
-
 
   return (
     <li className="user-menu" ref={ref}>
@@ -87,13 +97,22 @@ const UserMenu = ({ onLoginClick }) => {
 
       <ul className={`user-dropdown ${open ? "open" : ""}`} role="menu">
         <li>
-          <Link to={ROUTERS.USER.PROFILE} role="menuitem">Tài khoản của tôi</Link>
+          <Link to={ROUTERS.USER.PROFILE} role="menuitem">
+            Tài khoản của tôi
+          </Link>
         </li>
         <li>
-          <Link to={ROUTERS.USER.ORDERS} role="menuitem">Đơn mua</Link>
+          <Link to={ROUTERS.USER.ORDERS} role="menuitem">
+            Đơn mua
+          </Link>
         </li>
         <li>
-          <button type="button" className="logout-btn" role="menuitem" onClick={handleLogout}>
+          <button
+            type="button"
+            className="logout-btn"
+            role="menuitem"
+            onClick={handleLogout}
+          >
             Đăng xuất
           </button>
         </li>
@@ -107,10 +126,12 @@ const UserMenu = ({ onLoginClick }) => {
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  //mới  thêm
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart?.data);
-  useEffect(() => { ensureCart(dispatch); }, [dispatch]);
+  useEffect(() => {
+    ensureCart(dispatch);
+  }, [dispatch]);
+
   const count = cart?.items?.length || 0;
   const subtotal = cart?.summary?.subtotal || 0;
 
@@ -151,7 +172,9 @@ const Header = () => {
         className={`humberger__menu__overlay ${isShowHumberger ? "active" : ""}`}
         onClick={() => setShowHumberger(false)}
       />
-      <div className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}>
+      <div
+        className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}
+      >
         <div className="header__logo">
           <h1>FRUITSHOP</h1>
         </div>
@@ -164,26 +187,26 @@ const Header = () => {
               </Link>
             </li>
           </ul>
-          <div className="header__cart__price">Giỏ hàng: <span>{formatter(subtotal)}</span></div>
+          <div className="header__cart__price">
+            Giỏ hàng: <span>{formatter(subtotal)}</span>
+          </div>
         </div>
 
         {/* Mobile user area */}
         <div className="humberger__menu_widget">
           <div className="header__top__right__auth">
             {!user ? (
-              <button className="login-inline" onClick={() => navigate(ROUTERS.ADMIN.LOGIN)}>
+              <button
+                className="login-inline"
+                onClick={() => navigate(ROUTERS.ADMIN.LOGIN)}
+              >
                 <BiSolidUserCircle /> <span>Đăng nhập</span>
               </button>
             ) : (
               <div className="mobile-user-block">
                 <img
                   className="user-avatar"
-                  src={
-                    user.avatar ||
-                    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                      user.fullname || user.username || "User"
-                    )}&background=%23e2e8f0`
-                  }
+                  src={getAvatarUrl(user)}
                   alt={user.fullname || user.username}
                 />
                 <div className="mobile-user-links">
@@ -209,14 +232,21 @@ const Header = () => {
                   }}
                 >
                   {menu.name}
-                  {menu.child && (menu.isShowSubmenu ? <AiFillCaretDown /> : <AiFillCaretUp />)}
+                  {menu.child &&
+                    (menu.isShowSubmenu ? <AiFillCaretDown /> : <AiFillCaretUp />)}
                 </Link>
 
                 {menu.child && (
-                  <ul className={`header__menu__dropdown ${menu.isShowSubmenu ? "show__submenu" : ""}`}>
+                  <ul
+                    className={`header__menu__dropdown ${
+                      menu.isShowSubmenu ? "show__submenu" : ""
+                    }`}
+                  >
                     {menu.child.map((childItem, childKey) => (
                       <li key={childKey}>
-                        <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>{childItem.name}</Link>
+                        <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>
+                          {childItem.name}
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -228,16 +258,26 @@ const Header = () => {
 
         <div className="header__top__right__social">
           <ul>
-            <Link to={""}><AiFillFacebook /></Link>
-            <Link to={""}><AiFillInstagram /></Link>
-            <Link to={""}><AiFillLinkedin /></Link>
-            <Link to={""}><AiFillTikTok /></Link>
+            <Link to={""}>
+              <AiFillFacebook />
+            </Link>
+            <Link to={""}>
+              <AiFillInstagram />
+            </Link>
+            <Link to={""}>
+              <AiFillLinkedin />
+            </Link>
+            <Link to={""}>
+              <AiFillTikTok />
+            </Link>
           </ul>
         </div>
 
         <div className="humberger__menu__contact">
           <ul>
-            <li><AiFillMail /> Hoanghuy100503@gmail.com</li>
+            <li>
+              <AiFillMail /> Hoanghuy100503@gmail.com
+            </li>
             <li>Miễn phí giao hàng cho đơn từ {formatter(199000)}</li>
           </ul>
         </div>
@@ -249,7 +289,9 @@ const Header = () => {
           <div className="row">
             <div className="col-6 header__top__left">
               <ul>
-                <li><AiFillMail /> Hoanghuy100503@gmail.com</li>
+                <li>
+                  <AiFillMail /> Hoanghuy100503@gmail.com
+                </li>
                 <li className="top_header_freeship">
                   Miễn phí vẫn chuyển cho đơn từ {formatter(199000)}
                 </li>
@@ -257,12 +299,28 @@ const Header = () => {
             </div>
             <div className="col-6 header__top__right">
               <ul>
-                <li><Link to={""}><AiFillFacebook /></Link></li>
-                <li><Link to={""}><AiFillInstagram /></Link></li>
-                <li><Link to={""}><AiFillLinkedin /></Link></li>
-                <li><Link to={""}><AiFillTikTok /></Link></li>
+                <li>
+                  <Link to={""}>
+                    <AiFillFacebook />
+                  </Link>
+                </li>
+                <li>
+                  <Link to={""}>
+                    <AiFillInstagram />
+                  </Link>
+                </li>
+                <li>
+                  <Link to={""}>
+                    <AiFillLinkedin />
+                  </Link>
+                </li>
+                <li>
+                  <Link to={""}>
+                    <AiFillTikTok />
+                  </Link>
+                </li>
 
-                {/* === Đây là phần user: giữ nguyên khi chưa login, dropdown khi đã login === */}
+                {/* === Đây là phần user === */}
                 <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
               </ul>
             </div>
@@ -274,10 +332,12 @@ const Header = () => {
       <div className="container">
         <div className="row">
           <div className="col-lg-3">
-              <div className="header__logo"><img
-              src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
-              className="logo"
-            /></div>
+            <div className="header__logo">
+              <img
+                src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+                className="logo"
+              />
+            </div>
           </div>
 
           <div className="col-lg-6">
@@ -290,10 +350,16 @@ const Header = () => {
                       <ul className="header__menu__dropdown">
                         {menu.child.map((childItem, childKey) => (
                           <li key={`${menuKey}-${childKey}`}>
-                            <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>{childItem.name}</Link>
+                            <Link
+                              to={childItem.path || ROUTERS.USER.PRODUCTS}
+                            >
+                              {childItem.name}
+                            </Link>
                           </li>
                         ))}
-                        <li><Link></Link></li>
+                        <li>
+                          <Link></Link>
+                        </li>
                       </ul>
                     )}
                   </li>
@@ -304,7 +370,9 @@ const Header = () => {
 
           <div className="col-lg-3">
             <div className="header__cart">
-              <div className="header__cart__price">Giỏ hàng: <span>{formatter(subtotal)}</span></div>
+              <div className="header__cart__price">
+                Giỏ hàng: <span>{formatter(subtotal)}</span>
+              </div>
               <ul>
                 <li>
                   <Link to={ROUTERS.USER.SHOPPINGCART}>
@@ -347,12 +415,16 @@ const Header = () => {
               <div className="r__search_form">
                 <form>
                   <input type="text" placeholder="Bạn đang tìm gì?" />
-                  <button type="button" className="button-submit">Tìm kiếm</button>
+                  <button type="button" className="button-submit">
+                    Tìm kiếm
+                  </button>
                 </form>
               </div>
 
               <div className="r__search_phone">
-                <div className="r__search_phone_icon"><FaPhone /></div>
+                <div className="r__search_phone_icon">
+                  <FaPhone />
+                </div>
                 <div className="r__search_phone_text">
                   <p>0374.675.671</p>
                   <span>Hỗ trợ 24/7</span>
@@ -364,9 +436,15 @@ const Header = () => {
               <div className="r__item">
                 <div className="r__text">
                   <span>Trái cây tươi</span>
-                  <h2>Rau củ quả<br />100% sạch</h2>
+                  <h2>
+                    Rau củ quả
+                    <br />
+                    100% sạch
+                  </h2>
                   <p>Giao hàng miễn phí tận nơi</p>
-                  <Link to="#" className="primary-btn">Mua ngay</Link>
+                  <Link to="#" className="primary-btn">
+                    Mua ngay
+                  </Link>
                 </div>
               </div>
             )}

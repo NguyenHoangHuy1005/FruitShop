@@ -4,6 +4,8 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./auth-services/config/db");
 const cookieParser = require("cookie-parser");
+//mới đây nè
+const path = require("path");
 
 const authRoute    = require("./auth-services/routes/auth");
 const userRoute    = require("./auth-services/routes/user");
@@ -50,6 +52,8 @@ app.use("/api/product", productRoute);
 app.use("/api/cart",   cartRoutes);   // <- /api/cart/... (PUT /item/:productId OK)
 app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order
 
+// Static file
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: "Not Found", path: req.originalUrl }));
 

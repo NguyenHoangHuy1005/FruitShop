@@ -1,7 +1,15 @@
 import { memo } from 'react';
 import "./style.scss";
 import { Link } from 'react-router-dom';
-import { AiFillFacebook, AiFillInstagram, AiFillLinkedin, AiFillMail, AiFillTikTok } from "react-icons/ai";
+import { ROUTERS } from "../../../../utils/router";
+import {
+  AiFillFacebook,
+  AiFillInstagram,
+  AiFillLinkedin,
+  AiFillMail,
+  AiFillTikTok,
+} from "react-icons/ai";
+
 const Footer = () => {
   const year = new Date().getFullYear();
   return (
@@ -11,11 +19,13 @@ const Footer = () => {
           <div className="col-lg-3 col-md-3 col-sm-12 col-12">
             <div className="footer__about">
               <div className="footer__about__logo">
-                <img
-                  src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
-                  alt="Fruit_Shop_Logo"
-                  className="logo"
-                />
+                <Link to={ROUTERS.USER.HOME} className="logo-link">
+                  <img
+                    src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+                    alt="Logo"
+                    className="logo"
+                  />
+                </Link>
               </div>
 
               <ul>
@@ -84,7 +94,6 @@ const Footer = () => {
                   <div><AiFillInstagram /></div>
                   <div> <AiFillLinkedin /> </div>
                   <div><AiFillTikTok /> </div>
-
                 </div>
               </form>
             </div>

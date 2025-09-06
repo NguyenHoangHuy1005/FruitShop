@@ -8,6 +8,7 @@
         .sidebar_item {
             margin-bottom: 20px;
             margin-left: 10px;
+            text-align: center;
 
             h2 {
                 color: rgb(28, 28, 28);
@@ -26,6 +27,7 @@
                     display: flex;
                     flex-direction: row;
                     align-items: center;
+                    text-decoration: none;
                     gap: 10px;
 
                     p {
@@ -34,6 +36,7 @@
                         color: #333;
                         min-width: 40px; // giữ label "Từ", "Đến" thẳng hàng
                         font-weight: 500;
+
                     }
 
                     input {
@@ -71,7 +74,10 @@
                     border-radius: 5px;
                     border: 1px solid transparent;
                     transition: all 0.3s ease;
-                    
+                    text-decoration: none;
+                    width: fit-content; // chỉ dài vừa chữ
+                    min-width: 150px; // hoặc fix width nếu muốn đều nhau
+                    text-align: center;
 
                     &:hover {
                         background: map.get(theme.$theme-colors, "main");

@@ -19,7 +19,7 @@ import { ROUTERS } from "../../../../utils/router";
 import { formatter } from "../../../../utils/fomater";
 import { useDispatch, useSelector } from "react-redux";
 
-export const categories = ["Rau củ", "Trái cây", "Hải sản", "Thịt tươi", "Thực phẩm khô"];
+export const categories = ["Trái cây", "Rau củ", "Giỏ quà tặng", "Hoa trái cây", "Thực phẩm khô"];
 
 // ===== Helper avatar =====
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
@@ -98,6 +98,8 @@ const UserMenu = ({ onLoginClick }) => {
     await logout(dispatch, navigate, accessToken, id);
   };
 
+
+
   return (
     <li className="user-menu" ref={ref}>
       <button
@@ -162,11 +164,11 @@ const Header = () => {
       path: ROUTERS.USER.PRODUCTS,
       isShowSubmenu: false,
       child: [
-        { name: "Rau củ", path: "" },
-        { name: "Trái cây", path: "" },
-        { name: "Hải sản", path: "" },
-        { name: "Thịt tươi", path: "" },
-        { name: "Thực phẩm khô", path: "" },
+        { name: "Trái Cây", slug: "Trái cây" },
+        { name: "Rau củ", slug: "Rau củ" },
+        { name: "Giỏ quà tặng", slug: "Giỏ quà tặng" },
+        { name: "Hoa trái cây", slug: "Hoa trái cây" },
+        { name: "Thực phẩm khô", slug: "Thực phẩm khô" },
       ],
     },
     { name: "Bài viết", path: "" },
@@ -192,7 +194,13 @@ const Header = () => {
         className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}
       >
         <div className="header__logo">
-          <h1>FRUITSHOP</h1>
+          <Link to={ROUTERS.USER.HOME} className="logo-link">
+            <img
+              src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+              alt="Logo"
+              className="logo"
+            />
+          </Link>
         </div>
 
         <div className="humberger__menu__cart">
@@ -254,13 +262,12 @@ const Header = () => {
 
                 {menu.child && (
                   <ul
-                    className={`header__menu__dropdown ${
-                      menu.isShowSubmenu ? "show__submenu" : ""
-                    }`}
+                    className={`header__menu__dropdown ${menu.isShowSubmenu ? "show__submenu" : ""
+                      }`}
                   >
                     {menu.child.map((childItem, childKey) => (
                       <li key={childKey}>
-                        <Link to={childItem.path || ROUTERS.USER.PRODUCTS}>
+                        <Link to={`${ROUTERS.USER.PRODUCTS}?category=${childItem.slug}`}>
                           {childItem.name}
                         </Link>
                       </li>
@@ -349,10 +356,13 @@ const Header = () => {
         <div className="row">
           <div className="col-lg-3">
             <div className="header__logo">
-              <img
-                src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
-                className="logo"
-              />
+              <Link to={ROUTERS.USER.HOME}>
+                <img
+                  src="https://res.cloudinary.com/dnk3xed3n/image/upload/v1755947809/uploads/ddqokb7u88gdjui8cxad.png"
+                  className="logo"
+                  alt="Logo"
+                />
+              </Link>
             </div>
           </div>
 
@@ -366,22 +376,18 @@ const Header = () => {
                       <ul className="header__menu__dropdown">
                         {menu.child.map((childItem, childKey) => (
                           <li key={`${menuKey}-${childKey}`}>
-                            <Link
-                              to={childItem.path || ROUTERS.USER.PRODUCTS}
-                            >
+                            <Link to={`${ROUTERS.USER.PRODUCTS}?category=${childItem.slug}`}>
                               {childItem.name}
                             </Link>
                           </li>
                         ))}
-                        <li>
-                          <Link></Link>
-                        </li>
                       </ul>
                     )}
                   </li>
                 ))}
               </ul>
             </nav>
+
           </div>
 
           <div className="col-lg-3">
@@ -418,11 +424,16 @@ const Header = () => {
             </div>
 
             <ul className={isShowCategories ? "" : "hidden"}>
-              {categories.map((category, key) => (
-                <li key={key}>
-                  <Link to={ROUTERS.USER.PRODUCTS}>{category}</Link>
+              {categories.map((cat, idx) => (
+                <li key={idx}>
+                  <Link to={`${ROUTERS.USER.PRODUCTS}?category=${cat}`}>
+                    {cat}
+                  </Link>
                 </li>
               ))}
+
+
+
             </ul>
           </div>
 

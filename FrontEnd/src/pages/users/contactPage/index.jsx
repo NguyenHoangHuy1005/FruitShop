@@ -198,7 +198,7 @@ const ContactPage = () => {
                         />
                         <div className="hint">Tối đa {MAX_FILE_MB}MB.</div>
                         <div className="note">
-                            <span className="req">*</span> là nội dung bắt buộc
+                            <span className="req">*</span> Nội dung bắt buộc
                         </div>
                     </div>
                 </div>

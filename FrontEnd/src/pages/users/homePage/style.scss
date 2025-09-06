@@ -3,46 +3,51 @@
 @use "../../../style/pages/theme";
 
 
-.container__catagories_slides {
-    max-width: 1200px;
-    margin-top: 30px;
+.container__categories_slides {
+    max-width: 1200px !important;
 
-    .catagories_slides {
-        .catagories_slides_item {
-            height: 400px;
-            position: relative;
-            background-repeat: no-repeat;
-            background-size: cover;
-            background-position: top center;
-            border-radius: 5px;
-            border: 15px solid #f3f6fa;
+    .categories_slides {
+        margin-left: 15px !important;
 
-
-            p {
-                position: absolute;
-                text-align: center;
-                font-size: 18px;
-                color: map.get(theme.$theme-colors, "normal-text");
-                text-transform: uppercase;
-                letter-spacing: 2px;
-                padding: 12px 0 12px;
-                width: 100%;
-                background: #f3f6fa;
-                font-family: "Roboto", sans-serif;
-                cursor: pointer;
-
-                &:hover {
-                    background: map.get(theme.$theme-colors, "main");
-                }
-            }
+        .categories_slides_item {
+            height: 470px !important;
+            background-size: cover !important;
         }
     }
 }
 
-
-
 .featured {
-    margin-top: 50px;
+
+    .featured__item {
+        .featured__item__pic {
+            position: relative;
+            overflow: hidden;
+
+            .featured__item__pic__hover {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: -30px; // ẩn dưới
+                display: flex;
+                justify-content: center;
+                gap: 0px;
+
+                opacity: 0;
+                transform: translateY(30px); // dịch xuống
+                transition: all 0.3s ease; // hiệu ứng mượt
+            }
+
+            &:hover {
+                .featured__item__pic__hover {
+                    opacity: 1;
+                    transform: translateY(0); // chạy lên
+                }
+            }
+        }
+
+
+
+    }
 
     .section-title {
         margin-bottom: 50px;
@@ -51,14 +56,13 @@
 
     h2 {
         position: relative;
-
     }
 
     h2:after {
         position: absolute;
         left: 0;
         right: 0;
-        bottom: -15px;
+        bottom: -20px;
         width: 600px;
         height: 7px;
         background: map.get(theme.$theme-colors, "main");
@@ -88,11 +92,12 @@
 }
 
 .banner__pic img {
-  height: 200px;
-  width: 100%;
-}
-.banner__pic {
-  display: flex;
-  gap: 45px;  
+    height: 200px;
+    width: 100%;
 }
 
+.banner__pic {
+    display: flex;
+    gap: 45px;
+    padding-left: 22px;
+}

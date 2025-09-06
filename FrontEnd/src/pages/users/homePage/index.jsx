@@ -21,7 +21,7 @@ const RenderFeatProducts = () => {
     useEffect(() => {
         getAllProduct(dispatch);
     }, [dispatch]);
-    
+
     if (!products.length) return <p>Đang tải sản phẩm...</p>;
     return (
         <Tabs>
@@ -30,59 +30,58 @@ const RenderFeatProducts = () => {
                 <Tab>Đang giảm giá</Tab>
                 <Tab>Sản phẩm mới</Tab>
             </TabList>
-    
+
             {/* Tất cả */}
             <TabPanel>
                 <div className="row">
-                {products.map((item) => (
-                    <div
-                    className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
-                    key={item._id}
-                    >
-                    <ProductCard
-                        id={item._id}
-                        name={item.name}
-                        description={item.description}
-                        price={item.price}
-                        category={item.category}
-                        image={item.image}
-                        status={item.status}
-                        discountPercent={item.discountPercent}
-                    />
-                    </div>
-                ))}
+                    {products.map((item) => (
+                        <div
+                            className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                            key={item._id}
+                        >
+                            <ProductCard
+                                id={item._id}
+                                name={item.name}
+                                description={item.description}
+                                price={item.price}
+                                category={item.category}
+                                image={item.image}
+                                status={item.status}
+                                discountPercent={item.discountPercent}
+                            />
+                        </div>
+                    ))}
                 </div>
             </TabPanel>
 
             {/* Đang giảm giá */}
             <TabPanel>
                 <div className="row">
-                {products
-                    .filter((p) => Number(p.discountPercent) > 0)
-                    .map((item) => (
-                    <div
-                        className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
-                        key={item._id}
-                    >
-                        <ProductCard {...item} />
-                    </div>
-                    ))}
+                    {products
+                        .filter((p) => Number(p.discountPercent) > 0)
+                        .map((item) => (
+                            <div
+                                className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                                key={item._id}
+                            >
+                                <ProductCard {...item} />
+                            </div>
+                        ))}
                 </div>
             </TabPanel>
 
-            {/* Sản phẩm mới */}
             <TabPanel>
                 <div className="row">
-                {products
-                    .slice(-8)
-                    .map((item) => (
-                    <div
-                        className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
-                        key={item._id}
-                    >
-                        <ProductCard {...item} />
-                    </div>
-                    ))}
+                    {products
+                        .slice(-8)
+                        .map((item) => (
+                            <div
+                                className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
+                                key={item._id}
+                            >
+                                <ProductCard {...item} />
+                            </div>
+                        ))}
                 </div>
             </TabPanel>
         </Tabs>
@@ -91,28 +90,35 @@ const RenderFeatProducts = () => {
 
 const HomePage = () => {
     const responsive = {
-        superLargeDesktop: { breakpoint: { max: 4000, min: 3000 }, items: 5 },
-        desktop: { breakpoint: { max: 3000, min: 1024 }, items: 2 },
-        tablet: { breakpoint: { max: 1024, min: 464 }, items: 2 },
+        superLargeDesktop: { breakpoint: { max: 4000, min: 3000 }, items: 2 },
+        desktop: { breakpoint: { max: 3000, min: 1024 }, items: 1 },
+        tablet: { breakpoint: { max: 1024, min: 464 }, items: 1 },
         mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },
     };
-    
+
     const slides = [
-        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/hsphxledn4qzugjdnqf0.jpg", name: "Rau củ" },
-        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/xsafgtsnwuhhxshrcgow.jpg", name: "Trái cây" },
-        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177109/uploads/cq6drmb2orcmgswcdlim.jpg", name: "Hải sản" },
-        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177110/uploads/wcobv5n1u9ysc7ymw10c.jpg", name: "Thịt tươi" },
-        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177111/uploads/fr9pcwgs4jrxusa6iumy.jpg", name: "Thức phẩm khô" },
+        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1756812860/2_f102rl.png", },
+        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1756812855/3_hxkxjn.png", },
+        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1756812857/1_ynuj72.png", },
+        { slidesImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1756809222/slides2_qyfb0s.png", },
     ];
-    
+
     return (
         <>
             {/* categories start */}
-            <div className="container container__catagories_slides">
-                <Carousel responsive={responsive} className="catagories_slides">
+            <div className="container container__categories_slides">
+                <Carousel
+                    responsive={responsive}
+                    className="categories_slides"
+                    autoPlay={true}           // Tự động chạy
+                    autoPlaySpeed={2500}      // Thời gian chuyển (ms)
+                    infinite={true}           // Lặp vô hạn
+                    showDots={true}           // Hiện chấm điều hướng
+                    arrows={true}            // Ẩn mũi tên (tùy thích)
+                >
                     {slides.map((item, key) => (
                         <div
-                            className="catagories_slides_item"
+                            className="categories_slides_item"
                             style={{ backgroundImage: `url(${item.slidesImg})` }}
                             key={key}
                         >
@@ -121,8 +127,9 @@ const HomePage = () => {
                     ))}
                 </Carousel>
             </div>
+
             {/* categories end */}
-    
+
             {/* featured start */}
             <div className="container">
                 <div className="featured">
@@ -133,7 +140,7 @@ const HomePage = () => {
                 </div>
             </div>
             {/* featured end */}
-    
+
             {/* banner start */}
             <div className="container">
                 <div className="banner">

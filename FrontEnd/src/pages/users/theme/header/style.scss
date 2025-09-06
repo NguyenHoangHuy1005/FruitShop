@@ -309,7 +309,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 .l__categories {
     position: relative;
     padding-bottom: 20px;
-
     .categories__all {
         background: map.get(theme.$theme-colors, "main");
         padding: 15px 25px 15px 40px;
@@ -377,7 +376,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         width: 610px;
         height: 50px;
         float: left;
-        padding-left: 15px;
+        padding-left: 65px;
 
         form {
             display: flex;
@@ -417,7 +416,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     .r__search_phone {
         display: flex;
         align-items: center;
-
+        padding-left: 20px;
         .r__search_phone_icon {
             font-size: 25px;
             background: #e8e8e8;

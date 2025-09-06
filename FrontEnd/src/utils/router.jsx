@@ -9,6 +9,7 @@ export const ROUTERS = {
     PRODUCT: "/product/detail/:id",
     SHOPPINGCART: "/cart",
     CHECKOUT: "/checkout",
+    CONTACT: "/contact",
   },
   ADMIN: {
     DASHBOARD: `${ADMIN_PATH}/dashboard`,

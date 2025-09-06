@@ -27,12 +27,28 @@ const baseUrl = API_BASE.replace("/api", "");
 
 const getAvatarUrl = (user) => {
   if (!user || !user.avatar || user.avatar.trim() === "") {
+    // Fallback Dicebear avatar
     return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
       user?.fullname || user?.username || "User"
     )}&background=%23e2e8f0`;
   }
-  return user.avatar.startsWith("http") ? user.avatar : `${baseUrl}${user.avatar}`;
+
+  const avatar = user.avatar.trim();
+
+  // Nếu đã là URL tuyệt đối (http/https) thì trả trực tiếp
+  if (/^https?:\/\//i.test(avatar)) {
+    return avatar;
+  }
+
+  // Nếu là URL protocol-relative (ví dụ: //cdn.domain.com/abc.png)
+  if (avatar.startsWith("//")) {
+    return window.location.protocol + avatar;
+  }
+
+  // Còn lại coi như path tương đối → nối với baseUrl
+  return `${baseUrl}${avatar.startsWith("/") ? "" : "/"}${avatar}`;
 };
+
 
 /* ===================== User dropdown ===================== */
 const UserMenu = ({ onLoginClick }) => {
@@ -154,7 +170,7 @@ const Header = () => {
       ],
     },
     { name: "Bài viết", path: "" },
-    { name: "Liên hệ", path: "" },
+    { name: "Liên hệ", path: ROUTERS.USER.CONTACT },
   ]);
 
   useEffect(() => {

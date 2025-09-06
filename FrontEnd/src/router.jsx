@@ -9,6 +9,7 @@ import ProductsPage from "./pages/users/productsPage";
 import ProductDetail from "./pages/users/productDetail";
 import ShoppingCart from "./pages/users/shoppingCart";
 import CheckoutPage from "./pages/users/checkoutPage";
+import ContactPage from "./pages/users/contactPage";
 
 import LoginPage from "./pages/admin/loginPage";
 import SignupPage from "./pages/admin/signupPage";
@@ -32,6 +33,7 @@ const renderUserRouter = () => {
     { path: ROUTERS.USER.PRODUCT,      element: <ProductDetail /> },
     { path: ROUTERS.USER.SHOPPINGCART, element: <ShoppingCart /> },
     { path: ROUTERS.USER.CHECKOUT,     element: <CheckoutPage /> },
+    { path: ROUTERS.USER.CONTACT,      element: <ContactPage /> },
   ];
   return (
     <MasterLayout>

@@ -596,5 +596,61 @@ export const stockInWithInvoice = async ({ supplierId, items, note }) => {
         { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
     );
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
-    return res.data; // { ok, invoice }
+    return res.data; // { ok, message, receiptId, invoiceUrl }
+};
+
+// Lấy tất cả nhà cung cấp (admin)
+export const getAllSuppliers = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/supplier", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // [{_id, name, ...}]
+};
+
+// Tải file hoá đơn (blob)
+export const downloadInvoiceBlob = async (receiptId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get(`/stock/invoice/${receiptId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "blob",
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // Blob
+};
+
+// Thêm mới nhà cung cấp
+export const addSupplier = async (payload) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post("/supplier", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 201) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { _id, name, ... }
+};
+
+// Lấy danh sách hóa đơn
+export const listReceipts = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/stock/receipts", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Lấy chi tiết 1 hóa đơn
+export const getReceiptDetail = async (id) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get(`/stock/receipt/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
 };

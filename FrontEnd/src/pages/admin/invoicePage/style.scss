@@ -1,0 +1,236 @@
+@use "sass:color";
+@use "../../../style/pages/all";
+@use "../../../style/pages/theme";
+
+.invoices {
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+
+        h2 {
+            font-weight: 800;
+            color: #008874;
+            text-transform: uppercase;
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+    }
+
+    &__toolbar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+
+        input,
+        select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+
+            &:focus {
+                border-color: #008874;
+                box-shadow: 0 0 0 2px rgba(0, 136, 116, 0.2);
+                outline: none;
+            }
+        }
+    }
+
+    &__table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+
+        th,
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #333;
+        }
+
+        tr:hover td {
+            background: #fafafa;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #777;
+            padding: 22px;
+            font-style: italic;
+        }
+
+        button {
+            margin-right: 6px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+
+            &:first-of-type {
+                background: #008874;
+                color: #fff;
+
+                &:hover {
+                    background: color.scale(#008874, $lightness: -10%);
+                    transform: translateY(-1px);
+                }
+            }
+
+            &:last-of-type {
+                background: #f0f0f0;
+                color: #333;
+
+                &:hover {
+                    background: #e0e0e0;
+                    transform: translateY(-1px);
+                }
+            }
+        }
+    }
+
+    &__footer {
+        margin-top: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        color: #444;
+    }
+
+    &__pagination {
+        button {
+            margin-left: 6px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            background: #008874;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.25s ease;
+
+            &:hover:not(:disabled) {
+                background: color.scale(#008874, $lightness: -10%);
+                transform: translateY(-1px);
+            }
+
+            &:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                transform: none;
+            }
+        }
+    }
+}
+
+/* ========== MODAL ========== */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal {
+    background: #fff;
+    padding: 20px 24px;
+    border-radius: 12px;
+    width: 500px;
+    max-width: 92%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    animation: slideUp 0.3s ease;
+
+    h3, h4 {
+        margin-bottom: 10px;
+        font-weight: 700;
+        color: #008874;
+    }
+
+    p {
+        margin: 6px 0;
+        font-size: 14px;
+    }
+
+    ul {
+        margin: 8px 0 12px 20px;
+        li {
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+    }
+}
+
+.modal-actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+
+    button {
+        padding: 8px 18px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+
+        &:first-of-type {
+            background: #008874;
+            color: #fff;
+
+            &:hover {
+                background: color.scale(#008874, $lightness: -10%);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            }
+        }
+
+        &:last-of-type {
+            background: #f5f5f5;
+            color: #333;
+
+            &:hover {
+                background: #e0e0e0;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            }
+        }
+    }
+}
+
+/* ========== ANIMATIONS ========== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}

@@ -1,4 +1,5 @@
 @use "sass:map";
+@use "sass:color";
 @use "header";
 @use "../../../../style/pages/all";
 @use "../../../../style/pages/responsive";
@@ -421,7 +422,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             cursor: pointer;
 
             &:hover {
-                background: darken(map.get(theme.$theme-colors, "main"), 10%);
+                background: color.adjust(map.get(theme.$theme-colors, "main"), $lightness: -10%);
             }
         }
 

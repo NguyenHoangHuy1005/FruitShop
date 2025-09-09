@@ -11,6 +11,7 @@ const userRoute    = require("./auth-services/routes/user");
 const productRoute = require("./admin-services/routes/product");
 const uploadRoutes = require("./admin-services/routes/image");
 //mới đây nè
+const supplierRoutes = require("./admin-services/routes/supplier");
 const stockRoutes = require("./product-services/routes/stock");
 
 // 🔧 ĐÚNG tên file routes (không phải *Routers*)
@@ -55,6 +56,7 @@ app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order
 
 // tồn kho
 app.use("/api/stock", stockRoutes);
+app.use("/api/supplier", supplierRoutes);
 
 // Static file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

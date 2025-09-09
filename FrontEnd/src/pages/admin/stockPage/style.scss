@@ -1,119 +1,233 @@
 @use "sass:map";
 @use "sass:color";
+@use "../../../style/pages/all";
 @use "../../../style/pages/theme";
 
-// khung chính
+$main: map.get(theme.$theme-colors, "main");
 
-// toolbar
-.toolbar {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 16px;
+/* ================== STOCK MANAGER ================== */
+.stock-manager {
+    h2 {
+        text-align: center;
+        font-weight: 800;
+        color: $main;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+    }
 
-    input {
-        flex: 1;
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        outline: none;
+    /* ------- Toolbar ------- */
+    .toolbar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
 
-        &:focus {
-            border-color: #008874;
-            box-shadow: 0 0 0 2px #008874;
+        input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.2s;
+
+            &:focus {
+                border-color: $main;
+                box-shadow: 0 0 0 2px rgba(0, 136, 116, 0.2);
+            }
+        }
+
+        .busy {
+            font-style: italic;
+            font-size: 14px;
+            color: #666;
         }
     }
 
-    .busy {
-        color: #666;
-        font-style: italic;
-        font-size: 14px;
+    /* ------- Table ------- */
+    .stock-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+        th {
+            background: #f5f6f8;
+            padding: 12px;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 13px;
+            font-weight: 700;
+            color: #444;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        td {
+            padding: 12px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover td {
+            background: #f9fafb;
+        }
+
+        img {
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #777;
+            padding: 20px;
+            font-style: italic;
+        }
     }
-}
 
-// bảng tồn kho
-.stock-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-
-    th {
-        background: #f5f6f8;
-        padding: 12px;
-        text-align: left;
-        text-transform: uppercase;
+    /* ------- Status ------- */
+    .status {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
         font-weight: 600;
-        color: #444;
-        font-size: 14px;
-        border-bottom: 1px solid #e5e7eb;
+
+        &.in-stock {
+            background: #e6f9f0;
+            color: #0a8f3e;
+        }
+        &.out-stock {
+            background: #fff1f0;
+            color: #d4380d;
+        }
     }
 
-    td,
-    th {
-        padding: 12px;
-        vertical-align: middle;
-        box-sizing: border-box;
-    }
-    tr:hover td {
-        background: #F3F6FA;
+    /* ------- Actions ------- */
+    .actions {
+        display: flex;
+        gap: 8px;
     }
 }
 
-// trạng thái
-.status {
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
+/* ================== COMMON BUTTON ================== */
+.btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
     font-weight: 600;
-    display: inline-block;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-    &.in-stock {
-        background: #e6f9f0;
-        color: #0a8f3e;
-    }
-
-    &.out-stock {
-        background: #fff1f0;
-        color: #d4380d;
-    }
-}
-
-// nút
-.actions {
-    gap: 80px;
-    width: auto;
-  
-    .btn {
-        border: 1px solid #008874;
-        background: #008874;
+    &.special {
+        background: $main;
         color: #fff;
-        font-size: 13px;
-        cursor: pointer;
-        transition: all 0.2s ease;
+        border-color: $main;
 
         &:hover {
             background: #006d5e;
         }
+    }
 
-        &.outline {
-            background: #fff;
-            color: #008874;
-            border: 1px solid #008874;
-            margin-left: 15px;
-            &:hover {
-                background: #f0fdf9;
-            }
+    &.outline {
+        background: #fff;
+        color: $main;
+        border-color: $main;
+
+        &:hover {
+            background: #f0fdf9;
+        }
+    }
+
+    &.danger {
+        background: #fff1f0;
+        color: #d4380d;
+        border-color: #d4380d;
+
+        &:hover {
+            background: #fff0f0;
         }
     }
 }
 
-// khi không có dữ liệu
-.no-data {
-    text-align: center;
-    color: #777;
+/* ================== MODAL ================== */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.modal {
+    background: #fff;
     padding: 20px;
-    font-style: italic;
+    border-radius: 12px;
+    width: 500px;
+    max-width: 95%;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+    h3 {
+        margin-bottom: 12px;
+        font-weight: 700;
+        color: $main;
+    }
+
+    label {
+        display: block;
+        margin: 10px 0 5px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #444;
+    }
+
+    input,
+    select,
+    textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 10px;
+        transition: all 0.2s;
+
+        &:focus {
+            border-color: $main;
+            box-shadow: 0 0 0 2px rgba(0, 136, 116, 0.2);
+        }
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
+    }
+}
+
+/* ================== SUPPLIER SELECT ================== */
+.supplier-select {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    select {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .add-supplier {
+        @extend .btn;
+        @extend .special;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
 }

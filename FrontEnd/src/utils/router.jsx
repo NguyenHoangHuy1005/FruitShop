@@ -22,5 +22,6 @@ export const ROUTERS = {
     AUTH: `${ADMIN_PATH}/auth`,
     FORGOT: `${ADMIN_PATH}/forgot`,
     STOCK: `${ADMIN_PATH}/stock`,
+    INVOICES: `${ADMIN_PATH}/invoices`,
   },
 };

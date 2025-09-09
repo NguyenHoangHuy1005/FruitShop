@@ -48,6 +48,7 @@ const RenderFeatProducts = () => {
                                 image={item.image}
                                 status={item.status}
                                 discountPercent={item.discountPercent}
+                                onHand={item.onHand}
                             />
                         </div>
                     ))}

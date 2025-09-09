@@ -22,6 +22,7 @@ import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
+import StockManagerPage from "./pages/admin/stockPage";
 
 // ---------- USER ROUTES ----------
 const renderUserRouter = () => {
@@ -70,6 +71,7 @@ const renderAdminAppRouter = () => {
     { path: ROUTERS.ADMIN.PRODUCTS,    element: <ProductManagerPage /> },
     { path: ROUTERS.ADMIN.USERMANAGER, element: <UserManagerPage /> },
     { path: ROUTERS.ADMIN.ORDERS,      element: <OrderAdminPage /> },
+    { path: ROUTERS.ADMIN.STOCK,       element: <StockManagerPage /> },
   ];
   return (
     <MasterAdLayout>
@@ -95,7 +97,8 @@ const RouterCustom = () => {
     pathname.startsWith(ROUTERS.ADMIN.DASHBOARD)   ||
     pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)   ||
     pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
-    pathname.startsWith(ROUTERS.ADMIN.ORDERS);
+    pathname.startsWith(ROUTERS.ADMIN.ORDERS) ||
+    pathname.startsWith(ROUTERS.ADMIN.STOCK);
 
   if (isAdminAuth) return renderAdminAuthRouter();
   if (isAdminApp)  return renderAdminAppRouter();

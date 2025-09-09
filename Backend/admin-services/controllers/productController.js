@@ -56,22 +56,51 @@ const productControllers = {
    // Lấy danh sách sản phẩm (xáo trộn bằng JS)
 getAllProducts: async (req, res) => {
     try {
-        let products = await Product.find();
+        let products = await Product.aggregate([
+        {
+            $lookup: {
+            from: "stocks",
+            localField: "_id",
+            foreignField: "product",
+            as: "stock"
+            }
+        },
+        {
+            $addFields: {
+            onHand: { $ifNull: [{ $arrayElemAt: ["$stock.onHand", 0] }, 0] },
+            status: {
+                $cond: [
+                {
+                    $gt: [
+                    { $ifNull: [{ $arrayElemAt: ["$stock.onHand", 0] }, 0] },
+                    0
+                    ]
+                },
+                "Còn hàng",
+                "Hết hàng"
+                ]
+            }
+            }
+        },
+        { $project: { stock: 0 } }
+        ]);
 
-        // Shuffle (Fisher-Yates)
+        // shuffle nếu cần
         for (let i = products.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [products[i], products[j]] = [products[j], products[i]];
+        const j = Math.floor(Math.random() * (i + 1));
+        [products[i], products[j]] = [products[j], products[i]];
         }
 
-        res.status(200).json(products);
+        return res.status(200).json(products);
     } catch (err) {
-        res.status(500).json({ 
-            message: "Lỗi lấy danh sách sản phẩm", 
-            error: err.message 
-        });
+        return res
+        .status(500)
+        .json({ message: "Lỗi lấy danh sách sản phẩm", error: err.message });
     }
 },
+
+
+
 
 
     // Xóa sản phẩm

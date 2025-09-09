@@ -168,7 +168,7 @@ const authController = {
 
         // Lấy giỏ hiện tại của user (sau khi merge)
         userCart = await Cart.findOne({ user: user._id, status: "active" })
-        .populate("items.product");
+            .populate("items.product");
 
         if (!userCart) {
             userCart = await Cart.create({

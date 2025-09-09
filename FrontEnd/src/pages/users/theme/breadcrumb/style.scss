@@ -2,42 +2,42 @@
 @use "../../../../style/pages/theme";
 
 .breadcrumb {
-   display: flex;
-   align-items: center;
-   padding: 25px 0 25px;
-   margin: 0px 20px;
-   justify-content: center;
-   line-height: 15px;
-   text-align: center;
-   background: map.get(theme.$theme-colors,"main");
+    display: flex;
+    align-items: center;
+    padding: 25px 0 25px;
+    margin: 0px 20px;
+    justify-content: center;
+    line-height: 15px;
+    text-align: center;
+    background: map.get(theme.$theme-colors,"main");
 
-   .breadcrumb__text{
-    color: #ffffff;
+    .breadcrumb__text{
+        color: #ffffff;
 
-    h2 {
-        margin-bottom: 10px;
-        
-    }
-    ul {
-        display: flex;
-        list-style: none;
-        column-gap: 10px;
-    }
-    li {
-        text-decoration: underline;
-        color: map.get(theme.$theme-colors,"decription");
-
-        a{
-            text-decoration: none; 
-            color: #ffffff;
+        h2 {
+            margin-bottom: 10px;
+            
         }
-        &.link {
-            text-decoration: none; 
-            :hover {
-                color: map.get(theme.$theme-colors,"decription");
+        ul {
+            display: flex;
+            list-style: none;
+            column-gap: 10px;
+        }
+        li {
+            text-decoration: underline;
+            color: map.get(theme.$theme-colors,"decription");
+
+            a{
+                text-decoration: none; 
+                color: #ffffff;
+            }
+            &.link {
+                text-decoration: none; 
+                :hover {
+                    color: map.get(theme.$theme-colors,"decription");
+                }
             }
         }
     }
-   }
 
 }

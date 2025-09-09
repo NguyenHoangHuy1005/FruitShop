@@ -4,13 +4,14 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./auth-services/config/db");
 const cookieParser = require("cookie-parser");
-//mới đây nè
 const path = require("path");
 
 const authRoute    = require("./auth-services/routes/auth");
 const userRoute    = require("./auth-services/routes/user");
 const productRoute = require("./admin-services/routes/product");
 const uploadRoutes = require("./admin-services/routes/image");
+//mới đây nè
+const stockRoutes = require("./product-services/routes/stock");
 
 // 🔧 ĐÚNG tên file routes (không phải *Routers*)
 const cartRoutes  = require("./product-services/routes/cart");
@@ -51,6 +52,9 @@ app.use("/api/product", productRoute);
 
 app.use("/api/cart",   cartRoutes);   // <- /api/cart/... (PUT /item/:productId OK)
 app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order
+
+// tồn kho
+app.use("/api/stock", stockRoutes);
 
 // Static file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

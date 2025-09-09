@@ -185,6 +185,7 @@ const ProductsPage = () => {
                                             image={item.image || item.img}
                                             status={item.status}
                                             discountPercent={item.discountPercent}
+                                            onHand={item.onHand}
                                         />
                                     </div>
                                 ))

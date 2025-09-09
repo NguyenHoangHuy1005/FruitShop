@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 const Carts = require("../models/Carts");
 const Product = require("../../admin-services/models/Product");
+//mơi đây nè
+const Stock = require("../models/Stock");
 
 // Optional: lấy userId từ JWT
 function getUserIdFromToken(req) {
@@ -87,8 +89,8 @@ exports.getCart = async (req, res) => {
     return res.json(cart);
 };
 
-// ====== addItem (chỉ sửa phần push) ======
-// ====== addItem (đã chỉnh giá giảm) ======
+
+// ====== addItem (đã chỉnh giá giảm + kiểm tồn) ======
 exports.addItem = async (req, res) => {
     const { productId, quantity } = req.body || {};
     const qty = Math.max(1, Number(quantity) || 1);
@@ -97,25 +99,60 @@ exports.addItem = async (req, res) => {
     const product = await Product.findById(productId).lean();
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
 
-    // ✅ tính giá sau giảm
+    // ✅ giá sau giảm
     const pct = Number(product.discountPercent) || 0;
-    const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
+    const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
 
+    // ✅ kiểm tra tồn kho
+    const stock = await Stock.findOne({ product: product._id }).lean();
+    const onHand = Number(stock?.onHand) || 0;
+
+    // số lượng SP này đang có trong giỏ
     const idx = cart.items.findIndex(i => String(i.product) === String(product._id));
-    if (idx >= 0) {
-        cart.items[idx].quantity += qty;
-        cart.items[idx].price = finalPrice; // cập nhật lại giá nếu SP đổi discount
+    const currentInCart = idx >= 0 ? (Number(cart.items[idx].quantity) || 0) : 0;
+
+    if (onHand <= 0) {
+        return res.status(400).json({ message: "Sản phẩm đã hết hàng." });
+    }
+
+    const maxAdd = Math.max(0, onHand - currentInCart);
+    if (qty > maxAdd) {
+        if (maxAdd === 0) {
+        return res.status(400).json({ message: "Số lượng trong giỏ đã đạt tối đa theo tồn kho." });
+        }
+        // Giới hạn theo tồn
+        if (idx >= 0) {
+        cart.items[idx].quantity += maxAdd;
+        cart.items[idx].price = finalPrice;
         cart.items[idx].discountPercent = pct;
-    } else {
+        } else {
         cart.items.push({
             product: product._id,
             name: product.name,
             image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
-            price: finalPrice,   // ✅ giá đã giảm
+            price: finalPrice,
+            quantity: maxAdd,
+            total: 0,
+            discountPercent: pct,
+        });
+        }
+    } else {
+        // Thêm bình thường
+        if (idx >= 0) {
+        cart.items[idx].quantity += qty;
+        cart.items[idx].price = finalPrice;
+        cart.items[idx].discountPercent = pct;
+        } else {
+        cart.items.push({
+            product: product._id,
+            name: product.name,
+            image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
+            price: finalPrice,
             quantity: qty,
             total: 0,
-            discountPercent: product.discountPercent || 0,
+            discountPercent: pct,
         });
+        }
     }
 
     recalc(cart);
@@ -123,7 +160,8 @@ exports.addItem = async (req, res) => {
     return res.json(cart);
 };
 
-// ====== updateItem (đã chỉnh giá giảm) ======
+
+// ====== updateItem (đã chỉnh giá giảm + kiểm tồn) ======
 exports.updateItem = async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body || {};
@@ -136,7 +174,6 @@ exports.updateItem = async (req, res) => {
         (i.product?.equals && i.product.equals(productId)) ||
         i.product?.toString?.() === String(productId)
     );
-
     if (!item) {
         return res.status(404).json({ message: "Item không có trong giỏ." });
     }
@@ -144,15 +181,28 @@ exports.updateItem = async (req, res) => {
     if (qty === 0) {
         cart.items = cart.items.filter((i) => i !== item);
     } else {
-        // ✅ tính lại finalPrice từ DB để đảm bảo đúng
+        // ✅ giá mới nhất
         const product = await Product.findById(productId).lean();
         if (product) {
-            const pct = Number(product.discountPercent) || 0;
-            const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
-            item.price = finalPrice; // ✅ luôn sync giá mới nhất
-            item.discountPercent = pct;
+        const pct = Number(product.discountPercent) || 0;
+        const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
+        item.price = finalPrice;
+        item.discountPercent = pct;
         }
+
+        // ✅ kiểm tồn & chặn vượt
+        const stock = await Stock.findOne({ product: productId }).lean();
+        const onHand = Number(stock?.onHand) || 0;
+
+        if (qty > onHand) {
+        if (onHand === 0) {
+            cart.items = cart.items.filter((i) => i !== item); // hết hàng => xóa khỏi giỏ
+        } else {
+            item.quantity = onHand; // hạ về mức tồn
+        }
+        } else {
         item.quantity = qty;
+        }
     }
 
     recalc(cart);

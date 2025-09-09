@@ -538,3 +538,63 @@ export const confirmEmailChange = async (otp, dispatch) => {
     return res;
 };
 
+
+/* ======================= STOCK (Admin) ======================= */
+
+// Danh sách tồn kho (kèm product)
+export const listStock = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/stock", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // [{ _id, product, onHand, productDoc, ... }]
+};
+
+// Lấy tồn 1 sản phẩm
+export const getStockOne = async (productId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get(`/stock/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { product, onHand } hoặc null
+};
+
+// Nhập kho (tăng)
+export const stockIn = async (productId, qty) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        "/stock/in",
+        { productId, qty },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Set cứng số tồn
+export const stockSet = async (productId, qty) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        "/stock/set",
+        { productId, qty },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Nhập kho có nhà cung cấp + xuất hóa đơn
+export const stockInWithInvoice = async ({ supplierId, items, note }) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        "/stock/in-with-invoice",
+        { supplierId, items, note },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { ok, invoice }
+};

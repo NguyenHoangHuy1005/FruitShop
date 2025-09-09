@@ -10,8 +10,9 @@ const ProductSchema = new mongoose.Schema(
         rating: { type: Number, default: 0 },
         image: { type: [String], default: [] },
         imagethum: { type: [String], default: [] },
+        // NEW: snapshot số lượng tồn (được cập nhật tự động từ Stock)
+        onHand: { type: Number, default: 0, min: 0 },
         status: { type: String, default: "Còn hàng" },
-        //new fields
         discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     },{ timestamps: true }
 );

@@ -141,5 +141,20 @@
                 font-size: 18px;
             }
         }
+        .stock-hint {
+            margin-top: 6px;
+            font-size: 13px;
+            font-weight: 500;
+
+            // bỏ dấu chấm ngang mặc định
+            &::before {
+                content: "";
+            }
+
+            &.low {
+                color: #d97706; // cam: cảnh báo sắp hết (<10)
+            }
+        }
+
     }
 }

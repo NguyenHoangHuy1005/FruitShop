@@ -30,7 +30,7 @@ const Footer = () => {
 
               <ul>
                 <h3>Thông tin liên hệ</h3>
-                <li>Địa chỉ: 105 Nguyễn Hoàng Huy</li>
+                <li>Địa chỉ: 12 Nguyễn Văn Bảo</li>
                 <li>Phone: 0374-675-671</li>
                 <li>Email: Hoanghuy100503@gmail.com</li>
               </ul>
@@ -104,7 +104,7 @@ const Footer = () => {
       {/* === Thanh bản quyền ở đáy footer === */}
       <div className="footer__copyright">
         <div className="container">
-          <p>© {year} Thế Sơn Shop. All rights reserved.</p>
+          <p>© {year} Thế Sơn - Hoàng Huy Fruit Shop. All rights reserved.</p>
         </div>
       </div>
 

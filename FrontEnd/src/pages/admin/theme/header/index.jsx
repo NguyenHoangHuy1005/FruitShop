@@ -8,6 +8,7 @@ import { GrUserManager } from "react-icons/gr";
 import { AiFillProduct } from "react-icons/ai";
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from "../../../../component/redux/apiRequest";
+import { Boxes } from "lucide-react";
 
 const HeaderAd = ({ children, ...props }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
@@ -37,6 +38,14 @@ const HeaderAd = ({ children, ...props }) => {
       onClick: () => navigate(ROUTERS.ADMIN.PRODUCTS),
       label: 'Products',
       icon: <AiFillProduct />,
+    },
+    // thêm stock
+    {
+      key: 'stock',
+      path: ROUTERS.ADMIN.STOCK,
+      onClick: () => navigate(ROUTERS.ADMIN.STOCK),
+      label: 'Stock',
+      icon: <Boxes size={18} />,
     },
     {
       key: 'orders',

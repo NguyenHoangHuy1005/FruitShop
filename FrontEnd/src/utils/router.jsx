@@ -21,5 +21,6 @@ export const ROUTERS = {
     USERMANAGER: `${ADMIN_PATH}/usermanager`,
     AUTH: `${ADMIN_PATH}/auth`,
     FORGOT: `${ADMIN_PATH}/forgot`,
+    STOCK: `${ADMIN_PATH}/stock`,
   },
 };

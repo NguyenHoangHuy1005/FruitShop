@@ -5,6 +5,9 @@ const Order = require("../models/Order");
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
+// mới đây nè
+const Stock = require("../models/Stock");
+
 
 // ==== helper dùng chung ====
 const readBearer = (req) => {
@@ -34,12 +37,12 @@ function calcTotals(cart) {
 exports.createOrder = async (req, res) => {
     try {
         let userId = null;
-        const token = readBearer(req);              // <— thay ở đây
+        const token = readBearer(req);
         if (token && JWT_SECRET) {
-            try {
-                const payload = jwt.verify(token, JWT_SECRET);
-                userId = payload?.id || payload?._id || null;
-            } catch (_) {}
+        try {
+            const payload = jwt.verify(token, JWT_SECRET);
+            userId = payload?.id || payload?._id || null;
+        } catch (_) {}
         }
 
         const { name, fullName, address, phone, email, note } = req.body || {};
@@ -54,56 +57,102 @@ exports.createOrder = async (req, res) => {
         return res.status(400).json({ message: "Giỏ hàng đang trống." });
         }
 
-        // Gắn user cho giỏ nếu đang thiếu
+        // gắn user cho giỏ nếu có
         if (!cart.user && userId) cart.user = userId;
 
+        // Tổng tiền hiện tại từ giỏ
         const amount = calcTotals(cart);
 
+        // ===== 1) Trừ kho nguyên tử từng dòng, rollback nếu thiếu =====
+        const decremented = []; // lưu để hoàn kho nếu lỗi
+        for (const line of cart.items) {
+            const qty = Number(line.quantity) || 1;
+
+            // yêu cầu đủ tồn: onHand >= qty
+            const updated = await Stock.findOneAndUpdate(
+                { product: line.product, onHand: { $gte: qty } },
+                { $inc: { onHand: -qty } },
+                { new: true }
+            );
+
+            if (!updated) {
+                // rollback những gì đã trừ
+                for (const d of decremented) {
+                await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
+                }
+                return res.status(409).json({ message: `Sản phẩm "${line.name}" không đủ tồn kho.` });
+            }
+
+            decremented.push({ product: line.product, qty });
+
+            // cập nhật trạng thái sản phẩm theo onHand mới
+            try {
+                const newQty = Math.max(0, Number(updated.onHand) || 0);
+                await Product.findByIdAndUpdate(
+                    line.product,
+                    { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } },
+                    { new: false }
+                );
+            } catch (_) {}
+        }
+
+        // ===== 2) Rebuild items (đảm bảo giá cuối) =====
+        const items = await Promise.all(cart.items.map(async (i) => {
+        const product = await Product.findById(i.product).lean();
+        if (!product) {
+            // fallback nếu product bị xóa
+            const q = Number(i.quantity) || 1;
+            const price = Number(i.price) || 0;
+            return {
+            product: i.product,
+            name: i.name,
+            image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
+            price,
+            quantity: q,
+            total: price * q,
+            };
+        }
+        const pct = Number(product.discountPercent) || 0;
+        const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
+        const q = Number(i.quantity) || 1;
+        return {
+            product: product._id,
+            name: product.name,
+            image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
+            price: finalPrice,
+            quantity: q,
+            total: finalPrice * q,
+        };
+        }));
+
+        // ===== 3) Tạo đơn =====
         const order = await Order.create({
         user: userId || cart.user || null,
         customer: { name: customerName, address, phone, email, note: note || "" },
-        items: await Promise.all(cart.items.map(async (i) => {
-            const product = await Product.findById(i.product).lean();
-            if (!product) return i; // fallback nếu sản phẩm bị xoá
-
-            const pct = Number(product.discountPercent) || 0;
-            const finalPrice = Math.max(0, Math.round((product.price || 0) * (100 - pct) / 100));
-
-            const quantity = Number(i.quantity) || 1;
-            return {
-                product: product._id,
-                name: product.name,
-                image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
-                price: finalPrice,                  // ✅ giá sau giảm
-                quantity,
-                total: finalPrice * quantity,
-            };
-        })),
-
+        items,
         amount,
         status: "pending",
         payment: "COD",
         });
 
-        //  Đánh dấu giỏ hiện tại là "ordered"
+        // ===== 4) Đổi trạng thái giỏ & phát sinh giỏ mới =====
         cart.status = "ordered";
         await cart.save();
 
-        // Tạo giỏ mới luôn có cartKey mới
         const newCart = await Carts.create({
-            user: cart.user || null,
-            cartKey: crypto.randomUUID(),   // ⚡ luôn tạo UUID mới
-            status: "active",
-            items: [],
-            summary: { totalItems: 0, subtotal: 0 },
+        user: cart.user || null,
+        cartKey: crypto.randomUUID(),
+        status: "active",
+        items: [],
+        summary: { totalItems: 0, subtotal: 0 },
         });
 
         // set lại cookie CART_ID = cartKey mới
         res.cookie("CART_ID", newCart.cartKey, {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
-            path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
         });
 
         return res.status(201).json({
@@ -118,6 +167,7 @@ exports.createOrder = async (req, res) => {
         return res.status(500).json({ message: "Tạo đơn thất bại." });
     }
 };
+
 
 
 // ===== SỬA Ở ĐÂY: verify bằng JWT_ACCESS_KEY và lấy Bearer chuẩn =====

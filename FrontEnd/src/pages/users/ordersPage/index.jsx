@@ -86,7 +86,7 @@ const OrdersPage = () => {
 
     return (
         <>
-        <Breadcrumb name="Đơn mua" />
+        <Breadcrumb paths={[{ label: "Đơn mua" }]} />
         <div className="container">
             <h2 style={{ margin: "12px 0 16px" }}>Đơn hàng của tôi</h2>
 

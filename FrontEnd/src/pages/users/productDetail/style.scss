@@ -29,19 +29,49 @@
                 width: 70%;
                 object-fit: cover;
             }
+
             .discount-badge {
                 position: absolute;
                 top: 15px;
-                left: 15px;
+                left: 200px;
                 background: #e02424; // màu đỏ nổi bật
                 color: #fff;
                 font-size: 16px;
-                font-weight: 700;
-                padding: 6px 12px;
+                font-weight: 850;
+                padding: 10px 16px;
                 border-radius: 6px;
                 z-index: 3;
                 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
             }
+
+            // .soldout-badge { //nếu là ảnh
+            //     position: absolute;
+            //     bottom: 5px;
+            // } 
+            .soldout-badge { // tự css chữ sold out
+                position: absolute;
+                bottom: 20px;
+                width: 300px;
+                display: inline-block;
+                color:  #e02424;
+                font-size: 40px;
+                /* chỉnh kích thước chữ */
+                font-weight: 950;
+                /* chữ thật đậm */
+                text-transform: uppercase;
+                /* luôn in hoa */
+                border: 10px solid  #e02424;
+                /* viền đỏ dày */
+                border-radius: 30px;
+                /* bo nhẹ 4 góc */
+                padding: 10px 25px;
+                /* khoảng cách trong */
+                background: transparent;
+                font-family: Arial, Helvetica, sans-serif;
+                /* font giống mẫu */
+            }
+
+
         }
     }
 
@@ -77,7 +107,7 @@
 
         .product__options {
             margin: -20px 0 20px 0;
-        
+
             p {
                 margin-bottom: 10px;
                 font-weight: 500;
@@ -106,7 +136,8 @@
                     input[type="radio"]:checked+span {
                         background: map.get(theme.$theme-colors, "main");
                         color: #fff;
-                        border-color: map.get(theme.$theme-colors, "normal-text");;
+                        border-color: map.get(theme.$theme-colors, "normal-text");
+                        ;
                     }
                 }
             }
@@ -143,33 +174,48 @@
         }
     }
 }
-.price-wrap { display:flex; align-items:baseline; gap:8px;
-    .price-old{ color:#9ca3af; font-size:16px; }
-    .price-new{ color:#111827; font-weight:700; font-size:22px; }
+
+.price-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    .price-old {
+        color: #9ca3af;
+        font-size: 16px;
+    }
+
+    .price-new {
+        color: #111827;
+        font-weight: 700;
+        font-size: 22px;
+    }
 }
+
 .in-stock {
-    color: #0fd519;
+    color: map.get(theme.$theme-colors, "main");
     font-weight: 500;
     font-size: 18px;
     margin-left: 10px;
 }
+
 .out-stock {
-    color: #e02424;   // đỏ đậm
+    color: #e02424; // đỏ đậm
     font-weight: 700;
     font-size: 18px;
 }
+
 .stock-inline {
     font-weight: 600;
     margin-left: 5px;
 
     &.low-stock {
-        color: #e02424;   // đỏ nổi bật khi <= 10
+        color: #e02424; // đỏ nổi bật khi <= 10
         font-size: 18px;
     }
 
     &.high-stock {
-        color: #16a34a;   // xanh khi > 10
+        color: map.get(theme.$theme-colors, "main");
         font-size: 16px;
     }
 }
-

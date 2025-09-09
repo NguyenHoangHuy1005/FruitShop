@@ -34,7 +34,9 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-
+            tr:hover td {
+        background: #F3F6FA;
+    }
         td {
             color: map.get(theme.$theme-colors, "normal-text");
         }

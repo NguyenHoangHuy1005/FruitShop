@@ -90,7 +90,7 @@ const ProductsPage = () => {
 
     return (
         <>
-            <Breadcrumb name="Danh sách sản phẩm" />
+            <Breadcrumb paths={[{ label: "Danh sách sản phẩm" }]} />
             <div className="container">
                 <div className="row">
                     {/* Sidebar */}

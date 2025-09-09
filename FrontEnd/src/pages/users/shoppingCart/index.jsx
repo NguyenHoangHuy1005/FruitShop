@@ -36,7 +36,7 @@ const ShoppingCart = () => {
 
     return (
         <>
-        <Breadcrumb name="Giỏ hàng" />
+        <Breadcrumb paths={[{ label: "Giỏ hàng" }]} />
         <div className="container">
             <div className="table__cart">
             <table>

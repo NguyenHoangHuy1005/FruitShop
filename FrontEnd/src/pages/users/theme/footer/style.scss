@@ -5,7 +5,6 @@
 .footer {
   background: #F3F6FA;
   padding-top: 40px;
-
   .footer__about {
     .footer__about__logo {
       margin-bottom: 15px;
@@ -187,7 +186,7 @@
       height: 40px;
       border: 1px solid #ededed;
       border-radius: 50%;
-      background: #ffffff;
+      background: #cecece;
       cursor: pointer;
       transition: all 0.3s;
 
@@ -202,7 +201,7 @@
       svg {
         width: 20px;
         height: 20px;
-        color: #404040;
+        color: #000000;
       }
     }
   }
@@ -210,17 +209,12 @@
   .footer__copyright {
     clear: both;
     margin-top: 40px;
-
+    height: 40px;
     $main: map.get(theme.$theme-colors, "main");
     background: color.scale($main, $lightness: -30%);
     border-top: 1px solid color.scale($main, $lightness: 20%);
-
-    .container {
-      padding: 15px 0;
-    }
-
     p {
-      margin: 0;
+      margin: 10px;
       text-align: center;
       font-size: 14px;
       letter-spacing: 0.3px;

@@ -65,6 +65,9 @@ $product-main: map.get(theme.$theme-colors, "main");
     text-align: left;
     border-bottom: 1px solid #eee;
   }
+  tr:hover td {
+        background: #F3F6FA;
+    }
 
   th {
     background: $product-gray;

@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import Breadcrumb from "../theme/breadcrumb";
 import {
     requestEmailChange,
     confirmEmailChange,
@@ -140,6 +141,8 @@ const ProfilePage = () => {
     };
 
     return (
+          <>
+                <Breadcrumb paths={[{ label: "Trang cá nhân" }]} />
         <div className="profile__wrap">
             <h1>Hồ sơ cá nhân</h1>
 
@@ -310,6 +313,7 @@ const ProfilePage = () => {
                 )}
             </section>
         </div>
+        </>
     );
 };
 

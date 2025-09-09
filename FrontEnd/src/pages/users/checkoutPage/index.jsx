@@ -31,7 +31,7 @@ const CheckoutPage = () => {
 
     return (
         <>
-        <Breadcrumb name="Thanh toán" />
+        <Breadcrumb paths={[{ label: "Thanh toán" }]} />
         <div className="container">
             <form className="row" onSubmit={onSubmit}>
             <div className="col-lg-6 col-md-6 col-sm-12 col-xs-12">

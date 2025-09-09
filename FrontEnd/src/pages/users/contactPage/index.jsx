@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
+import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
 // axios instance (nếu có)
 import { API } from "../../../component/redux/apiRequest";
@@ -103,6 +104,8 @@ const ContactPage = () => {
     };
 
     return (
+        <>
+        <Breadcrumb paths={[{ label: "Liên hệ" }]} />
         <div className="contact__wrap">
             <h1>LIÊN HỆ VỚI FRUIT SHOP</h1>
             <p className="lead">
@@ -211,6 +214,7 @@ const ContactPage = () => {
 
             </form>
         </div>
+        </>
     );
 };
 

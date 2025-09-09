@@ -2,7 +2,7 @@ export const ADMIN_PATH = "/admin";
 
 export const ROUTERS = {
   USER: {
-    HOME: "",
+    HOME: "/",
     ORDERS: "/orders",
     PROFILE: "/profile",
     PRODUCTS: "/product",

@@ -88,11 +88,11 @@
     &:active { transform: translateY(0.5px); }
 
     &.primary {
-        background: #16a34a;
-        border-color: #16a34a;
+        background: map.get(theme.$theme-colors,"main");
+        border-color: map.get(theme.$theme-colors,"main");
         color: #fff;
 
-        &:hover { background: #149344; }
+        &:hover { background: map.get(theme.$theme-colors,"main"); }
     }
 
     &:disabled {

@@ -9,14 +9,14 @@
 $txt: map.get(theme.$theme-colors, "bold-text");
 $muted: map.get(theme.$theme-colors, "normal-text");
 $brand: map.get(theme.$theme-colors, "main");
-$border: #e5e7eb;
+$border: #f3f6fa;
 
 $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploads/pn9qsmkbijuvqan7yp5m.png";
 
 /* ===== Top bar ===== */
 .header__top {
     background: #f3f6fa;
-    height: 45px;
+    height: 47px;
 }
 
 .header__top__left {
@@ -229,10 +229,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             background: #ffffff;
         }
 
-        .active a {
-            color: map.get(theme.$theme-colors, "main");
-        }
-
         .header__menu__dropdown {
             background: #ffffff;
             display: block;
@@ -309,6 +305,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 .l__categories {
     position: relative;
     padding-bottom: 20px;
+
     .categories__all {
         background: map.get(theme.$theme-colors, "main");
         padding: 15px 25px 15px 40px;
@@ -317,7 +314,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         cursor: pointer;
         color: #ffffff;
         font-weight: 650;
-        font-family: "Roboto", sans-serif;
 
         svg,
         span {
@@ -333,12 +329,17 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
     ul {
         border: 1px solid #ebebeb;
-        opacity: 1;
         margin-top: 0px;
         position: absolute;
         width: 100%;
         background: #ffffff;
-        transition: all 0.2s;
+
+        /* animation */
+        max-height: 500px;
+        /* đủ lớn cho toàn bộ menu */
+        opacity: 1;
+        overflow: hidden;
+        transition: all 0.3s ease;
 
         li {
             list-style: none;
@@ -365,10 +366,14 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         }
 
         &.hidden {
-            opacity: 0;
+            max-height: 0;
+            /* trượt lên */
+            pointer-events: none;
+            /* không bấm được khi ẩn */
         }
     }
 }
+
 
 /* ===== Right area: search + hero ===== */
 .r__categories {
@@ -417,6 +422,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         display: flex;
         align-items: center;
         padding-left: 20px;
+
         .r__search_phone_icon {
             font-size: 25px;
             background: #e8e8e8;

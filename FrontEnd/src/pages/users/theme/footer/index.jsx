@@ -103,9 +103,9 @@ const Footer = () => {
       </div>
       {/* === Thanh bản quyền ở đáy footer === */}
       <div className="footer__copyright">
-        <div className="container">
+        
           <p>© {year} Thế Sơn - Hoàng Huy Fruit Shop. All rights reserved.</p>
-        </div>
+       
       </div>
 
     </footer>

@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { logout, ensureCart } from "../../../../component/redux/apiRequest";
+import { logout, ensureCart, getAllProduct } from "../../../../component/redux/apiRequest";
 import "./style.scss";
 import "./header.scss";
 import {
@@ -98,8 +98,6 @@ const UserMenu = ({ onLoginClick }) => {
     await logout(dispatch, navigate, accessToken, id);
   };
 
-
-
   return (
     <li className="user-menu" ref={ref}>
       <button
@@ -182,6 +180,28 @@ const Header = () => {
   }, [location]);
 
   const user = useSelector((state) => state.auth?.login?.currentUser);
+
+
+  // thanh tìm kiếm
+  // Lấy sản phẩm từ Redux
+  const products = useSelector(
+    (state) => state.product.products?.allProducts || []
+  );
+  const [keyword, setKeyword] = useState("");
+  const [results, setResults] = useState([]);
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setKeyword(value);
+
+    if (value.length > 1) {
+      const filtered = products.filter((item) =>
+        item.name.toLowerCase().includes(value.toLowerCase())
+      );
+      setResults(filtered);
+    } else {
+      setResults([]);
+    }
+  };
 
   return (
     <>
@@ -438,12 +458,57 @@ const Header = () => {
             <div className="r__search">
               <div className="r__search_form">
                 <form>
-                  <input type="text" placeholder="Bạn đang tìm gì?" />
+                  <input
+                    type="text"
+                    placeholder="Bạn đang tìm gì?"
+                    value={keyword}
+                    onChange={handleSearch}
+                  />
                   <button type="button" className="button-submit">
                     Tìm kiếm
                   </button>
+
+                  {results.length > 0 && (
+                    <ul className="search-results">
+                      {results.map((item) => {
+                        const discountPercent = item.discountPercent || 0;
+                        const finalPrice =
+                          discountPercent > 0
+                            ? Math.round(item.price - (item.price * discountPercent) / 100)
+                            : item.price;
+
+                        return (
+                          <li key={item._id}>
+                            <Link
+                              to={`/product/detail/${item._id}`}
+                              onClick={() => {
+                                setResults([]);   // ẩn thanh gợi ý
+                                setKeyword("");   // xóa luôn từ khóa (nếu muốn)
+                              }}
+                            >
+                              <img src={item.image} alt={item.name} />
+                              <div className="info">
+                                <span className="name">{item.name}</span>
+                                {discountPercent > 0 ? (
+                                  <div className="price-wrap">
+                                    <del className="price-old">{formatter(item.price)}</del>
+                                    <div className="price-new">{formatter(finalPrice)}</div>
+                                  </div>
+                                ) : (
+                                  <h5>{formatter(item.price)}</h5>
+                                )}
+                              </div>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                  )}
                 </form>
+
               </div>
+
 
               <div className="r__search_phone">
                 <div className="r__search_phone_icon">
@@ -474,7 +539,7 @@ const Header = () => {
             )}
           </div>
         </div>
-      </div>
+      </div >
     </>
   );
 };

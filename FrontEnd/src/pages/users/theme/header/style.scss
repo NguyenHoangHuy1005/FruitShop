@@ -232,13 +232,13 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         .header__menu__dropdown {
             background: #ffffff;
             display: block;
-            border: 1px solid #000000;
+            border: 1px solid #c3c3c3;
             position: absolute;
             width: 180px;
             height: 140px;
             z-index: 9;
             margin-left: 0px;
-            transition: all 0.3s;
+            transition: all 0.2s;
             /* sửa cú pháp */
             opacity: 0;
             visibility: hidden;
@@ -249,7 +249,10 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                     color: #000000;
                     font-weight: 400;
                     padding: 5px 15px;
+                    border-bottom: 1px solid #c3c3c3;
                 }
+
+              
 
                 :hover {
                     color: #fff;
@@ -328,7 +331,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     }
 
     ul {
-        border: 1px solid #ebebeb;
+        border: 1px solid #c5c5c5;
         margin-top: 0px;
         position: absolute;
         width: 100%;
@@ -346,13 +349,14 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
             a {
                 text-decoration: none;
+
                 background-color: transparent;
                 font-size: 16px;
                 color: map.get(theme.$theme-colors, "normal-text");
                 display: block;
                 line-height: 39px;
                 padding-left: 40px;
-                font-family: "Roboto", sans-serif;
+
             }
 
             &:hover {
@@ -379,9 +383,9 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 .r__categories {
     .r__search_form {
         width: 610px;
-        height: 50px;
         float: left;
         padding-left: 65px;
+        position: relative;
 
         form {
             display: flex;
@@ -389,18 +393,17 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         }
 
         input {
-            border: none;
+            border: 1px solid #b5b5b5;
             height: 50px;
             font-size: 16px;
             color: map.get(theme.$theme-colors, "normal-text");
             padding-left: 20px;
-            border: 1px solid #b5b5b5;
             width: 70%;
             font-family: "Roboto", sans-serif;
 
-            :focus {
+            &:focus {
                 outline: none;
-                border: none;
+                border-color: map.get(theme.$theme-colors, "main");
             }
         }
 
@@ -415,8 +418,104 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             border: none;
             height: 100%;
             letter-spacing: 2px;
+            cursor: pointer;
+
+            &:hover {
+                background: darken(map.get(theme.$theme-colors, "main"), 10%);
+            }
+        }
+
+        /* Dropdown kết quả */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 65px; // khớp padding-left
+            width: calc(86% - 3px);
+            background: #fff;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+            li {
+                padding: 0; // reset vì Link gánh phần padding
+                border-bottom: solid 1px #bababa;
+
+                a {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    padding: 12px;
+                    text-decoration: none;
+                    color: inherit;
+                    transition: background 0.2s ease;
+
+                    img {
+                        width: 75px;
+                        height: 75px;
+                        object-fit: cover;
+                        border-radius: 6px;
+                        flex-shrink: 0;
+                    }
+
+                    .info {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        flex: 1;
+
+                        .name {
+                            font-size: 15px;
+                            font-weight: 500;
+                            color: #222;
+                            line-height: 1.4;
+                        }
+
+                        .price-wrap {
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+
+                            .price-old {
+                                font-size: 14px;
+                                color: #888;
+                                text-decoration: line-through;
+                            }
+
+                            .price-new {
+                                font-size: 16px;
+                                font-weight: 700;
+                                color: #d70018;
+                            }
+
+                            .discount {
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: #d70018;
+                            }
+                        }
+
+                        h5 {
+                            font-size: 16px;
+                            font-weight: 700;
+                            color: #d70018;
+                        }
+                    }
+
+                    &:hover {
+                        background: #f9f9f9;
+                    }
+                }
+            }
         }
     }
+
+
 
     .r__search_phone {
         display: flex;

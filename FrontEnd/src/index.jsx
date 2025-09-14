@@ -10,13 +10,17 @@ import "@fontsource/be-vietnam-pro/400.css";
 import "@fontsource/be-vietnam-pro/500.css";
 import "@fontsource/be-vietnam-pro/700.css";
 
-import SplashScreen from "../src/component/modals/SplashScreen"; 
+import SplashScreen from "../src/component/modals/SplashScreen";
+
+// import toastify
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function MainApp() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 3000); // hiển thị 3s
+    const timer = setTimeout(() => setLoading(false), 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -25,10 +29,23 @@ function MainApp() {
       <PersistGate loading={null} persistor={persistor}>
         <BrowserRouter>
           {loading ? <SplashScreen /> : <RouterCustom />}
+
+          {/* ✅ Thêm ToastContainer toàn cục */}
+          <ToastContainer
+            position="top-center"
+            autoClose={1000}
+            hideProgressBar={false}
+            newestOnTop={true}
+            closeOnClick
+            pauseOnHover
+            draggable
+            theme="colored"   //  nền có màu theo type (warning = vàng, error = đỏ)
+          />
         </BrowserRouter>
       </PersistGate>
     </Provider>
   );
 }
+
 
 ReactDOM.createRoot(document.getElementById("root")).render(<MainApp />);

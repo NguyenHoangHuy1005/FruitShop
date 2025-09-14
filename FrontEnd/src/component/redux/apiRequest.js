@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ROUTERS } from "../../utils/router";
+import { toast } from "react-toastify";
 import {
     loginFailure, loginStart, loginSuccess,
     registerFailure, registerStart, registerSuccess,
@@ -364,12 +365,19 @@ export const addToCart = async (productId, quantity = 1, dispatch) => {
     try {
         const res = await API.post("/cart/add", { productId, quantity });
         dispatch(cartSuccess(res.data));
-        alert("Đã thêm vào giỏ!");
+        toast.success("🛒 Đã thêm sản phẩm vào giỏ!", {
+            position: "top-right",
+            style: { background: "#008874", color: "#fff", fontWeight: "600" },
+        });
     } catch (e) {
         dispatch(cartFailure(e?.response?.data || e.message));
-        alert(e?.response?.data?.message || "Thêm giỏ thất bại!");
+        toast.error(e?.response?.data?.message || "❌ Thêm giỏ thất bại!", {
+            position: "top-right",
+            style: { background: "#ff4d4f", color: "#fff", fontWeight: "600" },
+        });
     }
 };
+
 
 // Cập nhật số lượng 1 item (theo productId)
 // CHO PHÉP qty = 0 (BE của bạn xóa item khi qty = 0)

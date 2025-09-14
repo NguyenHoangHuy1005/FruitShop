@@ -3,6 +3,7 @@ import { formatter } from "../../../utils/fomater";
 import { AiOutlineClose } from "react-icons/ai";
 import "./style.scss";
 import { memo, useEffect, useRef } from 'react';
+import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { ROUTERS } from '../../../utils/router';
 import { useDispatch, useSelector } from "react-redux";
@@ -12,6 +13,8 @@ const ShoppingCart = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const cart = useSelector((s) => s.cart?.data);
+    const user = useSelector((s) => s.auth?.login?.currentUser);
+
 
     // Debounce timers theo từng productId
     const timersRef = useRef({});
@@ -21,11 +24,11 @@ const ShoppingCart = () => {
     const handleQtyChange = (productId, raw) => {
         const q = Math.max(0, parseInt(raw, 10) || 0);
 
-        // Nếu nhập 0 -> hỏi trước khi xoá
-        if (q === 0) {
-        const ok = window.confirm("Số lượng = 0 sẽ xoá sản phẩm khỏi giỏ. Tiếp tục?");
-        if (!ok) return; // không gọi API
-        }
+        // // Nếu nhập 0 -> hỏi trước khi xoá
+        // if (q === 0) {
+        // const ok = window.confirm("Số lượng = 0 sẽ xoá sản phẩm khỏi giỏ. Tiếp tục?");
+        // if (!ok) return; // không gọi API
+        // }
 
         // Debounce 300ms
         if (timersRef.current[productId]) clearTimeout(timersRef.current[productId]);
@@ -33,6 +36,20 @@ const ShoppingCart = () => {
         updateCartItem(productId, q, dispatch);
         }, 300);
     };
+    const handleCheckout = () => {
+        if (!user) {
+            toast.warning(" Bạn phải đăng nhập để thanh toán!", {
+            position: "top-center",
+            style: { background: "#ff4d4f", color: "#fff", fontWeight: "600" }, // custom style
+            icon: "🔑",
+            });
+            navigate(ROUTERS.ADMIN?.LOGIN || "/admin/login");
+            return;
+        }
+        navigate(ROUTERS.USER.CHECKOUT);
+    };
+
+
 
     return (
         <>
@@ -126,7 +143,7 @@ const ShoppingCart = () => {
                     <button
                     type="button"
                     className="button-submit"
-                    onClick={() => navigate(ROUTERS.USER.CHECKOUT)}
+                    onClick={handleCheckout}
                     >
                     Thanh toán
                     </button>

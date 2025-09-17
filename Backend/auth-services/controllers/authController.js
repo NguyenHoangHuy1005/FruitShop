@@ -178,12 +178,9 @@ const authController = {
             });
             userCart = await userCart.populate("items.product");
         }
-
-
-        console.log("LOGIN -> return cart:", JSON.stringify(userCart, null, 2));
-        return res.status(200).json({ ...others, accessToken, cart: userCart });
-
-
+        // console.log("LOGIN -> return cart:", JSON.stringify(userCart, null, 2)); k cần in ra
+        // return res.status(200).json({ ...others, accessToken, cart: userCart });
+        return res.status(200).json({ ...others, accessToken });
 
         } catch (error) {
         console.error(error);

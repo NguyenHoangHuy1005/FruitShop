@@ -22,7 +22,8 @@
     "mongoose": "^8.17.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
-    "pdfkit": "^0.17.2"
+    "pdfkit": "^0.17.2",
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.3",

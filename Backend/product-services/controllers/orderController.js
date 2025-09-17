@@ -39,22 +39,22 @@ exports.createOrder = async (req, res) => {
         let userId = null;
         const token = readBearer(req);
         if (token && JWT_SECRET) {
-        try {
-            const payload = jwt.verify(token, JWT_SECRET);
-            userId = payload?.id || payload?._id || null;
-        } catch (_) {}
+            try {
+                const payload = jwt.verify(token, JWT_SECRET);
+                userId = payload?.id || payload?._id || null;
+            } catch (_) { }
         }
 
         const { name, fullName, address, phone, email, note } = req.body || {};
         const customerName = name || fullName;
 
         if (!customerName || !address || !phone || !email) {
-        return res.status(400).json({ message: "Vui lòng nhập đủ họ tên, địa chỉ, điện thoại, email." });
+            return res.status(400).json({ message: "Vui lòng nhập đủ họ tên, địa chỉ, điện thoại, email." });
         }
 
         const cart = await getOrCreateCart(req, res);
         if (!cart?.items?.length) {
-        return res.status(400).json({ message: "Giỏ hàng đang trống." });
+            return res.status(400).json({ message: "Giỏ hàng đang trống." });
         }
 
         // gắn user cho giỏ nếu có
@@ -78,7 +78,7 @@ exports.createOrder = async (req, res) => {
             if (!updated) {
                 // rollback những gì đã trừ
                 for (const d of decremented) {
-                await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
+                    await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
                 }
                 return res.status(409).json({ message: `Sản phẩm "${line.name}" không đủ tồn kho.` });
             }
@@ -93,74 +93,83 @@ exports.createOrder = async (req, res) => {
                     { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } },
                     { new: false }
                 );
-            } catch (_) {}
+            } catch (_) { }
         }
 
         // ===== 2) Rebuild items (đảm bảo giá cuối) =====
         const items = await Promise.all(cart.items.map(async (i) => {
-        const product = await Product.findById(i.product).lean();
-        if (!product) {
-            // fallback nếu product bị xóa
+            const product = await Product.findById(i.product).lean();
+            if (!product) {
+                // fallback nếu product bị xóa
+                const q = Number(i.quantity) || 1;
+                const price = Number(i.price) || 0;
+                return {
+                    product: i.product,
+                    name: i.name,
+                    image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
+                    price,
+                    quantity: q,
+                    total: price * q,
+                };
+            }
+            const pct = Number(product.discountPercent) || 0;
+            const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
             const q = Number(i.quantity) || 1;
-            const price = Number(i.price) || 0;
             return {
-            product: i.product,
-            name: i.name,
-            image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
-            price,
-            quantity: q,
-            total: price * q,
+                product: product._id,
+                name: product.name,
+                image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
+                price: finalPrice,
+                quantity: q,
+                total: finalPrice * q,
             };
-        }
-        const pct = Number(product.discountPercent) || 0;
-        const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
-        const q = Number(i.quantity) || 1;
-        return {
-            product: product._id,
-            name: product.name,
-            image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
-            price: finalPrice,
-            quantity: q,
-            total: finalPrice * q,
-        };
         }));
 
         // ===== 3) Tạo đơn =====
         const order = await Order.create({
-        user: userId || cart.user || null,
-        customer: { name: customerName, address, phone, email, note: note || "" },
-        items,
-        amount,
-        status: "pending",
-        payment: "COD",
+            user: userId || cart.user || null,
+            customer: { name: customerName, address, phone, email, note: note || "" },
+            items,
+            amount,
+            status: "pending",
+            payment: "COD",
         });
-
+        // BỔ SUNG: tăng purchaseCount sau khi tạo đơn thành công <<<
+        const purchaseCount = items.map((item) => ({
+            updateOne: {
+                filter: { _id: item.product },
+                update: { $inc: { purchaseCount: item.quantity } },
+            },
+        }));
+        if (purchaseCount.length > 0) {
+            await Product.bulkWrite(purchaseCount);
+        }
         // ===== 4) Đổi trạng thái giỏ & phát sinh giỏ mới =====
         cart.status = "ordered";
         await cart.save();
 
         const newCart = await Carts.create({
-        user: cart.user || null,
-        cartKey: crypto.randomUUID(),
-        status: "active",
-        items: [],
-        summary: { totalItems: 0, subtotal: 0 },
+            user: cart.user || null,
+            cartKey: crypto.randomUUID(),
+            status: "active",
+            items: [],
+            summary: { totalItems: 0, subtotal: 0 },
         });
 
         // set lại cookie CART_ID = cartKey mới
         res.cookie("CART_ID", newCart.cartKey, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
         });
 
         return res.status(201).json({
-        ok: true,
-        message: "Đặt hàng thành công!",
-        orderId: order._id,
-        amount,
-        createdAt: order.createdAt,
+            ok: true,
+            message: "Đặt hàng thành công!",
+            orderId: order._id,
+            amount,
+            createdAt: order.createdAt,
         });
     } catch (e) {
         console.error("createOrder error:", e);
@@ -190,31 +199,31 @@ exports.myOrders = async (req, res) => {
 
 // ===== Admin APIs =====
 exports.adminList = async (req, res) => {
-    const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const { status, q, user, from, to } = req.query;
     const filter = {};
 
     if (status) filter.status = status;
-    if (user)   filter.user = user;
+    if (user) filter.user = user;
 
     if (q && q.trim()) {
         const esc = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const rx = new RegExp(esc, "i");
         filter.$or = [
-        { "customer.name":  rx },
-        { "customer.phone": rx },
-        { "customer.email": rx },
-        { "items.name":     rx },
+            { "customer.name": rx },
+            { "customer.phone": rx },
+            { "customer.email": rx },
+            { "items.name": rx },
         ];
     }
 
     if (from || to) {
         filter.createdAt = {};
         if (from) filter.createdAt.$gte = new Date(from);
-        if (to)   filter.createdAt.$lte = new Date(to);
+        if (to) filter.createdAt.$lte = new Date(to);
     }
 
     const [total, rows] = await Promise.all([
@@ -237,7 +246,7 @@ exports.adminGetOne = async (req, res) => {
 exports.adminUpdate = async (req, res) => {
     const { status, payment } = req.body || {};
     const update = {};
-    if (status)  update.status = status;   // pending|paid|shipped|completed|cancelled
+    if (status) update.status = status;   // pending|paid|shipped|completed|cancelled
     if (payment) update.payment = payment; // COD|BANK|VNPAY
     if (!Object.keys(update).length) {
         return res.status(400).json({ message: "Không có trường nào để cập nhật." });
@@ -258,17 +267,17 @@ exports.updateOrderStatus = async (req, res) => {
 
         const allowed = ["pending", "paid", "shipped", "completed", "cancelled"];
         if (!allowed.includes(status)) {
-        return res.status(400).json({ message: "Trạng thái không hợp lệ." });
+            return res.status(400).json({ message: "Trạng thái không hợp lệ." });
         }
 
         const order = await Order.findByIdAndUpdate(
-        id,
-        { status },
-        { new: true }
+            id,
+            { status },
+            { new: true }
         );
 
         if (!order) {
-        return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
         }
 
         return res.json(order);

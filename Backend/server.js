@@ -6,17 +6,20 @@ const connectDB = require("./auth-services/config/db");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 
+//auth
 const authRoute    = require("./auth-services/routes/auth");
 const userRoute    = require("./auth-services/routes/user");
+
+//admin
 const productRoute = require("./admin-services/routes/product");
 const uploadRoutes = require("./admin-services/routes/image");
-//mới đây nè
 const supplierRoutes = require("./admin-services/routes/supplier");
-const stockRoutes = require("./product-services/routes/stock");
 
-// 🔧 ĐÚNG tên file routes (không phải *Routers*)
+//product
 const cartRoutes  = require("./product-services/routes/cart");
 const orderRoutes = require("./product-services/routes/order");
+const stockRoutes = require("./product-services/routes/stock");
+const productRoutes = require("./product-services/routes/product");
 
 dotenv.config();
 connectDB();
@@ -53,6 +56,7 @@ app.use("/api/product", productRoute);
 
 app.use("/api/cart",   cartRoutes);   // <- /api/cart/... (PUT /item/:productId OK)
 app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order
+app.use("/api/product", productRoutes) //productRoutes của product-services khác của admin
 
 // tồn kho
 app.use("/api/stock", stockRoutes);

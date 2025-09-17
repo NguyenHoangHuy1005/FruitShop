@@ -48,19 +48,20 @@
             //     position: absolute;
             //     bottom: 5px;
             // } 
-            .soldout-badge { // tự css chữ sold out
+            .soldout-badge {
+                // tự css chữ sold out
                 position: absolute;
                 bottom: 20px;
                 width: 300px;
                 display: inline-block;
-                color:  #e02424;
+                color: #e02424;
                 font-size: 40px;
                 /* chỉnh kích thước chữ */
                 font-weight: 950;
                 /* chữ thật đậm */
                 text-transform: uppercase;
                 /* luôn in hoa */
-                border: 10px solid  #e02424;
+                border: 10px solid #e02424;
                 /* viền đỏ dày */
                 border-radius: 30px;
                 /* bo nhẹ 4 góc */
@@ -90,6 +91,7 @@
             text-overflow: ellipsis; // nếu quá dài hiển thị "..."
             margin-right: 0; // bỏ margin quá lớn
             text-align: left;
+            padding: 20px 0 0 16px;
         }
 
         h3 {
@@ -102,7 +104,11 @@
             font-size: 15px;
             line-height: 30px;
             column-gap: 5px;
-            margin-left: 10px;
+            margin-left: 15px;
+        }
+
+        .buy-count {
+            padding: 5px 0 0 15px;
         }
 
         .product__options {
@@ -177,6 +183,7 @@
 
 .price-wrap {
     display: flex;
+    padding: 0 0 0 18px;
     align-items: baseline;
     gap: 8px;
 

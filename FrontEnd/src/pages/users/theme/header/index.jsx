@@ -189,19 +189,24 @@ const Header = () => {
   );
   const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState([]);
+
   const handleSearch = (e) => {
     const value = e.target.value;
     setKeyword(value);
 
-    if (value.length > 1) {
+    if (value.length > 0) {
       const filtered = products.filter((item) =>
-        item.name.toLowerCase().includes(value.toLowerCase())
+        item.name
+          .toLowerCase()
+          .split(" ") // tách tên sản phẩm thành các từ
+          .some((word) => word.startsWith(value.toLowerCase())) // kiểm tra từ bắt đầu
       );
       setResults(filtered);
     } else {
       setResults([]);
     }
   };
+
 
   return (
     <>
@@ -210,7 +215,7 @@ const Header = () => {
         className={`humberger__menu__overlay ${isShowHumberger ? "active" : ""}`}
         onClick={() => setShowHumberger(false)}
       />
-      <div
+      <divF
         className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}
       >
         <div className="header__logo">
@@ -319,12 +324,12 @@ const Header = () => {
         <div className="humberger__menu__contact">
           <ul>
             <li>
-              <AiFillMail /> Hoanghuy100503@gmail.com
+              <AiFillMail /> FruitShop@gmail.com
             </li>
             <li>Miễn phí giao hàng cho đơn từ {formatter(199000)}</li>
           </ul>
         </div>
-      </div>
+      </divF>
 
       {/* ===== Top bar ===== */}
       <div className="header__top">
@@ -333,46 +338,64 @@ const Header = () => {
             <div className="col-6 header__top__left">
               <ul>
                 <li>
-                  <AiFillMail /> Hoanghuy100503@gmail.com
+                  <AiFillMail /> FruitShop@gmail.com
                 </li>
+
                 <li className="top_header_freeship">
-                  Miễn phí vẫn chuyển cho đơn từ {formatter(199000)}
+                  Miễn phí vẫn chuyển cho đơn từ  {formatter(199000)}
                 </li>
               </ul>
             </div>
             <div className="col-6 header__top__right">
               <ul>
                 <li>
-                  <Link to={""}>
+                  <a
+                    href="https://www.facebook.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <AiFillFacebook />
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link to={""}>
+                  <a
+                    href="https://www.instagram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <AiFillInstagram />
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link to={""}>
+                  <a
+                    href="https://www.linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <AiFillLinkedin />
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link to={""}>
+                  <a
+                    href="https://www.tiktok.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     <AiFillTikTok />
-                  </Link>
+                  </a>
                 </li>
-
-                {/* === Đây là phần user === */}
-                <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
               </ul>
+
+
+              {/* === Đây là phần user === */}
+              <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
             </div>
           </div>
         </div>
       </div>
 
       {/* ===== Main bar ===== */}
-      <div className="container">
+      <div className="container" >
         <div className="row">
           <div className="col-lg-3">
             <div className="header__logo">
@@ -432,7 +455,7 @@ const Header = () => {
       </div>
 
       {/* ===== Categories + Search + Hero ===== */}
-      <div className="container">
+      <div className="container" >
         <div className="row categories">
           <div className="col-lg-3 col-md-12 col-sm-12 col-xs-12 l__categories">
             <div
@@ -539,7 +562,7 @@ const Header = () => {
             )}
           </div>
         </div>
-      </div >
+      </div>
     </>
   );
 };

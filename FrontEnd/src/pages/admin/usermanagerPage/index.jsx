@@ -29,8 +29,8 @@ const UserManagerPage = () => {
         updateUser(editingUser._id, updatedData, user?.accessToken, dispatch);
         setEditingUser(null);
     };
-  
 
+    console.log("Danh sách user:", userList);
     return (
         <div className="container">
             <div className="user-management">
@@ -48,6 +48,7 @@ const UserManagerPage = () => {
                         </tr>
                     </thead>
                     <tbody>
+
                         {Array.isArray(userList) && userList.length > 0 ? (
                             [...userList]
                                 .sort((a, b) => a._id.localeCompare(b._id))

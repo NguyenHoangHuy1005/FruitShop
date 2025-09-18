@@ -40,11 +40,11 @@ export const ensureAccessToken = async (maybeToken) => {
     try {
         const r = await API.post("/auth/refresh", null, { validateStatus: () => true });
         if (r.status === 200 && r.data?.accessToken) {
-        const t = r.data.accessToken;
-        API.defaults.headers.common.Authorization = `Bearer ${t}`;
-        return t;
+            const t = r.data.accessToken;
+            API.defaults.headers.common.Authorization = `Bearer ${t}`;
+            return t;
         }
-    } catch (_) {}
+    } catch (_) { }
     return null; // không có token
 };
 /* ======================= AUTH ======================= */
@@ -97,11 +97,11 @@ export const registerUser = async (user, dispatch, navigate) => {
     try {
         // BẮT BUỘC gửi kèm password_confirm để backend validate
         const payload = {
-        email: user.email,
-        username: user.username,
-        password: user.password,
-        password_confirm: user.password_confirm ?? user.password, // fallback nếu bạn chưa set ở FE
-        phone: user.phone,
+            email: user.email,
+            username: user.username,
+            password: user.password,
+            password_confirm: user.password_confirm ?? user.password, // fallback nếu bạn chưa set ở FE
+            phone: user.phone,
         };
 
         const res = await API.post("/auth/register", payload);
@@ -110,13 +110,13 @@ export const registerUser = async (user, dispatch, navigate) => {
 
         const pending = res.data?.pendingEmail;
         if (pending) {
-        localStorage.setItem("PENDING_EMAIL", pending);
-        dispatch(setPendingEmail(pending));
-        alert(res.data?.message || "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác minh.");
-        navigate(ROUTERS.ADMIN?.AUTH || "/admin/auth");
+            localStorage.setItem("PENDING_EMAIL", pending);
+            dispatch(setPendingEmail(pending));
+            alert(res.data?.message || "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác minh.");
+            navigate(ROUTERS.ADMIN?.AUTH || "/admin/auth");
         } else {
-        alert("Đăng ký thành công!");
-        navigate(ROUTERS.ADMIN?.LOGIN || "/admin/login");
+            alert("Đăng ký thành công!");
+            navigate(ROUTERS.ADMIN?.LOGIN || "/admin/login");
         }
     } catch (error) {
         const msg = error?.response?.data?.message || "Đăng ký thất bại!";
@@ -133,12 +133,12 @@ export const verifyAccount = async ({ token }, dispatch) => {
         const email = getPendingEmail();
         const code = String(token || "").trim(); // giữ '0' đầu
         if (!email) {
-        dispatch(verifyFailure());
-        return { ok: false, message: "Thiếu email cần xác minh." };
+            dispatch(verifyFailure());
+            return { ok: false, message: "Thiếu email cần xác minh." };
         }
         if (!/^\d{6}$/.test(code)) {
-        dispatch(verifyFailure());
-        return { ok: false, message: "Mã OTP phải gồm 6 chữ số." };
+            dispatch(verifyFailure());
+            return { ok: false, message: "Mã OTP phải gồm 6 chữ số." };
         }
 
         // debug nhẹ (có thể bỏ sau)
@@ -165,8 +165,8 @@ export const resendCode = async (email, dispatch) => {
         const res = await API.post("/auth/verify/resend", { email: mail });
         const pending = res.data?.pendingEmail;
         if (pending) {
-        localStorage.setItem("PENDING_EMAIL", pending);
-        dispatch(setPendingEmail(pending));
+            localStorage.setItem("PENDING_EMAIL", pending);
+            dispatch(setPendingEmail(pending));
         }
         alert(res.data?.message || "Đã gửi lại mã.");
         return true;
@@ -184,24 +184,24 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
 
     try {
         await API.post(
-        "/auth/logout",
-        { id },
-        {
-            headers: { Authorization: `Bearer ${accessToken}` }, // dùng Authorization thay vì token
-            withCredentials: true,
-        }
+            "/auth/logout",
+            { id },
+            {
+                headers: { Authorization: `Bearer ${accessToken}` }, // dùng Authorization thay vì token
+                withCredentials: true,
+            }
         );
     } catch (error) {
         ok = false;
         console.error("Logout error:", error?.response?.data || error?.message);
     } finally {
         // Dọn client triệt để
-        try { localStorage.clear(); } catch {}
-        try { sessionStorage.clear(); } catch {}
+        try { localStorage.clear(); } catch { }
+        try { sessionStorage.clear(); } catch { }
         try {
-        delete API.defaults.headers.common.Authorization;
-        delete API.defaults.headers.common.token;
-        } catch {}
+            delete API.defaults.headers.common.Authorization;
+            delete API.defaults.headers.common.token;
+        } catch { }
 
         dispatch(logoutSuccess());
         await ensureCart(dispatch);  // gọi lại API /cart → Redux.cart sẽ về giỏ guest (trống)
@@ -232,14 +232,14 @@ export const resetPassword = async (payload) => {
         const data = res.data;
         // ✅ Trả error khi BE trả ok:false (vẫn HTTP 200)
         if (!data?.ok) {
-        return { ok: false, error: data || { code: "UNKNOWN", message: "Đổi mật khẩu thất bại." } };
+            return { ok: false, error: data || { code: "UNKNOWN", message: "Đổi mật khẩu thất bại." } };
         }
         return { ok: true, data };
     } catch (e) {
         const d = e?.response?.data;
         const err = typeof d === "string"
-        ? { code: "HTTP_ERROR", message: d }
-        : (d || { code: "HTTP_ERROR", message: e.message });
+            ? { code: "HTTP_ERROR", message: d }
+            : (d || { code: "HTTP_ERROR", message: e.message });
         return { ok: false, error: err };
     }
 };
@@ -252,19 +252,26 @@ export const getAllUsers = async (accessToken, dispatch) => {
     dispatch(getUserStart());
     try {
         const res = await API.get("/user", {
-        headers: { token: `Bearer ${accessToken}` },
+            headers: { token: `Bearer ${accessToken}` },
         });
-        dispatch(getUsersSuccess(res.data));
+
+        // Lọc bỏ user có admin = true
+        const filteredUsers = Array.isArray(res.data)
+            ? res.data.filter((u) => u.admin !== true)
+            : [];
+
+        dispatch(getUsersSuccess(filteredUsers));
     } catch (error) {
         dispatch(getUserFailure());
     }
 };
 
+
 export const deleteUser = async (accessToken, dispatch, id) => {
     dispatch(deleteUserStart());
     try {
         const res = await API.delete(`/user/${id}`, {
-        headers: { token: `Bearer ${accessToken}` },
+            headers: { token: `Bearer ${accessToken}` },
         });
         dispatch(deleteUserSuccess(res.data));
         alert("Xóa người dùng thành công!");
@@ -279,7 +286,7 @@ export const updateUser = async (id, updatedUser, accessToken, dispatch) => {
     dispatch(updateUserStart());
     try {
         const res = await API.put(`/user/${id}`, updatedUser, {
-        headers: { token: `Bearer ${accessToken}` },
+            headers: { token: `Bearer ${accessToken}` },
         });
         dispatch(updateUserSuccess(res.data));
         alert("Cập nhật thành công!");
@@ -396,14 +403,14 @@ export const updateCartItem = async (productId, quantity, dispatch) => {
 
         // Dùng validateStatus để tự xử lý 4xx, tránh Axios ném lỗi mù
         const res = await API.put(
-        `/cart/item/${productId}`,
-        { quantity: qty },
-        { validateStatus: () => true }
+            `/cart/item/${productId}`,
+            { quantity: qty },
+            { validateStatus: () => true }
         );
 
         if (res.status >= 200 && res.status < 300) {
-        dispatch(cartSuccess(res.data));
-        return;
+            dispatch(cartSuccess(res.data));
+            return;
         }
 
         // 4xx/5xx: hiện thông điệp rõ ràng
@@ -483,13 +490,13 @@ export const fetchMyOrders = async (accessToken) => {
         // refresh lần nữa (phòng khi token vừa hết hạn)
         token = await ensureAccessToken(null);
         if (!token) {
-        const err = new Error("AUTH_REQUIRED");
-        err.code = "AUTH_REQUIRED";
-        throw err;
+            const err = new Error("AUTH_REQUIRED");
+            err.code = "AUTH_REQUIRED";
+            throw err;
         }
         res = await API.get("/order/me", {
-        headers: { Authorization: `Bearer ${token}` },
-        validateStatus: () => true,
+            headers: { Authorization: `Bearer ${token}` },
+            validateStatus: () => true,
         });
     }
 

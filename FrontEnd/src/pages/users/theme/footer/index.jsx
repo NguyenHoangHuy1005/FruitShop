@@ -27,12 +27,11 @@ const Footer = () => {
                   />
                 </Link>
               </div>
-
-              <ul>
+              <ul className="footer__contact">
                 <h3>Thông tin liên hệ</h3>
-                <li>Địa chỉ: 12 Nguyễn Văn Bảo</li>
-                <li>Phone: 0374-675-671</li>
-                <li>Email: Hoanghuy100503@gmail.com</li>
+                <li>Địa chỉ: 789 Fruit Shop</li>
+                <li>Phone: 0989-456-789</li>
+                <li>Email: FruitShop@gmail.com</li>
               </ul>
             </div>
           </div>
@@ -90,10 +89,27 @@ const Footer = () => {
                   <button type="submit" className="button-submit">Đăng ký</button>
                 </div>
                 <div className="footer__widget__social">
-                  <div> <AiFillFacebook /></div>
-                  <div><AiFillInstagram /></div>
-                  <div> <AiFillLinkedin /> </div>
-                  <div><AiFillTikTok /> </div>
+                  <div>
+                    <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+                      <AiFillFacebook />
+                    </a>
+                  </div>
+                  <div>
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                      <AiFillInstagram />
+                    </a>
+                  </div>
+                  <div>
+                    <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
+                      <AiFillLinkedin />
+                    </a>
+                  </div>
+                  <div>
+                    <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer">
+                      <AiFillTikTok />
+                    </a>
+                  </div>
+
                 </div>
               </form>
             </div>
@@ -103,9 +119,9 @@ const Footer = () => {
       </div>
       {/* === Thanh bản quyền ở đáy footer === */}
       <div className="footer__copyright">
-        
-          <p>© {year} Thế Sơn - Hoàng Huy Fruit Shop. All rights reserved.</p>
-       
+
+        <p>© {year} Thế Sơn - Hoàng Huy Fruit Shop. All rights reserved.</p>
+
       </div>
 
     </footer>

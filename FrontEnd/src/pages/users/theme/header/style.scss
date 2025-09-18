@@ -5,7 +5,6 @@
 @use "../../../../style/pages/responsive";
 @use "../../../../style/pages/theme";
 
-
 // ===== Màu & fallback =====
 $txt: map.get(theme.$theme-colors, "bold-text");
 $muted: map.get(theme.$theme-colors, "normal-text");
@@ -16,8 +15,16 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
 /* ===== Top bar ===== */
 .header__top {
-    background: #f3f6fa;
-    height: 47px;
+    background: $border;
+    height: 55px;
+    position: sticky;
+    /* hoặc dùng fixed */
+    top: 0;
+    /* luôn dính trên cùng */
+    width: 100%;
+    /* rộng bằng màn hình */
+    z-index: 9999;
+    /* luôn nằm trên các phần tử khác */
 }
 
 .header__top__left {
@@ -26,7 +33,8 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         align-items: center;
         list-style: none;
         column-gap: 50px;
-        margin-top: -5px;
+        margin-top: 7px;
+        white-space: nowrap;
 
         li {
             font-size: 16px;
@@ -37,7 +45,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             position: relative;
 
             svg {
-                font-size: 20px;
+                font-size: 25px;
             }
         }
 
@@ -48,9 +56,9 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 position: absolute;
                 right: -27px;
                 top: 2px;
-                height: 15px;
+                height: 20px;
                 width: 2px;
-                background: #000000;
+                background: $muted;
                 opacity: 0.5;
                 content: "";
             }
@@ -62,15 +70,15 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    margin-top: -2px;
+    margin-top: 7px;
 
     ul {
         display: flex;
         column-gap: 10px;
         list-style: none;
-
+        padding-right: 20px;
         a {
-            font-size: 24px;
+            font-size: 25px;
             display: inline-block;
             color: map.get(theme.$theme-colors, "normal-text");
 
@@ -83,10 +91,11 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         .user-menu {
             position: relative;
             list-style: none;
-            margin-left: 10px;
+            margin-left: 15px;
 
             .user-trigger {
                 display: inline-flex;
+                margin-top: -10px;
                 align-items: center;
                 gap: 8px;
                 background: transparent;
@@ -96,8 +105,9 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             }
 
             .user-avatar {
-                width: 28px;
-                height: 28px;
+                margin-bottom: 7px;
+                width: 40px;
+                height: 40px;
                 border-radius: 50%;
                 object-fit: cover;
             }
@@ -105,7 +115,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             .user-name {
                 color: #000;
                 font-weight: 600;
-                font-size: 15px;
+                font-size: 18px;
                 line-height: 1;
                 position: relative;
                 top: -2px;
@@ -253,7 +263,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                     border-bottom: 1px solid #c3c3c3;
                 }
 
-              
+
 
                 :hover {
                     color: #fff;
@@ -619,12 +629,17 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
     display: none;
 }
 
+li::marker {
+  content: ""; // xóa marker mặc định
+}
+
 /* Nút Đăng nhập (dùng chung desktop + mobile) */
 .login-inline {
     display: inline-flex;
     align-items: center;
+    margin-top: -13px;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 3px 9px;
     /* pill nhỏ gọn */
     border-radius: 9999px;
     border: 0;
@@ -642,7 +657,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
 
     svg {
         /* icon user */
-        font-size: 20px;
+        font-size: 40px;
         flex-shrink: 0;
     }
 

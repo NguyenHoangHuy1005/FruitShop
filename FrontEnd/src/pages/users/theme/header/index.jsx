@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { logout, ensureCart, getAllProduct } from "../../../../component/redux/apiRequest";
+import { logout, ensureCart} from "../../../../component/redux/apiRequest";
 import "./style.scss";
 import "./header.scss";
 import {
@@ -215,7 +215,7 @@ const Header = () => {
         className={`humberger__menu__overlay ${isShowHumberger ? "active" : ""}`}
         onClick={() => setShowHumberger(false)}
       />
-      <divF
+      <div
         className={`humberger__menu__wrapper ${isShowHumberger ? "show" : ""}`}
       >
         <div className="header__logo">
@@ -329,7 +329,7 @@ const Header = () => {
             <li>Miễn phí giao hàng cho đơn từ {formatter(199000)}</li>
           </ul>
         </div>
-      </divF>
+      </div>
 
       {/* ===== Top bar ===== */}
       <div className="header__top">
@@ -384,11 +384,9 @@ const Header = () => {
                     <AiFillTikTok />
                   </a>
                 </li>
+                {/* === Đây là phần user === */}
+                <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
               </ul>
-
-
-              {/* === Đây là phần user === */}
-              <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
             </div>
           </div>
         </div>

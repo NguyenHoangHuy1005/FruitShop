@@ -12,6 +12,7 @@
             width: 30%;
             object-fit: cover;
             width: 180px;
+            flex-shrink: 0;
         }
 
         thead tr th {
@@ -29,7 +30,26 @@
             display: flex;
             align-items: center;
             column-gap: 20px;
+
+            .item-name {
+                font-size: 16px;
+                font-weight: 500;
+                color: #000;
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                line-height: 1.4;
+                white-space: normal;
+                word-break: break-word;   // cho phép xuống dòng khi tên dài
+                flex: 1;
+                margin-left: 20px;
+
+                &:hover {
+                    color: #008874;
+                }
+            }
         }
+
         // ✅ Style giá
         .price-box {
             display: flex;

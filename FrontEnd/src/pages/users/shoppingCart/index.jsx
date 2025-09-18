@@ -1,4 +1,5 @@
 import Breadcrumb from '../theme/breadcrumb';
+import { Link } from "react-router-dom";
 import { formatter } from "../../../utils/fomater";
 import { AiOutlineClose } from "react-icons/ai";
 import "./style.scss";
@@ -78,8 +79,10 @@ const ShoppingCart = () => {
                     return (
                     <tr key={productId}>
                         <td className="shopping__cart__item">
-                        <img src={imgSrc || "/placeholder.png"} alt={name} />
-                        <h4 title={name}>{name}</h4>
+                            <Link to={`/product/detail/${productId}`} className="item-name">
+                                <img src={imgSrc || "/placeholder.png"} alt={name} />
+                                <span className="item-name">{name}</span>
+                            </Link>
                         </td>
                         <td>
                             {it.discountPercent > 0 ? (

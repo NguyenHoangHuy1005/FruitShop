@@ -1,12 +1,15 @@
-// routes/product.js
 const router = require("express").Router();
 const productController = require("../controllers/productController");
+const { requireAdmin } = require("../../auth-services/middlewares/auth");
 
-router.post("/create", productController.creatProduct);
+// Public (ai cũng xem được)
 router.get("/", productController.getAllProducts);
-router.delete("/:id", productController.deleteProduct);
-router.put("/:id", productController.updateProduct);
 router.get("/category", productController.getProductByCategory);
 router.get("/search", productController.searchProductByName);
+
+// Admin
+router.post("/create", requireAdmin, productController.creatProduct);
+router.delete("/:id", requireAdmin, productController.deleteProduct);
+router.put("/:id", requireAdmin, productController.updateProduct);
 
 module.exports = router;

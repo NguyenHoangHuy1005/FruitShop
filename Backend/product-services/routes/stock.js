@@ -1,7 +1,5 @@
 const router = require("express").Router();
 const stock = require("../controllers/stockController");
-
-// ❗️Đổi từ { requireAdmin } sang object để tránh destructuring nhầm
 const auth = require("../../auth-services/middlewares/auth");
 
 // DEBUG (xóa sau khi OK)

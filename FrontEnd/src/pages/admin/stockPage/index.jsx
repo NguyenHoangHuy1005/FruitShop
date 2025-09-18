@@ -280,19 +280,32 @@ const StockManagerPage = () => {
 
                 <div className="modal-actions">
                     <button
-                    className="btn special"
-                    onClick={async () => {
-                        try {
-                        const newS = await addSupplier(supplierForm);
-                        setSuppliers([...suppliers, newS]);
-                        setSupplierId(newS._id); // chọn luôn NCC vừa tạo
-                        setShowAddSupplier(false);
-                        setSupplierForm({ name: "", contact_name: "", phone: "", email: "", address: "" });
-                        alert("Đã thêm NCC thành công!");
-                        } catch (e) {
-                        alert(e.message || "Lỗi thêm NCC!");
-                        }
-                    }}
+                        className="btn special"
+                        onClick={async () => {
+                            if (!supplierForm.name.trim()) {
+                                alert("Tên NCC là bắt buộc!");
+                                return;
+                            }
+                            if (!/^(0|\+84)\d{9}$/.test(supplierForm.phone)) {
+                                alert("Số điện thoại không hợp lệ! Định dạng: 0xxxxxxxxx hoặc +84xxxxxxxxx");
+                                return;
+                            }
+                            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierForm.email)) {
+                                alert("Email không hợp lệ!");
+                                return;
+                            }
+
+                            try {
+                            const newS = await addSupplier(supplierForm);
+                            setSuppliers([...suppliers, newS]);
+                            setSupplierId(newS._id); // chọn luôn NCC vừa tạo
+                            setShowAddSupplier(false);
+                            setSupplierForm({ name: "", contact_name: "", phone: "", email: "", address: "" });
+                            alert("Đã thêm NCC thành công!");
+                            } catch (e) {
+                            alert(e.message || "Lỗi thêm NCC!");
+                            }
+                        }}
                     >
                     Lưu NCC
                     </button>

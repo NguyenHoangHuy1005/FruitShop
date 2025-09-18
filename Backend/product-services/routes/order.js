@@ -1,8 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const orderCtrl = require("../controllers/orderController");
-
-// 🔑 dùng middleware admin ở auth-services (đúng path từ thư mục routes)
 const { requireAdmin } = require("../../auth-services/middlewares/auth");
 
 // User routes

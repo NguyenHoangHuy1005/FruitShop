@@ -6,6 +6,9 @@ const connectDB = require("./auth-services/config/db");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 
+dotenv.config();
+connectDB();
+
 //auth
 const authRoute    = require("./auth-services/routes/auth");
 const userRoute    = require("./auth-services/routes/user");
@@ -21,8 +24,6 @@ const orderRoutes = require("./product-services/routes/order");
 const stockRoutes = require("./product-services/routes/stock");
 const productRoutes = require("./product-services/routes/product");
 
-dotenv.config();
-connectDB();
 
 const app = express();
 

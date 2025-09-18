@@ -1,8 +1,10 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import HomePage from "./pages/users/homePage";
 import { ROUTERS } from "./utils/router";
 import MasterLayout from "./pages/users/theme/masterLayout";
 
+// User routes
 import OrderUserPage from "./pages/users/ordersPage";
 import ProfilePage from "./pages/users/profilePage";
 import ProductsPage from "./pages/users/productsPage";
@@ -11,12 +13,13 @@ import ShoppingCart from "./pages/users/shoppingCart";
 import CheckoutPage from "./pages/users/checkoutPage";
 import ContactPage from "./pages/users/contactPage";
 
+// Admin auth routes
 import LoginPage from "./pages/admin/loginPage";
 import SignupPage from "./pages/admin/signupPage";
 import Auth from "./pages/admin/auth";
-//mới đây nè
 import ForgotPasswordPage from "./pages/admin/forgotPassword";
 
+// Admin routes
 import Dashboard from "./pages/admin/dashboard";
 import ProductManagerPage from "./pages/admin/productmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
@@ -24,6 +27,31 @@ import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
 import StockManagerPage from "./pages/admin/stockPage";
 import InvoicePage from "./pages/admin/invoicePage";
+
+//  Trang báo lỗi 403
+const ForbiddenPage = () => (
+  <div style={{ textAlign: "center", padding: "50px" }}>
+    <h1>403 - Forbidden</h1>
+    <p>Bạn không có quyền truy cập vào trang này.</p>
+  </div>
+);
+
+//  Middleware check Admin
+const RequireAdmin = ({ children }) => {
+  const user = useSelector((state) => state.auth.login?.currentUser);
+
+  if (!user) {
+    //  chưa đăng nhập
+    return <Navigate to={ROUTERS.ADMIN.LOGIN} replace />;
+  }
+
+  if (!user.admin) {
+    //  đã đăng nhập nhưng không phải admin
+    return <ForbiddenPage />;
+  }
+
+  return children;
+};
 
 // ---------- USER ROUTES ----------
 const renderUserRouter = () => {
@@ -76,13 +104,22 @@ const renderAdminAppRouter = () => {
     { path: ROUTERS.ADMIN.INVOICES, element: <InvoicePage /> },
   ];
   return (
-    <MasterAdLayout>
-      <Routes>
+    <Routes>
+        <Route path="/admin" element={<Navigate to={ROUTERS.ADMIN.DASHBOARD} replace />} />
+
         {appRouters.map((r, i) => (
-          <Route key={i} path={r.path} element={r.element} />
+          <Route
+            key={i}
+            path={r.path}
+            element={
+              <RequireAdmin>
+                {/*    chỉ admin mới có layout admin */}
+                <MasterAdLayout>{r.element}</MasterAdLayout>
+              </RequireAdmin>
+            }
+          />
         ))}
       </Routes>
-    </MasterAdLayout>
   );
 };
 
@@ -96,6 +133,7 @@ const RouterCustom = () => {
     pathname.startsWith(ROUTERS.ADMIN.FORGOT);
 
   const isAdminApp =
+    pathname === "/admin" ||
     pathname.startsWith(ROUTERS.ADMIN.DASHBOARD)   ||
     pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)   ||
     pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||

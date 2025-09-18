@@ -1,16 +1,14 @@
-const router = require('express').Router();
-const userController = require('../controllers/userController');
-const middlewareController = require('../controllers/middlewareController');
+const router = require("express").Router();
+const userController = require("../controllers/userController");
+const { requireAdmin } = require("../middlewares/auth");
+// User
+router.get("/me", requireAdmin, userController.getMe);
+router.put("/me", requireAdmin, userController.updateMe);
+router.post("/me/avatar", requireAdmin, userController.uploadAvatar);
 
-// Profile của chính mình
-router.get('/me', middlewareController.verifyToken, userController.getMe);
-router.put('/me', middlewareController.verifyToken, userController.updateMe);
-router.post('/me/avatar',middlewareController.verifyToken, userController.uploadAvatar);
+// Admin
+router.get("/", requireAdmin, userController.getAllUsers);
+router.delete("/:id", requireAdmin, userController.deleteUser);
+router.put("/:id", requireAdmin, userController.updateUser);
 
-//get all user
-router.get("/", middlewareController.verifyToken, userController.getAllUsers);
-//delete user by id
-router.delete("/:id",middlewareController.verifyTokenAndAdminAuth, userController.deleteUser);
-//update user by id
-router.put("/:id",middlewareController.verifyTokenAndAdminAuth, userController.updateUser);
 module.exports = router;

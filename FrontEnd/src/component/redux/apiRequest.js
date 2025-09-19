@@ -669,3 +669,67 @@ export const getReceiptDetail = async (id) => {
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data;
 };
+
+// tóm tắt thống kê đơn hàng (admin)
+export const getOrderStats = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/order/stats", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+/* ======================= COUPON (Admin + User) ======================= */
+
+// Admin: tạo coupon
+export const createCoupon = async (payload) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post("/coupon", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 201) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { ok, coupon }
+};
+
+// Admin: lấy danh sách coupon
+export const getAllCoupons = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/coupon", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // [{ _id, code, value, ... }]
+};
+
+// Admin: xóa coupon
+export const deleteCoupon = async (id) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.delete(`/coupon/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Admin: bật/tắt coupon
+export const toggleCoupon = async (id) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.patch(`/coupon/${id}/toggle`, null, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { ok, coupon }
+};
+
+// User: kiểm tra coupon trước khi đặt hàng
+export const validateCoupon = async (code, subtotal) => {
+    const res = await API.post("/coupon/validate", { code, subtotal }, { validateStatus: () => true });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { ok:true, discount, message }
+};

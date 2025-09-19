@@ -12,11 +12,12 @@
       border-radius: 16px;
       color: #fff;
       font-family: "Segoe UI", sans-serif;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transition: transform 0.2s ease;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
 
       &:hover {
         transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
       }
 
       h3 {
@@ -32,19 +33,19 @@
 
       .trend {
         font-size: 14px;
+        opacity: 0.9;
         &.up {
-          color: #e0ffe0;
+          color: #b9f6ca;
         }
         &.down {
-          color: #ffe0e0;
+          color: #ffcdd2;
         }
         &.warning {
-          color: #fff9c4;
+          color: #fff59d;
         }
       }
     }
 
-    /* 🎨 Màu nền cho từng loại */
     .blue {
       background: linear-gradient(135deg, #3f51b5, #5c6bc0);
     }
@@ -75,6 +76,52 @@
         font-size: 16px;
         font-weight: bold;
         color: #333;
+      }
+
+      // chỉnh Pie Chart legend đẹp hơn
+      .recharts-legend-wrapper {
+        margin-top: 10px;
+
+        ul {
+          display: flex;
+          justify-content: center;
+          gap: 20px;
+          flex-wrap: wrap;
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        li {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+      }
+
+      .recharts-pie-sector {
+        stroke: #fff;
+        stroke-width: 2px;
+      }
+
+      // 🎨 màu chữ cho legend theo trạng thái
+      .legend-item {
+        font-weight: 600;
+        text-transform: capitalize;
+      }
+      .legend-item-pending {
+        color: #ff9800;
+      }
+      .legend-item-paid {
+        color: #9c27b0;
+      }
+      .legend-item-shipped {
+        color: #4caf50;
+      }
+      .legend-item-completed {
+        color: #2196f3;
+      }
+      .legend-item-cancelled {
+        color: #f44336;
       }
     }
   }

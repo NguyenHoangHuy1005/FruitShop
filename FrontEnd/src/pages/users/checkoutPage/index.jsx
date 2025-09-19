@@ -11,6 +11,9 @@ const CheckoutPage = () => {
     const navigate = useNavigate();
     const cart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
+    const SHIPPING_FEE = 30000; // ví dụ 30k
+    const coupon = cart?.coupon?.code || "";
+    const discount = cart?.coupon?.discount || 0;
 
     const [form, setForm] = useState({
         fullName: "",
@@ -26,7 +29,12 @@ const CheckoutPage = () => {
         alert("Giỏ hàng trống!");
         return;
         }
-        await placeOrder(form, user?.accessToken, dispatch, navigate);
+        await placeOrder(
+            { ...form, couponCode: coupon },
+            user?.accessToken,
+            dispatch,
+            navigate
+        );
     };
 
     return (
@@ -101,19 +109,40 @@ const CheckoutPage = () => {
                 <h3>Đơn hàng</h3>
                 <ul>
                     {(cart?.items || []).map((it) => (
-                    <li key={it.product}>
+                        <li key={it.product}>
                         <span>{it.name}</span>
                         <b>{formatter(it.price)} ({it.quantity})</b>
-
-                    </li>
+                        </li>
                     ))}
-                    <li>
-                    <h4>Mã giảm giá</h4>
-                    <b>FS999</b>
+
+                    {discount > 0 && (
+                        <li className="checkout__order__discount">
+                            <h4>Mã giảm giá: {coupon}</h4>
+                            <b>-{formatter(discount)}</b>
+                        </li>
+                    )}
+
+                    <li className="checkout__order__shipping">
+                        <h4>Phí vận chuyển:</h4>
+                        {cart?.summary?.subtotal >= 199000 ? (
+                            <div className="shipping-free">
+                            <span className="old">{formatter(SHIPPING_FEE)}</span>
+                            <span className="free-text">Miễn phí</span>
+                            </div>
+                        ) : (
+                            <b>{formatter(SHIPPING_FEE)}</b>
+                        )}
                     </li>
+
                     <li className="checkout__order__subtotal">
-                    <h3>Tổng tiền:</h3>
-                    <b>{formatter(cart?.summary?.subtotal || 0)}</b>
+                        <h3>Tổng tiền:</h3>
+                        <b>
+                            {formatter(
+                            (cart?.summary?.subtotal || 0) +
+                            (cart?.summary?.subtotal >= 199000 ? 0 : SHIPPING_FEE) -
+                            discount
+                            )}
+                        </b>
                     </li>
                 </ul>
                 <button type="submit" className="button-submit">

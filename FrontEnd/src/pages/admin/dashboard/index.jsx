@@ -1,28 +1,43 @@
-import React, { memo } from "react";
+import React, { memo, useEffect, useState } from "react";
 import "./style.scss";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend
 } from "recharts";
+import { getOrderStats } from "../../../component/redux/apiRequest";
 
 const Dashboard = () => {
-  // Fake Data
-  const revenueData = [
-    { period: "Jan", revenue: 4000 },
-    { period: "Feb", revenue: 3200 },
-    { period: "Mar", revenue: 5000 },
-    { period: "Apr", revenue: 4200 },
-    { period: "May", revenue: 6000 },
-    { period: "Jun", revenue: 7500 },
-  ];
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const orderData = [
-    { status: "Đang xử lý", value: 35 },
-    { status: "Đã giao", value: 50 },
-    { status: "Đã hủy", value: 15 },
-  ];
-  const orderColors = ["#FF9800", "#4CAF50", "#F44336"];
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getOrderStats();
+        setStats(data);
+      } catch (e) {
+        console.error("Load stats fail:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
+  if (loading) return <p>⏳ Đang tải dữ liệu...</p>;
+  if (!stats) return <p>❌ Không có dữ liệu thống kê.</p>;
+
+  // ===== Format data cho chart =====
+  const revenueData = Object.entries(stats.revenueByMonth || {}).map(
+    ([period, revenue]) => ({ period, revenue })
+  );
+
+  const orderData = Object.entries(stats.orderByStatus || {}).map(
+    ([status, value]) => ({ status, value })
+  );
+
+  const productData = stats.topProducts || [];
+
+  // (Traffic demo)
   const trafficData = [
     { source: "Google", visits: 400 },
     { source: "Facebook", visits: 300 },
@@ -30,43 +45,43 @@ const Dashboard = () => {
     { source: "Other", visits: 100 },
   ];
 
-  const productData = [
-    { name: "MacBook Pro", sales: 120 },
-    { name: "iPhone 14", sales: 200 },
-    { name: "iPad Pro", sales: 90 },
-    { name: "AirPods", sales: 150 },
-  ];
+  // 🎨 màu cố định theo trạng thái
+  const statusColors = {
+    pending: "#FF9800",
+    paid: "#9C27B0",
+    shipped: "#4CAF50",
+    completed: "#2196F3",
+    cancelled: "#F44336",
+  };
 
   return (
     <div className="dashboard">
       {/* 🔥 Top Stats */}
       <div className="stats">
-        {/* 🟦 Doanh thu */}
         <div className="card highlight blue">
           <h3>Doanh Thu</h3>
-          <p className="value">$7,500</p>
-          <span className="trend up">+12% so với tháng trước</span>
+          <p className="value">${stats.totalRevenue.toLocaleString()}</p>
+          <span className="trend up">Tổng doanh thu</span>
         </div>
 
-        {/* 🟩 Đơn hàng */}
         <div className="card highlight green">
           <h3>Đơn Hàng</h3>
-          <p className="value">1,245</p>
-          <span className="trend up">+8% so với tuần trước</span>
+          <p className="value">{stats.countOrders}</p>
+          <span className="trend up">Tổng số đơn</span>
         </div>
 
-        {/* 🟪 Người dùng */}
         <div className="card highlight purple">
-          <h3>Người Dùng</h3>
-          <p className="value">5,432</p>
-          <span className="trend down">+120 mới đăng ký hôm nay</span>
+          <h3>Top SP</h3>
+          <p className="value">
+            {productData[0] ? productData[0].name : "N/A"}
+          </p>
+          <span className="trend up">Bán chạy nhất</span>
         </div>
 
-        {/* 🟧 Sản phẩm */}
         <div className="card highlight orange">
-          <h3>Sản Phẩm</h3>
-          <p className="value">320</p>
-          <span className="trend warning">15 sản phẩm sắp hết hàng</span>
+          <h3>Trạng Thái</h3>
+          <p className="value">{orderData.length}</p>
+          <span className="trend warning">Số loại trạng thái đơn</span>
         </div>
       </div>
 
@@ -76,11 +91,17 @@ const Dashboard = () => {
         <div className="chart">
           <h3>📊 Doanh Thu Theo Thời Gian</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={revenueData}>
-              <XAxis dataKey="period" />
-              <YAxis />
+            <LineChart data={revenueData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
+              <XAxis dataKey="period"  />
+              <YAxis tick={{ fontSize: 15 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="revenue" stroke="#3F51B5" strokeWidth={3} />
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#3F51B5"
+                strokeWidth={3}
+                dot={{ r: 4 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -88,21 +109,33 @@ const Dashboard = () => {
         {/* Đơn hàng theo trạng thái */}
         <div className="chart">
           <h3>📊 Trạng Thái Đơn Hàng</h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
                 data={orderData}
                 dataKey="value"
-                innerRadius={50}
+                nameKey="status"
+                innerRadius={60}
                 outerRadius={100}
-                label
+                label={({ name, value, percent }) =>
+                  `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                }
               >
-                {orderData.map((entry, index) => (
-                  <Cell key={index} fill={orderColors[index]} />
+                {orderData.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={statusColors[entry.status] || "#999"}
+                  />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip formatter={(v) => `${v} đơn`} />
+              <Legend
+                formatter={(value) => (
+                  <span className={`legend-item legend-item-${value.toLowerCase()}`}>
+                    {value}
+                  </span>
+                )}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>

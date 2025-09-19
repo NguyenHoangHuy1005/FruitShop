@@ -23,6 +23,7 @@ const cartRoutes  = require("./product-services/routes/cart");
 const orderRoutes = require("./product-services/routes/order");
 const stockRoutes = require("./product-services/routes/stock");
 const productRoutes = require("./product-services/routes/product");
+const couponRoutes  = require("./product-services/routes/coupon");
 
 
 const app = express();
@@ -54,6 +55,7 @@ app.use("/api",  uploadRoutes);
 app.use("/api/auth",    authRoute);
 app.use("/api/user",    userRoute);
 app.use("/api/product", productRoute);
+app.use("/api/coupon",  couponRoutes);  // <- /api/coupon/...
 
 app.use("/api/cart",   cartRoutes);   // <- /api/cart/... (PUT /item/:productId OK)
 app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order

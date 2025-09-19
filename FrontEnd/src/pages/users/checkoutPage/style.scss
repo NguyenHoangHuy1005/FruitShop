@@ -63,3 +63,25 @@
         width: 100%;
     }
 }
+.shipping-free {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .old {
+        text-decoration: line-through;
+        color: #999;
+        font-size: 14px;
+    }
+
+    .free-text {
+        color: #28a745; // xanh lá, nổi bật
+        font-weight: 700;
+        font-size: 15px;
+    }
+}
+
+.shipping-fee {
+    font-weight: 600;
+    color: #333;
+    }

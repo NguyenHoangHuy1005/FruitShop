@@ -2,6 +2,7 @@
 const crypto = require("crypto"); // đầu file
 const Carts = require("../models/Carts");
 const Order = require("../models/Order");
+const Coupon = require("../models/Coupon");
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
@@ -18,17 +19,37 @@ const readBearer = (req) => {
 };
 const JWT_SECRET = process.env.JWT_ACCESS_KEY || process.env.JWT_SECRET;
 
-// Tính tổng tiền đơn
 // Tính tổng tiền đơn (theo giỏ)
-function calcTotals(cart) {
-    let subtotal = 0;
-    let totalItems = 0;
+async function calcTotals(cart, couponCode) {
+    let subtotal = 0, totalItems = 0;
     for (const it of cart.items) {
         subtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
         totalItems += Number(it.quantity) || 0;
     }
-    const shipping = 0;
-    const discount = 0;
+
+    const SHIPPING_FEE = 30000;
+    const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
+
+    let discount = 0;
+    if (couponCode) {
+        const coupon = await Coupon.findOne({ code: couponCode.trim(), active: true });
+        const now = new Date();
+        if (
+            coupon &&
+            now >= coupon.startDate && now <= coupon.endDate &&
+            (coupon.usageLimit === 0 || coupon.usedCount < coupon.usageLimit) &&
+            subtotal >= (coupon.minOrder || 0)
+        ) {
+            if (coupon.discountType === "percent") {
+                discount = Math.min(subtotal, Math.round(subtotal * coupon.value / 100));
+            } else if (coupon.discountType === "fixed") {
+                discount = Math.min(subtotal, coupon.value);
+            }
+            coupon.usedCount += 1;
+            await coupon.save();
+        }
+    }
+
     const total = Math.max(0, subtotal + shipping - discount);
     return { subtotal, shipping, discount, total, totalItems };
 }
@@ -45,7 +66,7 @@ exports.createOrder = async (req, res) => {
             } catch (_) { }
         }
 
-        const { name, fullName, address, phone, email, note } = req.body || {};
+        const { name, fullName, address, phone, email, note, couponCode } = req.body || {};
         const customerName = name || fullName;
 
         if (!customerName || !address || !phone || !email) {
@@ -61,7 +82,7 @@ exports.createOrder = async (req, res) => {
         if (!cart.user && userId) cart.user = userId;
 
         // Tổng tiền hiện tại từ giỏ
-        const amount = calcTotals(cart);
+        const amount = await calcTotals(cart, couponCode);
 
         // ===== 1) Trừ kho nguyên tử từng dòng, rollback nếu thiếu =====
         const decremented = []; // lưu để hoàn kho nếu lỗi
@@ -287,3 +308,56 @@ exports.updateOrderStatus = async (req, res) => {
     }
 };
 
+// Thống kê cho admin
+exports.adminStats = async (req, res) => {
+    try {
+        // Lấy tất cả đơn (chỉ completed/paid mới tính doanh thu)
+        const orders = await Order.find().lean();
+
+        const totalRevenue = orders
+        .filter(o => ["paid", "shipped", "completed"].includes(o.status))
+        .reduce((sum, o) => sum + (o.amount?.total || 0), 0);
+
+        const countOrders = orders.length;
+
+        // Gom theo trạng thái
+        const orderByStatus = {};
+        for (const o of orders) {
+        orderByStatus[o.status] = (orderByStatus[o.status] || 0) + 1;
+        }
+
+        // Gom theo tháng (YYYY-MM)
+        const revenueByMonth = {};
+        for (const o of orders) {
+        const d = new Date(o.createdAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (!revenueByMonth[key]) revenueByMonth[key] = 0;
+        if (["paid", "shipped", "completed"].includes(o.status)) {
+            revenueByMonth[key] += o.amount?.total || 0;
+        }
+        }
+
+        // Top sản phẩm
+        const productMap = {};
+        for (const o of orders) {
+        for (const it of o.items) {
+            productMap[it.name] = (productMap[it.name] || 0) + (it.quantity || 0);
+        }
+        }
+        const topProducts = Object.entries(productMap)
+        .map(([name, sales]) => ({ name, sales }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5);
+
+        return res.json({
+        totalRevenue,
+        countOrders,
+        orderByStatus,
+        revenueByMonth,
+        topProducts,
+        });
+    } catch (err) {
+        console.error("adminStats error:", err);
+        return res.status(500).json({ message: "Lỗi server khi thống kê." });
+    }
+};

@@ -3,19 +3,23 @@ import { Link } from "react-router-dom";
 import { formatter } from "../../../utils/fomater";
 import { AiOutlineClose } from "react-icons/ai";
 import "./style.scss";
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { ROUTERS } from '../../../utils/router';
 import { useDispatch, useSelector } from "react-redux";
-import { ensureCart, updateCartItem, removeCartItem } from "../../../component/redux/apiRequest";
+import { ensureCart, updateCartItem, removeCartItem, validateCoupon } from "../../../component/redux/apiRequest";
+import { setCoupon } from "../../../component/redux/cartSlice";
+
 
 const ShoppingCart = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const cart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
-
+    const SHIPPING_FEE = 30000; // ví dụ 30k
+    const [couponCode, setCouponCode] = useState("");
+    const [discount, setDiscount] = useState(0);
 
     // Debounce timers theo từng productId
     const timersRef = useRef({});
@@ -49,6 +53,29 @@ const ShoppingCart = () => {
         }
         navigate(ROUTERS.USER.CHECKOUT);
     };
+
+    const applyCoupon = async () => {
+        try {
+            if (!couponCode.trim()) {
+                toast.warn("Vui lòng nhập mã giảm giá.");
+                return;
+            }
+            const res = await validateCoupon(couponCode, cart?.summary?.subtotal || 0);
+            if (res?.ok) {
+                setDiscount(res.discount || 0);
+                dispatch(setCoupon({ code: couponCode, discount: res.discount }));
+                toast.success(res.message || "Áp dụng mã giảm giá thành công!");
+            } else {
+                setDiscount(0);
+                dispatch(setCoupon(null));
+                toast.error(res.message || "Mã giảm giá không hợp lệ.");
+            }
+        } catch (err) {
+            setDiscount(0);
+            toast.error(err.message || "Không thể áp dụng mã giảm giá.");
+        }
+    };
+
 
 
 
@@ -129,28 +156,60 @@ const ShoppingCart = () => {
             <div className="row">
             <div className="col-lg-6 col-md-12">
                 <div className="shopping__cont">
-                <h3>Mã giảm giá</h3>
-                <div className="shopping__discount">
-                    <input placeholder="Nhập mã giảm giá" />
-                    <button type="button" className="button-submit">Áp dụng</button>
-                </div>
+                    <h3>Mã giảm giá</h3>
+                    <div className="shopping__discount">
+                        <input
+                            placeholder="Nhập mã giảm giá"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                        />
+                        <button type="button" className="button-submit" onClick={applyCoupon}>
+                            Áp dụng
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div className="col-lg-6 col-md-12">
                 <div className="shopping__checkout">
-                <h2>Tổng đơn:</h2>
-                <ul>
-                    <li>Số lượng: <span>{cart?.summary?.totalItems || 0}</span></li>
-                    <li>Thành tiền: <span>{formatter(cart?.summary?.subtotal || 0)}</span></li>
-                    <button
-                    type="button"
-                    className="button-submit"
-                    onClick={handleCheckout}
-                    >
-                    Thanh toán
-                    </button>
-                </ul>
+                    <h2>Tổng đơn:</h2>
+                    <ul>
+                        <li>Số lượng: <span>{cart?.summary?.totalItems || 0}</span></li>
+                        <li>Thành tiền: <span>{formatter(cart?.summary?.subtotal || 0)}</span></li>
+                        {discount > 0 && (
+                            <li className="checkout__order__discount">
+                            Giảm giá: <span>-{formatter(discount)}</span>
+                            </li>
+                        )}
+                        <li>
+                            Phí vận chuyển:{" "}
+                            {cart?.summary?.subtotal >= 199000 ? (
+                                <div className="shipping-free">
+                                <span className="old">{formatter(SHIPPING_FEE)}</span>
+                                <span className="free-text">Miễn phí</span>
+                                </div>
+                            ) : (
+                                <span className="shipping-fee">{formatter(SHIPPING_FEE)}</span>
+                            )}
+                        </li>
+                        <li>
+                            Tổng cộng:{" "}
+                            <span>
+                                {formatter(
+                                    (cart?.summary?.subtotal || 0) +
+                                    (cart?.summary?.subtotal >= 199000 ? 0 : SHIPPING_FEE) -
+                                    discount
+                                )}
+                            </span>
+                        </li>
+                        <button
+                            type="button"
+                            className="button-submit"
+                            onClick={handleCheckout}
+                            >
+                            Thanh toán
+                        </button>
+                    </ul>
                 </div>
             </div>
             </div>

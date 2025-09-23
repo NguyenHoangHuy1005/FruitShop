@@ -11,6 +11,7 @@ import {
     createCoupon,
     deleteCoupon,
     toggleCoupon,
+    extendCoupon,
 } from "../../../component/redux/apiRequest";
 
 const ProductManagerPage = () => {
@@ -29,6 +30,26 @@ const ProductManagerPage = () => {
         endDate: "",
         usageLimit: 0,
     });
+    const [extendModal, setExtendModal] = useState({
+        open: false,
+        coupon: null,
+        addUsage: 0,
+        newEndDate: "",
+        reactivate: true, // mặc định bật lại nếu đã ngưng/hết hạn
+        submitting: false,
+    });
+    const fmtDateInput = (d) => {
+        try {
+        const dd = new Date(d);
+        if (Number.isNaN(dd.getTime())) return "";
+        const y = dd.getFullYear();
+        const m = String(dd.getMonth() + 1).padStart(2, "0");
+        const day = String(dd.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+        } catch {
+        return "";
+        }
+    };
 
     useEffect(() => {
         getAllProduct(dispatch);
@@ -71,6 +92,44 @@ const ProductManagerPage = () => {
         await loadCoupons();
         } catch (e) {
         alert(e?.response?.data?.message || "Tạo coupon thất bại!");
+        }
+    };
+    const openExtend = (c) => {
+        setExtendModal({
+        open: true,
+        coupon: c,
+        addUsage: 0,
+        newEndDate: fmtDateInput(c?.endDate) || "",
+        reactivate: true,
+        submitting: false,
+        });
+    };
+
+    // ... trong component ProductManagerPage
+    const submitExtend = async () => {
+        const { coupon, addUsage, newEndDate, reactivate } = extendModal;
+        if (!coupon) return;
+
+        const payload = {};
+        const addNum = Number(addUsage);
+        if (Number.isFinite(addNum) && addNum > 0) payload.addUsage = addNum;
+        if (newEndDate && newEndDate.trim()) payload.newEndDate = newEndDate.trim();
+        if (reactivate) payload.reactivate = true;
+
+        if (!payload.addUsage && !payload.newEndDate && !payload.reactivate) {
+        alert("Không có thay đổi nào được chọn.");
+        return;
+        }
+
+        try {
+        setExtendModal((s) => ({ ...s, submitting: true }));
+        await extendCoupon(coupon._id, payload);
+        await loadCoupons();
+        setExtendModal({ open: false, coupon: null, addUsage: 0, newEndDate: "", reactivate: true, submitting: false });
+        alert("Gia hạn coupon thành công!");
+        } catch (e) {
+        alert(e?.response?.data?.message || e?.message || "Gia hạn không thành công.");
+        setExtendModal((s) => ({ ...s, submitting: false }));
         }
     };
 
@@ -256,7 +315,7 @@ const ProductManagerPage = () => {
                             <td>{new Date(c.endDate).toLocaleDateString()}</td>
                             <td>{c.usedCount}/{c.usageLimit || "∞"}</td>
                             <td>
-                            {expired || usedUp ? "Hết hạn/Đã dùng hết" : c.active ? "Đang hoạt động" : "Ngưng"}
+                                {expired || usedUp ? "Hết hạn/Đã dùng hết" : c.active ? "Đang hoạt động" : "Ngưng"}
                             </td>
                             <td>
                             {/* Toggle */}
@@ -274,7 +333,14 @@ const ProductManagerPage = () => {
                             >
                                 {c.active ? "Ngưng" : "Bật"}
                             </button>
-
+                            {/* ✅ NEW: Gia hạn */}
+                            <button
+                                className="btn-extend"
+                                onClick={() => openExtend(c)}
+                                title="Tăng lượt dùng và/hoặc dời ngày hết hạn"
+                            >
+                                Gia hạn
+                            </button>
                             {/* Xóa */}
                             <button
                                 className="btn-delete"
@@ -321,6 +387,70 @@ const ProductManagerPage = () => {
                             onClose={handleCloseModal}
                         />
                     </div>
+                </div>
+            )}
+
+            {/* ✅ NEW: Modal gia hạn coupon */}
+            {extendModal.open && (
+                <div className="modal-overlay" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
+                <div className="modal-content extend-modal" onClick={(e) => e.stopPropagation()}>
+                    <h3>Gia hạn Coupon: <span className="code">{extendModal.coupon?.code}</span></h3>
+
+                    <div className="meta">
+                    <div>
+                        Hạn hiện tại: <b>{new Date(extendModal.coupon?.endDate).toLocaleString()}</b>
+                    </div>
+                    <div>
+                        Đã dùng: <b>{extendModal.coupon?.usedCount}</b> /
+                        Giới hạn: <b>{extendModal.coupon?.usageLimit || "∞"}</b>
+                    </div>
+                    </div>
+
+                    <div className="form-grid">
+                    <label>
+                        Thêm số lượt sử dụng
+                        <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={extendModal.addUsage}
+                        onChange={(e) => setExtendModal((s) => ({ ...s, addUsage: e.target.value }))}
+                        placeholder="0"
+                        />
+                    </label>
+
+                    <label>
+                        Ngày hết hạn mới
+                        <input
+                        type="date"
+                        value={extendModal.newEndDate}
+                        onChange={(e) => setExtendModal((s) => ({ ...s, newEndDate: e.target.value }))}
+                        />
+                    </label>
+
+                    <label className="reactivate">
+                        <input
+                        type="checkbox"
+                        checked={extendModal.reactivate}
+                        onChange={(e) => setExtendModal((s) => ({ ...s, reactivate: e.target.checked }))}
+                        />
+                        Bật lại coupon nếu đang ngưng/hết hạn
+                    </label>
+                    </div>
+
+                    <div className="actions">
+                    <button className="btn-cancel" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
+                        Hủy
+                    </button>
+                    <button
+                        className="btn-save"
+                        onClick={submitExtend}
+                        disabled={extendModal.submitting}
+                    >
+                        {extendModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
+                    </button>
+                    </div>
+                </div>
                 </div>
             )}
         </div>

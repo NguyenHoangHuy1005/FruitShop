@@ -9,6 +9,8 @@ router.post("/", requireAdmin, couponCtrl.createCoupon);
 router.get("/", requireAdmin, couponCtrl.listCoupons);
 router.delete("/:id", requireAdmin, couponCtrl.deleteCoupon);
 router.patch("/:id/toggle", requireAdmin, couponCtrl.toggleCoupon);
+// gia hạn mã giảm giá
+router.patch("/:id/extend", requireAdmin, couponCtrl.extendCoupon);
 
 // User: kiểm tra mã giảm giá
 router.post("/validate", couponCtrl.validateCoupon);

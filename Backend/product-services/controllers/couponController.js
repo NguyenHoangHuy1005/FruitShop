@@ -5,7 +5,7 @@ exports.createCoupon = async (req, res) => {
     try {
         let { code, discountType, value, minOrder, usageLimit, startDate, endDate } = req.body;
 
-        // 🔑 Chuẩn hóa discountType
+        // Chuẩn hóa giá trị giảm giá, Chuẩn hóa discountType
         if (discountType === "%" || discountType.toLowerCase() === "percent") {
             discountType = "percent";
         } else if (discountType.toLowerCase() === "vnđ" || discountType.toLowerCase() === "vnd" || discountType === "fixed") {
@@ -13,7 +13,7 @@ exports.createCoupon = async (req, res) => {
         }
 
         const coupon = await Coupon.create({
-            code: code.trim(),
+            code: String(code || "").trim().toUpperCase(),
             discountType,
             value,
             minOrder,
@@ -25,6 +25,62 @@ exports.createCoupon = async (req, res) => {
         res.status(201).json({ ok: true, coupon });
     } catch (e) {
         res.status(400).json({ ok: false, message: e.message });
+    }
+};
+
+exports.extendCoupon = async (req, res) => {
+    try {
+        const { id } = req.params;
+        let { addUsage = 0, newEndDate, reactivate = false } = req.body || {};
+
+        const c = await Coupon.findById(id);
+        if (!c) return res.status(404).json({ ok: false, message: "Không tìm thấy coupon." });
+
+        const updates = {};
+
+        // Xử lý tăng usageLimit
+        if (addUsage !== undefined) {
+            addUsage = Number(addUsage);
+            if (!Number.isFinite(addUsage) || addUsage < 0) {
+                return res.status(400).json({ ok: false, message: "addUsage phải là số >= 0." });
+            }
+            if (addUsage > 0) {
+                if (c.usageLimit === 0) {
+                // 0 = không giới hạn → chuyển sang giới hạn mới = usedCount + addUsage (để còn lại đúng addUsage)
+                updates.usageLimit = Number(c.usedCount) + addUsage;
+                } else {
+                updates.usageLimit = Number(c.usageLimit) + addUsage;
+                }
+            }
+        }
+
+        // Xử lý dời ngày hết hạn
+        if (newEndDate) {
+            const d = new Date(newEndDate);
+            if (isNaN(d.getTime())) {
+                return res.status(400).json({ ok: false, message: "newEndDate không hợp lệ." });
+            }
+            const now = new Date();
+            if (d < now) {
+                return res.status(400).json({ ok: false, message: "newEndDate phải lớn hơn thời điểm hiện tại." });
+            }
+            updates.endDate = d;
+        }
+
+        // Tuỳ chọn kích hoạt lại nếu trước đó đã ngưng
+        if (reactivate === true) {
+            updates.active = true;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ ok: false, message: "Không có thay đổi nào để gia hạn." });
+        }
+
+        const coupon = await Coupon.findByIdAndUpdate(id, updates, { new: true });
+        return res.json({ ok: true, coupon });
+    } catch (err) {
+        console.error("extendCoupon error:", err);
+        return res.status(500).json({ ok: false, message: "Lỗi server khi gia hạn coupon." });
     }
 };
 

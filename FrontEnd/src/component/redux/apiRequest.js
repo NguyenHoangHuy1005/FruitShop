@@ -727,6 +727,17 @@ export const toggleCoupon = async (id) => {
     return res.data; // { ok, coupon }
 };
 
+// Admin: gia hạn coupon
+export const extendCoupon = async (id, payload) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.patch(`/coupon/${id}/extend`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data; // { ok, coupon }
+};
+
 // User: kiểm tra coupon trước khi đặt hàng
 export const validateCoupon = async (code, subtotal) => {
     const res = await API.post("/coupon/validate", { code, subtotal }, { validateStatus: () => true });

@@ -56,11 +56,11 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      {/* 🔥 Top Stats */}
+      {/* Top Stats */}
       <div className="stats">
         <div className="card highlight blue">
           <h3>Doanh Thu</h3>
-          <p className="value">${stats.totalRevenue.toLocaleString()}</p>
+          <p className="value">{stats.totalRevenue.toLocaleString()} VNĐ</p>
           <span className="trend up">Tổng doanh thu</span>
         </div>
 

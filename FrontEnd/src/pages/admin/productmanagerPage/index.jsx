@@ -327,6 +327,7 @@ const ProductManagerPage = () => {
                                     await toggleCoupon(c._id);
                                     await loadCoupons();
                                 } catch (e) {
+                                    console.error("Toggle lỗi:", e);
                                     alert("Không thể thay đổi trạng thái!");
                                 }
                                 }}
@@ -350,6 +351,7 @@ const ProductManagerPage = () => {
                                         await deleteCoupon(c._id);
                                         await loadCoupons();
                                     } catch (e) {
+                                        console.error("Toggle lỗi:", e);
                                         alert("Xóa thất bại!");
                                     }
                                 }

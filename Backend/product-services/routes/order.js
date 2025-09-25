@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const orderCtrl = require("../controllers/orderController");
-const { requireAdmin } = require("../../auth-services/middlewares/auth");
+const { requireAdmin, verifyToken } = require("../../auth-services/middlewares/auth");
+
 
 // User routes
-router.post("/", orderCtrl.createOrder);
-router.get("/me", orderCtrl.myOrders);
+router.post("/", verifyToken, orderCtrl.createOrder);
+router.get("/me", verifyToken, orderCtrl.myOrders);
+router.put("/:id/cancel", verifyToken, orderCtrl.cancelOrder);
 
 // Admin routes
 router.get("/stats", requireAdmin, orderCtrl.adminStats);

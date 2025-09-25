@@ -3,11 +3,11 @@ const crypto = require("crypto"); // đầu file
 const Carts = require("../models/Carts");
 const Order = require("../models/Order");
 const Coupon = require("../models/Coupon");
+const Stock = require("../models/Stock");
+const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer");
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
-// mới đây nè
-const Stock = require("../models/Stock");
 
 
 // ==== helper dùng chung ====
@@ -31,8 +31,12 @@ async function calcTotals(cart, couponCode) {
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
     let discount = 0;
+    let couponApplied = false;
     if (couponCode) {
-        const coupon = await Coupon.findOne({ code: couponCode.trim(), active: true });
+        const coupon = await Coupon.findOne({
+            code: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
+            active: true
+        });
         const now = new Date();
         if (
             coupon &&
@@ -45,8 +49,7 @@ async function calcTotals(cart, couponCode) {
             } else if (coupon.discountType === "fixed") {
                 discount = Math.min(subtotal, coupon.value);
             }
-            coupon.usedCount += 1;
-            await coupon.save();
+            couponApplied = discount > 0;
         }
     }
 
@@ -155,6 +158,33 @@ exports.createOrder = async (req, res) => {
             status: "pending",
             payment: "COD",
         });
+
+        // (3.1) Commit coupon usage SAU khi tạo đơn thành công
+        if (couponCode && amount.discount > 0) {
+            try {
+                const code = String(couponCode).trim();
+                const now = new Date();
+                const updatedCoupon = await Coupon.findOneAndUpdate(
+                    {
+                        code: { $regex: new RegExp("^" + code + "$", "i") },
+                        active: true,
+                        startDate: { $lte: now },
+                        endDate:   { $gte: now },
+                        $or: [
+                        { usageLimit: 0 },
+                        { $expr: { $lt: ["$usedCount", "$usageLimit"] } }
+                        ],
+                    },
+                    { $inc: { usedCount: 1 } },
+                    { new: false }
+                );
+                if (!updatedCoupon) {
+                    console.warn("[coupon] commit skipped: not matched (possibly exhausted or inactive)");
+                }
+            } catch (err) {
+                console.warn("[coupon] commit failed:", err?.message || err);
+            }
+        }
         // BỔ SUNG: tăng purchaseCount sau khi tạo đơn thành công <<<
         const purchaseCount = items.map((item) => ({
             updateOne: {
@@ -185,6 +215,25 @@ exports.createOrder = async (req, res) => {
             path: "/",
         });
 
+        const payload = {
+            id: order._id,
+            createdAt: order.createdAt,
+            items,
+            amount,
+            couponCode: (req.body?.couponCode || "").trim(),
+            customer: { name: customerName, address, phone, email, note: note || "" },
+        };
+        const opts = {
+            shopName: process.env.SHOP_NAME || "FruitShop",
+            supportEmail: process.env.SHOP_SUPPORT_EMAIL || process.env.MAIL_FROM || process.env.MAIL_USER,
+            baseUrl: process.env.APP_BASE_URL || "", // VD: https://fruitshop.example.com
+        };
+
+        // không await để tránh chậm phản hồi
+        sendOrderConfirmationMail(email, customerName, payload, opts)
+        .then((ok) => !ok && console.warn("[mailer] sendOrderConfirmationMail returned false"))
+        .catch((err) => console.error("[mailer] sendOrderConfirmationMail failed:", err?.message || err));
+
         return res.status(201).json({
             ok: true,
             message: "Đặt hàng thành công!",
@@ -198,6 +247,45 @@ exports.createOrder = async (req, res) => {
     }
 };
 
+// USer hủy đơn (chỉ được hủy đơn của mình, và chỉ khi đơn đang pending)
+exports.cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id || null; // lấy từ token (middleware verifyToken)
+
+        const order = await Order.findOne({ _id: id, user: userId });
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+
+        if (order.status !== "pending") {
+        return res.status(400).json({ message: "Đơn hàng không thể hủy ở trạng thái hiện tại." });
+        }
+
+        // 🔄 Trả lại tồn kho
+        for (const it of order.items) {
+        await Stock.findOneAndUpdate(
+            { product: it.product },
+            { $inc: { onHand: it.quantity } }
+        );
+
+        // cập nhật Product.onHand và status
+        const stock = await Stock.findOne({ product: it.product });
+        const newQty = Math.max(0, Number(stock?.onHand) || 0);
+        await Product.findByIdAndUpdate(
+            it.product,
+            { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
+        );
+        }
+
+        // 🔴 Đổi trạng thái đơn
+        order.status = "cancelled";
+        await order.save();
+
+        return res.json({ ok: true, message: "Đơn hàng đã được hủy.", order });
+    } catch (err) {
+        console.error("cancelOrder error:", err);
+        return res.status(500).json({ message: "Lỗi server khi hủy đơn hàng." });
+    }
+};
 
 
 // ===== SỬA Ở ĐÂY: verify bằng JWT_ACCESS_KEY và lấy Bearer chuẩn =====
@@ -361,3 +449,7 @@ exports.adminStats = async (req, res) => {
         return res.status(500).json({ message: "Lỗi server khi thống kê." });
     }
 };
+
+
+
+

@@ -37,4 +37,18 @@ const requireAdmin = async (req, res, next) => {
     }
 };
 
-module.exports = { requireAdmin, readBearer };
+const verifyToken = (req, res, next) => {
+    try {
+        const token = readBearer(req);
+        if (!token) return res.status(401).json({ message: "Thiếu token." });
+        if (!JWT_SECRET) return res.status(500).json({ message: "Thiếu JWT_ACCESS_KEY." });
+
+        const payload = jwt.verify(token, JWT_SECRET);
+        req.user = { id: payload?.id || payload?._id }; // gán userId vào req
+        next();
+    } catch (e) {
+        return res.status(401).json({ message: "Token không hợp lệ." });
+    }
+};
+
+module.exports = { requireAdmin, readBearer, verifyToken };

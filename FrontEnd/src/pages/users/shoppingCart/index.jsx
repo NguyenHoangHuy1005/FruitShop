@@ -51,7 +51,11 @@ const ShoppingCart = () => {
             navigate(ROUTERS.ADMIN?.LOGIN || "/admin/login");
             return;
         }
-        navigate(ROUTERS.USER.CHECKOUT);
+        navigate(ROUTERS.USER.CHECKOUT, {
+            state: {
+            coupon: { code: couponCode, discount }
+            }
+        });
     };
 
     const applyCoupon = async () => {

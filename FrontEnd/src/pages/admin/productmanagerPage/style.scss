@@ -339,6 +339,9 @@ $product-main: map.get(theme.$theme-colors, "main");
 
 /* Tận dụng sẵn .modal-overlay/.modal-content hiện có */
 .modal-overlay {
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
+
+
 }
 

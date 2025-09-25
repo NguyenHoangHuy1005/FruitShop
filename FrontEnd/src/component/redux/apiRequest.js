@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import {
     loginFailure, loginStart, loginSuccess,
     registerFailure, registerStart, registerSuccess,
-    logoutStart, logoutSuccess, logoutFailure,
+    logoutStart, logoutSuccess,
     verifyStart, verifySuccess, verifyFailure,
     setPendingEmail
 } from './authSlice';
@@ -35,18 +35,41 @@ const getPendingEmail = () =>
     (localStorage.getItem("PENDING_EMAIL") || "").trim().toLowerCase();
 /* ========= AUTH HELPERS (silent refresh) ========= */
 // Cố gắng lấy/đảm bảo accessToken: nếu có sẵn thì dùng, nếu chưa có thì gọi /auth/refresh
-export const ensureAccessToken = async (maybeToken) => {
+// apiRequest.js (trước ensureAccessToken)
+const HAS_REFRESH_KEY = "HAS_REFRESH";
+
+const markHasRefresh = () => { try { localStorage.setItem(HAS_REFRESH_KEY, "1"); } catch {} };
+const clearHasRefresh = () => { try { localStorage.removeItem(HAS_REFRESH_KEY); } catch {} };
+const maybeHasRefresh = () => (localStorage.getItem(HAS_REFRESH_KEY) === "1");
+
+// ensureAccessToken
+export const ensureAccessToken = async (maybeToken, dispatch, navigate, isAdmin = false) => {
     if (maybeToken) return maybeToken;
+
+    // ⛳️ Không thử refresh nếu ta biết chắc chưa đăng nhập
+    if (!maybeHasRefresh()) return null;
+
     try {
-        const r = await API.post("/auth/refresh", null, { validateStatus: () => true });
+        const r = await API.post("/auth/refresh", null, {
+        validateStatus: () => true,
+        withCredentials: true,
+        });
         if (r.status === 200 && r.data?.accessToken) {
-            const t = r.data.accessToken;
-            API.defaults.headers.common.Authorization = `Bearer ${t}`;
-            return t;
+        const t = r.data.accessToken;
+        API.defaults.headers.common.Authorization = `Bearer ${t}`;
+        return t;
         }
-    } catch (_) { }
-    return null; // không có token
+    } catch (e) {
+        console.error("ensureAccessToken refresh fail:", e.message);
+    }
+
+    // ❌ refresh fail → đừng điều hướng khi gọi “âm thầm”
+    dispatch?.({ type: "auth/logoutSuccess" });
+    return null;
 };
+
+
+
 /* ======================= AUTH ======================= */
 
 export const loginUser = async (user, dispatch, navigate) => {
@@ -59,8 +82,9 @@ export const loginUser = async (user, dispatch, navigate) => {
         if (res.data?.accessToken) {
             API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
         }
+        markHasRefresh();
 
-        // ⚡ sync giỏ
+        //  sync giỏ
         if (res.data?.cart) {
             const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
             dispatch(cartSuccess({ items, summary }));
@@ -196,12 +220,13 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
         console.error("Logout error:", error?.response?.data || error?.message);
     } finally {
         // Dọn client triệt để
-        try { localStorage.clear(); } catch { }
-        try { sessionStorage.clear(); } catch { }
+        try { localStorage.clear(); } catch (error) { console.warn("Clear localStorage fail:", error); }
+        try { sessionStorage.clear(); } catch (error) { console.warn("Clear sessionStorage fail:", error); }
+        clearHasRefresh();
         try {
             delete API.defaults.headers.common.Authorization;
             delete API.defaults.headers.common.token;
-        } catch { }
+        } catch (error) { console.warn("Clear API headers fail:", error); }
 
         dispatch(logoutSuccess());
         await ensureCart(dispatch);  // gọi lại API /cart → Redux.cart sẽ về giỏ guest (trống)
@@ -262,6 +287,7 @@ export const getAllUsers = async (accessToken, dispatch) => {
 
         dispatch(getUsersSuccess(filteredUsers));
     } catch (error) {
+        console.error("Get all users error:", error?.response?.data || error.message);
         dispatch(getUserFailure());
     }
 };
@@ -506,6 +532,16 @@ export const fetchMyOrders = async (accessToken) => {
         err.status = res.status;
         throw err;
     }
+    return res.data;
+};
+// user hủy đơn hàng của mình
+export const cancelOrder = async (orderId, token) => {
+    const res = await API.put(
+        `/order/${orderId}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data;
 };
 

@@ -11,7 +11,7 @@ const LoginAdminPage = () => {
 
     // ----- verified message -----
     const [showVerifiedMsg, setShowVerifiedMsg] = useState(false);
-
+    const [remember, setRemember] = useState(false);
     // ----- reset password message -----
     const [showResetMsg, setShowResetMsg] = useState(
         () => sessionStorage.getItem("JUST_RESET") === "1"
@@ -48,7 +48,7 @@ const LoginAdminPage = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        loginUser({ username, password }, dispatch, navigate);
+        loginUser({ username, password, remember }, dispatch, navigate);
     };
 
     return (
@@ -73,25 +73,37 @@ const LoginAdminPage = () => {
             <div className="login__form-group">
                 <label htmlFor="username" className="login__label">Tên đăng nhập</label>
                 <input
-                type="text"
-                name="username"
-                id="username"
-                required
-                onChange={(e) => setUsername(e.target.value)}
-                value={username}
+                    type="text"
+                    name="username"
+                    id="username"
+                    required
+                    onChange={(e) => setUsername(e.target.value)}
+                    value={username}
                 />
             </div>
 
             <div className="login__form-group">
                 <label htmlFor="password" className="login__label">Mật khẩu</label>
                 <input
-                type="password"
-                name="password"
-                id="password"
-                required
-                onChange={(e) => setPassword(e.target.value)}
-                value={password}
+                    type="password"
+                    name="password"
+                    id="password"
+                    required
+                    onChange={(e) => setPassword(e.target.value)}
+                    value={password}
                 />
+            </div>
+
+            <div className="login__form-group login__remember">
+                <input
+                    type="checkbox"
+                    id="remember"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                />
+                <label htmlFor="remember">
+                Ghi nhớ đăng nhập
+                </label>
             </div>
 
             <button type="submit" className="login__button">Đăng nhập</button>

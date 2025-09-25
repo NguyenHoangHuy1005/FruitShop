@@ -5,7 +5,7 @@ const middlewareController = require("../controllers/middlewareController");
 // Auth core
 router.post("/register", authController.registerUser);
 router.post("/login", authController.loginUser);
-router.post("/refresh", authController.requestRefreshToken);
+router.post("/refresh", authController.refresh);
 router.post("/logout", authController.userLogout);
 
 // Email verification

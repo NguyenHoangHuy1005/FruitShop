@@ -13,7 +13,7 @@ exports.createCoupon = async (req, res) => {
         }
 
         const coupon = await Coupon.create({
-            code: String(code || "").trim().toUpperCase(),
+            code: String(code || "").trim(),
             discountType,
             value,
             minOrder,
@@ -105,19 +105,17 @@ exports.toggleCoupon = async (req, res) => {
 // product-services/controllers/couponController.js
 exports.validateCoupon = async (req, res) => {
     try {
-        const { code, subtotal } = req.body;
-        if (!code || !subtotal) {
-            return res.status(400).json({ ok: false, message: "Thiếu mã code hoặc giá trị đơn hàng." });
+        const { code, subtotal } = req.body || {};
+        if (!code) {
+            return res.status(400).json({ ok: false, message: "Thiếu mã code." });
+        }
+        if (subtotal == null || isNaN(subtotal)) {
+            return res.status(400).json({ ok: false, message: "Thiếu hoặc sai giá trị đơn hàng." });
         }
 
-        const coupon = await Coupon.findOne({ code: code.trim() });
+        const coupon = await Coupon.findOne({ code: code.trim(), active: true });
         if (!coupon) {
-            return res.status(404).json({ ok: false, message: "Mã giảm giá không tồn tại." });
-        }
-
-        // Trạng thái
-        if (coupon.active === false) {
-            return res.status(400).json({ ok: false, message: "Mã giảm giá đã bị khóa." });
+            return res.status(404).json({ ok: false, message: "Mã giảm giá không tồn tại hoặc đã bị khóa." });
         }
 
         const now = new Date();
@@ -135,14 +133,15 @@ exports.validateCoupon = async (req, res) => {
             });
         }
 
-        if (coupon.usageLimit && coupon.usageLimit <= 0) {
+        // kiểm tra số lượt dùng
+        if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) {
             return res.status(400).json({ ok: false, message: "Mã giảm giá đã hết lượt sử dụng." });
         }
 
         // 🔑 Tính discount
         let discount = 0;
         if (coupon.discountType === "percent") {
-            discount = Math.round((subtotal * coupon.value) / 100);
+            discount = Math.min(subtotal, Math.round((subtotal * coupon.value) / 100));
         } else if (coupon.discountType === "fixed") {
             discount = Math.min(subtotal, coupon.value);
         }

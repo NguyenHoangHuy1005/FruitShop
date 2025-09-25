@@ -134,3 +134,23 @@
         padding: 12px !important;
     }
 }
+/* ===== Nút hủy đơn ===== */
+.btn-cancel {
+    background: #dc2626; // đỏ tươi
+    color: #fff;
+    font-weight: 600;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover {
+        background: #b91c1c; // đỏ đậm hơn khi hover
+    }
+
+    &:disabled {
+        background: #fca5a5;
+        cursor: not-allowed;
+    }
+}

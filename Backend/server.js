@@ -9,40 +9,32 @@ const path = require("path");
 dotenv.config();
 connectDB();
 
-//auth
-const authRoute    = require("./auth-services/routes/auth");
-const userRoute    = require("./auth-services/routes/user");
-
-//admin
-const productRoute = require("./admin-services/routes/product");
-const uploadRoutes = require("./admin-services/routes/image");
-const supplierRoutes = require("./admin-services/routes/supplier");
-
-//product
-const cartRoutes  = require("./product-services/routes/cart");
-const orderRoutes = require("./product-services/routes/order");
-const stockRoutes = require("./product-services/routes/stock");
-const productRoutes = require("./product-services/routes/product");
-const couponRoutes  = require("./product-services/routes/coupon");
-
-
 const app = express();
 
-// CORS
-const allowlist = [/^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/, /^http:\/\/\[::1\]:\d+$/];
-app.use(cors({
+// Nếu sau này chạy sau reverse proxy (Nginx...), bật dòng này:
+app.set("trust proxy", 1);
+
+// ===== CORS (đồng nhất cho cả preflight & request thật) =====
+const allowlist = [
+  /^http:\/\/localhost:\d+$/,
+  /^http:\/\/127\.0\.0\.1:\d+$/,
+  /^http:\/\/\[::1\]:\d+$/,
+];
+
+const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true);                   // Postman, curl, SSR...
     const ok = allowlist.some((re) => re.test(origin));
-    cb(null, ok);
+    return cb(null, ok ? true : false);                   // phản chiếu origin khi hợp lệ
   },
-  credentials: true,
+  credentials: true,                                      // ✔️ cho phép cookie
   methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
   allowedHeaders: ["Content-Type","Authorization","X-Requested-With","token"],
-  exposedHeaders: ["Set-Cookie"],
   optionsSuccessStatus: 204,
-}));
-app.options("*", cors());
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));                       // ✔️ preflight dùng cùng cấu hình
 
 app.use(cookieParser());
 app.use(express.json());
@@ -50,23 +42,41 @@ app.use(express.json());
 // Log gọn
 app.use((req, _res, next) => { console.log(`[${req.method}] ${req.originalUrl}`); next(); });
 
-// ===== Mount routes 1 LẦN =====
-app.use("/api",  uploadRoutes);
-app.use("/api/auth",    authRoute);
-app.use("/api/user",    userRoute);
-app.use("/api/product", productRoute);
-app.use("/api/coupon",  couponRoutes);  // <- /api/coupon/...
-
-app.use("/api/cart",   cartRoutes);   // <- /api/cart/... (PUT /item/:productId OK)
-app.use("/api/order",  orderRoutes);  // <- KHỚP FE: POST /api/order
-app.use("/api/product", productRoutes) //productRoutes của product-services khác của admin
-
-// tồn kho
-app.use("/api/stock", stockRoutes);
-app.use("/api/supplier", supplierRoutes);
+// ===== Mount routes =====
+const authRoute      = require("./auth-services/routes/auth");
+const userRoute      = require("./auth-services/routes/user");
+// admin
+const productRoute   = require("./admin-services/routes/product");
+const uploadRoutes   = require("./admin-services/routes/image");
+const supplierRoutes = require("./admin-services/routes/supplier");
+// product
+const cartRoutes     = require("./product-services/routes/cart");
+const orderRoutes    = require("./product-services/routes/order");
+const stockRoutes    = require("./product-services/routes/stock");
+const productRoutes  = require("./product-services/routes/product");
+const couponRoutes   = require("./product-services/routes/coupon");
 
 // Static file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ================== API ==================
+
+// ---- Auth & User ----
+app.use("/api/auth",    authRoute);
+app.use("/api/user",    userRoute);
+
+// ---- Admin ----
+app.use("/api",         uploadRoutes);       // upload ảnh
+app.use("/api/product", productRoute);       // CRUD sản phẩm (admin)
+app.use("/api/supplier", supplierRoutes);
+app.use("/api/stock",   stockRoutes);        // nhập/xem tồn kho
+
+// ---- Public/User ----
+app.use("/api/product", productRoutes);      // GET sản phẩm (user)
+app.use("/api/coupon",  couponRoutes);
+app.use("/api/cart",    cartRoutes);
+app.use("/api/order",   orderRoutes);
+
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: "Not Found", path: req.originalUrl }));
 

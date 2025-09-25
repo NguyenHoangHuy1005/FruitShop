@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import { formatter } from "../../../utils/fomater";
-import { API } from "../../../component/redux/apiRequest"; // dùng axios instance sẵn có
+import { API, cancelOrder } from "../../../component/redux/apiRequest"; // dùng axios instance sẵn có
 import { ROUTERS } from "../../../utils/router";
 import "./style.scss"; // nếu cần style dùng chung
 
@@ -166,104 +166,128 @@ const OrdersPage = () => {
 
                 return (
                     <div key={`${id}-details`} className="order-details" style={{ margin: "12px 0 28px" }}>
-                    <div className="card" style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 8 }}>
-                        <div style={{ marginBottom: 8 }}>
-                        <b>Khách hàng: </b>
-                        {o?.customer?.name} — {o?.customer?.phone} — {o?.customer?.email}
-                        <br />
-                        <b>Địa chỉ: </b>
-                        {o?.customer?.address}
-                        {o?.customer?.note ? (
-                            <>
+                        <div className="card" style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 8 }}>
+                            <div style={{ marginBottom: 8 }}>
+                            <b>Khách hàng: </b>
+                            {o?.customer?.name} — {o?.customer?.phone} — {o?.customer?.email}
                             <br />
-                            <b>Ghi chú: </b>
-                            {o.customer.note}
-                            </>
-                        ) : null}
-                        </div>
+                            <b>Địa chỉ: </b>
+                            {o?.customer?.address}
+                            {o?.customer?.note ? (
+                                <>
+                                <br />
+                                <b>Ghi chú: </b>
+                                {o.customer.note}
+                                </>
+                            ) : null}
+                            </div>
 
-                        <div className="table__cart" style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                            <thead>
-                            <tr>
-                                <th style={{ textAlign: "left" }}>Sản phẩm</th>
-                                <th style={{ textAlign: "right" }}>Đơn giá</th>
-                                <th style={{ textAlign: "right" }}>Số lượng</th>
-                                <th style={{ textAlign: "right" }}>Thành tiền</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {(o?.items || []).map((it, idx) => {
-                                // ảnh có thể là mảng hoặc string
-                                const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
-                                return (
-                                <tr key={idx} style={{ borderTop: "1px solid #f1f5f9" }}>
-                                    <td style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
-                                    {imgSrc ? (
-                                        <img
-                                        src={imgSrc}
-                                        alt={it.name}
-                                        style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6 }}
-                                        />
-                                    ) : null}
-                                    <span>{it.name}</span>
+                            <div className="table__cart" style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                <thead>
+                                <tr>
+                                    <th style={{ textAlign: "left" }}>Sản phẩm</th>
+                                    <th style={{ textAlign: "right" }}>Đơn giá</th>
+                                    <th style={{ textAlign: "right" }}>Số lượng</th>
+                                    <th style={{ textAlign: "right" }}>Thành tiền</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {(o?.items || []).map((it, idx) => {
+                                    // ảnh có thể là mảng hoặc string
+                                    const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
+                                    return (
+                                    <tr key={idx} style={{ borderTop: "1px solid #f1f5f9" }}>
+                                        <td style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
+                                        {imgSrc ? (
+                                            <img
+                                            src={imgSrc}
+                                            alt={it.name}
+                                            style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6 }}
+                                            />
+                                        ) : null}
+                                        <span>{it.name}</span>
+                                        </td>
+                                        <td style={{ textAlign: "right" }}>{formatter(it.price)}</td>
+                                        <td style={{ textAlign: "right" }}>{it.quantity}</td>
+                                        <td style={{ textAlign: "right", fontWeight: 600 }}>
+                                        {formatter(it.total ?? it.price * it.quantity)}
+                                        </td>
+                                    </tr>
+                                    );
+                                })}
+                                </tbody>
+                                <tfoot>
+                                <tr>
+                                    <td />
+                                    <td />
+                                    <td style={{ textAlign: "right" }}>
+                                    <b>Tạm tính:</b>
                                     </td>
-                                    <td style={{ textAlign: "right" }}>{formatter(it.price)}</td>
-                                    <td style={{ textAlign: "right" }}>{it.quantity}</td>
-                                    <td style={{ textAlign: "right", fontWeight: 600 }}>
-                                    {formatter(it.total ?? it.price * it.quantity)}
+                                    <td style={{ textAlign: "right" }}>
+                                    {formatter(o?.amount?.subtotal ?? 0)}
                                     </td>
                                 </tr>
-                                );
-                            })}
-                            </tbody>
-                            <tfoot>
-                            <tr>
-                                <td />
-                                <td />
-                                <td style={{ textAlign: "right" }}>
-                                <b>Tạm tính:</b>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                {formatter(o?.amount?.subtotal ?? 0)}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td />
-                                <td />
-                                <td style={{ textAlign: "right" }}>
-                                <b>Phí vận chuyển:</b>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                {formatter(o?.amount?.shipping ?? 0)}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td />
-                                <td />
-                                <td style={{ textAlign: "right" }}>
-                                <b>Giảm giá:</b>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                {formatter(o?.amount?.discount ?? 0)}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td />
-                                <td />
-                                <td style={{ textAlign: "right" }}>
-                                <h4 style={{ margin: 0 }}>Tổng thanh toán:</h4>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                <h4 style={{ margin: 0 }}>
-                                    {formatter(o?.amount?.total ?? o?.amount ?? 0)}
-                                </h4>
-                                </td>
-                            </tr>
-                            </tfoot>
-                        </table>
+                                <tr>
+                                    <td />
+                                    <td />
+                                    <td style={{ textAlign: "right" }}>
+                                    <b>Phí vận chuyển:</b>
+                                    </td>
+                                    <td style={{ textAlign: "right" }}>
+                                    {formatter(o?.amount?.shipping ?? 0)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td />
+                                    <td />
+                                    <td style={{ textAlign: "right" }}>
+                                    <b>Giảm giá:</b>
+                                    </td>
+                                    <td style={{ textAlign: "right" }}>
+                                    {formatter(o?.amount?.discount ?? 0)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td />
+                                    <td />
+                                    <td style={{ textAlign: "right" }}>
+                                    <h4 style={{ margin: 0 }}>Tổng thanh toán:</h4>
+                                    </td>
+                                    <td style={{ textAlign: "right" }}>
+                                    <h4 style={{ margin: 0 }}>
+                                        {formatter(o?.amount?.total ?? o?.amount ?? 0)}
+                                    </h4>
+                                    </td>
+                                </tr>
+                                </tfoot>
+                            </table>
+                            </div>
+                            {o.status === "pending" && (
+                                <div style={{ marginTop: 16 }}>
+                                    <button
+                                    type="button"
+                                    className="btn-cancel"
+                                    onClick={async () => {
+                                        if (!window.confirm("Bạn có chắc chắn muốn hủy đơn này? (Mã giảm giá sẽ không được hoàn lại)")) return;
+                                        try {
+                                        const res = await cancelOrder(o._id, user?.accessToken); // dùng o._id
+                                        setOrders((prev) =>
+                                            prev.map(ord =>
+                                            ord._id === o._id ? { ...ord, status: "cancelled" } : ord
+                                            )
+                                        );
+                                        alert(res.message || "Đơn hàng đã được hủy.");
+                                        } catch (err) {
+                                        alert(err.message || "Không thể hủy đơn.");
+                                        }
+                                    }}
+                                    >
+                                    Hủy đơn
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </div>
                     </div>
                 );
                 })}

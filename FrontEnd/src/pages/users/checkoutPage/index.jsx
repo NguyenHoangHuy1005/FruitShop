@@ -4,16 +4,19 @@ import "./style.scss";
 import { memo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { placeOrder } from "../../../component/redux/apiRequest";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const CheckoutPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
+
     const cart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
     const SHIPPING_FEE = 30000; // ví dụ 30k
-    const coupon = cart?.coupon?.code || "";
-    const discount = cart?.coupon?.discount || 0;
+
+    const coupon = location.state?.coupon?.code || cart?.coupon?.code || "";
+    const discount = location.state?.coupon?.discount || cart?.coupon?.discount || 0;
 
     const [form, setForm] = useState({
         fullName: "",

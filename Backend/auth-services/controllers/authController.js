@@ -7,16 +7,49 @@ const Cart = require("../../product-services/models/Carts");
 
 let refreshTokens = [];
 
+const isProd = process.env.NODE_ENV === "production";
+// ==== TOKEN SECRETS & TTL ====
+const ACCESS_SECRET  = process.env.JWT_ACCESS_KEY  || process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_KEY || process.env.JWT_SECRET;
+
+
+// Thời hạn
+const REFRESH_LONG_MS = 30 * 24 * 60 * 60 * 1000;   // 30 ngày
+
 // Helper
 const generate6Digit = () =>
   String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 
 const COOKIE_OPTS = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production" ? true : false,
+    secure: isProd,
     sameSite: "lax",
     path: "/",
 };
+
+// Chuẩn hoá cookie theo TTL
+const cookieOpts = (ttlMs) => ({
+    ...COOKIE_OPTS,
+    ...(ttlMs ? { maxAge: ttlMs, expires: new Date(Date.now() + ttlMs) } : {}),
+});
+
+// ==== JWT HELPERS (global, KHÔNG gán lên authController) ====
+function genAccessToken(user) {
+    return jwt.sign(
+        { id: user._id, admin: !!(user.admin || user.isAdmin) },
+        ACCESS_SECRET,
+        { expiresIn: "15m" }
+    );
+    }
+
+function genRefreshToken(user, ttlMs, remember = false) {
+    return jwt.sign(
+        { id: user._id, admin: !!(user.admin || user.isAdmin), remember: !!remember },
+        REFRESH_SECRET,
+        { expiresIn: Math.floor(ttlMs / 1000) } // <- luôn truyền REFRESH_LONG_MS
+    );
+}
+
 
 const authController = {
   // ============== REGISTER (tạo user + OTP) ==============
@@ -126,11 +159,30 @@ const authController = {
             });
         }
 
-        const accessToken = authController.generateAccessToken(user);
-        const refreshToken = authController.generateRefreshToken(user);
+        // === NEW: Remember me (chỉ áp dụng cho USER) ===
+        const remember = !!req.body.remember;
+        const isAdmin = !!(user.admin || user.isAdmin);
+        const tokenTtl = REFRESH_LONG_MS;
+        let cookieConf;
+
+        if (isAdmin) {
+        // Admin: session cookie, không maxAge
+        cookieConf = COOKIE_OPTS;
+        } else if (remember) {
+        // User có tick: persistent cookie 30 ngày
+        cookieConf = cookieOpts(REFRESH_LONG_MS);
+        } else {
+        // User không tick: session cookie
+        cookieConf = COOKIE_OPTS;
+        }
+
+        const accessToken  = genAccessToken(user);
+        const refreshToken = genRefreshToken(user, tokenTtl, remember);
         refreshTokens.push(refreshToken);
 
-        res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
+        res.cookie("refreshToken", refreshToken, cookieConf);
+
+
 
         // ✅ merge giỏ guest (nếu có CART_ID) vào giỏ user
         const guestKey = req.cookies.CART_ID;
@@ -165,7 +217,7 @@ const authController = {
 
 
         const { password, ...others } = user._doc;
-
+        
         // Lấy giỏ hiện tại của user (sau khi merge)
         userCart = await Cart.findOne({ user: user._id, status: "active" })
             .populate("items.product");
@@ -180,7 +232,7 @@ const authController = {
         }
         // console.log("LOGIN -> return cart:", JSON.stringify(userCart, null, 2)); k cần in ra
         // return res.status(200).json({ ...others, accessToken, cart: userCart });
-        return res.status(200).json({ ...others, accessToken });
+        return res.status(200).json({ ...others, accessToken, admin: isAdmin });
 
         } catch (error) {
         console.error(error);
@@ -189,44 +241,44 @@ const authController = {
     },
 
     // ============== JWT helpers ==============
-    generateAccessToken: (user) => {
-        return jwt.sign(
-        { id: user.id, admin: user.admin },
-        process.env.JWT_ACCESS_KEY,
-        { expiresIn: "30d" }
-        );
-    },
+    // generateAccessToken: (user) => {
+    //     return jwt.sign(
+    //     { id: user.id, admin: user.admin },
+    //     process.env.JWT_ACCESS_KEY,
+    //     { expiresIn: "30d" }
+    //     );
+    // },
 
-    generateRefreshToken: (user) => {
-        return jwt.sign(
-        { id: user.id, admin: user.admin },
-        process.env.JWT_REFRESH_KEY,
-        { expiresIn: "365d" }
-        );
-    },
+    // generateRefreshToken: (user) => {
+    //     return jwt.sign(
+    //     { id: user.id, admin: user.admin },
+    //     process.env.JWT_REFRESH_KEY,
+    //     { expiresIn: "365d" }
+    //     );
+    // },
 
     // ============== REFRESH TOKEN ==============
-    requestRefreshToken: async (req, res) => {
-        const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken)
-        return res.status(401).json({ message: "You are not logged in" });
-        if (!refreshTokens.includes(refreshToken))
-        return res.status(403).json({ message: "Invalid refresh token" });
+    // requestRefreshToken: async (req, res) => {
+    //     const refreshToken = req.cookies.refreshToken;
+    //     if (!refreshToken)
+    //     return res.status(401).json({ message: "You are not logged in" });
+    //     if (!refreshTokens.includes(refreshToken))
+    //     return res.status(403).json({ message: "Invalid refresh token" });
 
-        jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY, (err, user) => {
-        if (err) {
-            return res.status(403).json({ message: "Invalid refresh token" });
-        }
-        refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
+    //     jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY, (err, user) => {
+    //     if (err) {
+    //         return res.status(403).json({ message: "Invalid refresh token" });
+    //     }
+    //     refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
 
-        const newAccessToken = authController.generateAccessToken(user);
-        const newRefreshToken = authController.generateRefreshToken(user);
-        refreshTokens.push(newRefreshToken);
+    //     const newAccessToken = authController.generateAccessToken(user);
+    //     const newRefreshToken = authController.generateRefreshToken(user);
+    //     refreshTokens.push(newRefreshToken);
 
-        res.cookie("refreshToken", newRefreshToken, COOKIE_OPTS);
-        return res.status(200).json({ accessToken: newAccessToken });
-        });
-    },
+    //     res.cookie("refreshToken", newRefreshToken, COOKIE_OPTS);
+    //     return res.status(200).json({ accessToken: newAccessToken });
+    //     });
+    // },
 
     // ============== LOGOUT ==============
     userLogout: async (req, res) => {
@@ -531,5 +583,42 @@ const authController = {
     },
 
 };
+
+authController.refresh = async (req, res) => {
+    try {
+        const oldToken = req.cookies?.refreshToken;
+        if (!oldToken) return res.status(401).json({ message: "Thiếu refresh token." });
+
+        let payload;
+        try {
+        payload = jwt.verify(oldToken, REFRESH_SECRET);
+        } catch (_) {
+        return res.status(401).json({ message: "Refresh token không hợp lệ/đã hết hạn." });
+        }
+
+        const { id, remember } = payload || {};
+        const user = await User.findById(id).select("_id admin isAdmin").lean();
+        if (!user) return res.status(401).json({ message: "Người dùng không tồn tại." });
+
+        const isAdmin = !!(user.admin || user.isAdmin);
+
+        // 1) Cấp access token mới
+        const accessToken = genAccessToken(user);
+
+        // 2) Xoay vòng refresh token (luôn TTL dài 30d; remember đi trong payload)
+        const newRefresh = genRefreshToken(user, REFRESH_LONG_MS, !!remember);
+
+        // 3) Cookie: Admin & User-không-tick = session cookie; User-tick = persistent 30d
+        const cookieConf = (isAdmin || !remember) ? COOKIE_OPTS : cookieOpts(REFRESH_LONG_MS);
+        res.cookie("refreshToken", newRefresh, cookieConf);
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(200).json({ accessToken, admin: isAdmin });
+    } catch (_) {
+        return res.status(401).json({ message: "Refresh token không hợp lệ/đã hết hạn." });
+    }
+};
+
+
+
 
 module.exports = authController;

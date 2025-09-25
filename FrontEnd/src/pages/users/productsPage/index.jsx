@@ -69,7 +69,7 @@ const ProductsPage = () => {
             case "Giá cao đến thấp":
                 return priceB - priceA;
             case "Bán chạy nhất":
-                return (b.sold || 0) - (a.sold || 0);
+                return (b.purchaseCount || 0) - (a.purchaseCount || 0); // Sắp xếp theo lượt mua đã fix nè
             case "Đang giảm giá":
                 return (Number(b.discountPercent) || 0) - (Number(a.discountPercent) || 0);
             default:

@@ -8,8 +8,9 @@ import { MdDashboard } from "react-icons/md";
 import { GrUserManager } from "react-icons/gr";
 import { AiFillProduct } from "react-icons/ai";
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from "../../../../component/redux/apiRequest";
+import { logout, ensureAccessToken, API } from "../../../../component/redux/apiRequest";
 import { Boxes } from "lucide-react";
+import { useEffect } from "react";
 
 const HeaderAd = ({ children, ...props }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
@@ -19,6 +20,30 @@ const HeaderAd = ({ children, ...props }) => {
   const accessToken = user?.accessToken;
   const id = user?._id;
   
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      const t = await ensureAccessToken(null, dispatch, navigate, true); // 👈 admin
+      if (!cancelled && t) {
+        API.defaults.headers.common.Authorization = `Bearer ${t}`;
+      }
+    };
+    hydrate();
+
+    const onFocus = () => hydrate();
+    const onVisible = () => { if (!document.hidden) hydrate(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [dispatch, navigate]);
+
+
+
   const handleLogout = () => {
     logout(dispatch, navigate, accessToken, id);
   };

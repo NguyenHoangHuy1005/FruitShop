@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { logout, ensureCart} from "../../../../component/redux/apiRequest";
+import { logout, ensureCart, API, ensureAccessToken} from "../../../../component/redux/apiRequest";
 import "./style.scss";
 import "./header.scss";
 import {
@@ -144,9 +144,37 @@ const Header = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart?.data);
+  const user = useSelector((state) => state.auth?.login?.currentUser);
   useEffect(() => {
     ensureCart(dispatch);
   }, [dispatch]);
+  
+   // Bootstrap: refresh accessToken xong mới sync giỏ
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      const t = await ensureAccessToken(null, dispatch, navigate, false);
+      if (t) API.defaults.headers.common.Authorization = `Bearer ${t}`;
+      await ensureCart(dispatch);
+    };
+
+    hydrate();
+
+    // Khi user quay lại tab hoặc visibility change → refresh token + sync giỏ
+    const onFocus = () => hydrate();
+    const onVisible = () => { if (!document.hidden) hydrate(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [dispatch, navigate]);
+
+
 
   const count = cart?.items?.length || 0;
   const subtotal = cart?.summary?.subtotal || 0;
@@ -178,8 +206,6 @@ const Header = () => {
     setIsHome(_isHome);
     setShowCategories(_isHome);
   }, [location]);
-
-  const user = useSelector((state) => state.auth?.login?.currentUser);
 
 
   // thanh tìm kiếm

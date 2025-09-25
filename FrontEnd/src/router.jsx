@@ -40,18 +40,15 @@ const ForbiddenPage = () => (
 const RequireAdmin = ({ children }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
 
-  if (!user) {
-    //  chưa đăng nhập
-    return <Navigate to={ROUTERS.ADMIN.LOGIN} replace />;
-  }
+  // chưa có user => coi như chưa login
+  if (!user) return <Navigate to={ROUTERS.ADMIN.LOGIN} replace />;
 
-  if (!user.admin) {
-    //  đã đăng nhập nhưng không phải admin
-    return <ForbiddenPage />;
-  }
+  // nếu không phải admin
+  if (!user.admin) return <ForbiddenPage />;
 
   return children;
 };
+  
 
 // ---------- USER ROUTES ----------
 const renderUserRouter = () => {

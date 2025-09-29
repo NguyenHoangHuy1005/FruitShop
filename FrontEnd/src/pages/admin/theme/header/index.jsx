@@ -1,10 +1,11 @@
 import { memo } from 'react';
 import "./style.scss";
+import { useState } from "react";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTERS } from "../../../../utils/router";
 import { RiLogoutBoxFill } from "react-icons/ri";
-import { FaCartShopping,FaFileInvoice } from "react-icons/fa6";
-import { MdDashboard } from "react-icons/md";
+import { FaCartShopping, FaFileInvoice } from "react-icons/fa6";
+import { MdDashboard, MdDiscount} from "react-icons/md";
 import { GrUserManager } from "react-icons/gr";
 import { AiFillProduct } from "react-icons/ai";
 import { useDispatch, useSelector } from 'react-redux';
@@ -19,7 +20,8 @@ const HeaderAd = ({ children, ...props }) => {
   const dispatch = useDispatch();
   const accessToken = user?.accessToken;
   const id = user?._id;
-  
+  const [open, setOpen] = useState(false);
+  const toggleMenu = () => setOpen(!open);
   useEffect(() => {
     let cancelled = false;
     const hydrate = async () => {
@@ -63,6 +65,13 @@ const HeaderAd = ({ children, ...props }) => {
       label: 'Products',
       icon: <AiFillProduct />,
     },
+    {
+      key: 'coupon',
+      path: ROUTERS.ADMIN.COUPON,
+      onClick: () => navigate(ROUTERS.ADMIN.COUPON),
+      label: 'Coupon',
+      icon: <MdDiscount />,
+    },
     // thêm stock
     {
       key: 'stock',
@@ -92,12 +101,12 @@ const HeaderAd = ({ children, ...props }) => {
       label: 'Users',
       icon: <GrUserManager />,
     },
-    {
-      key: 'logout',
-      onClick: handleLogout,
-      label: 'Logout',
-      icon: <RiLogoutBoxFill />,
-    },
+    // {
+    //   key: 'logout',
+    //   onClick: handleLogout,
+    //   label: 'Logout',
+    //   icon: <RiLogoutBoxFill />,
+    // },
   ];
 
   return (
@@ -111,7 +120,7 @@ const HeaderAd = ({ children, ...props }) => {
           </div>
           <span className="admin-header__logo-text">Admin Panel</span>
         </div>
-        
+
         <nav className="admin-header__nav">
           {navItems.map(({ key, path, onClick, label, icon }) => {
             const isActive = path ? location.pathname === path : false;
@@ -127,17 +136,26 @@ const HeaderAd = ({ children, ...props }) => {
             );
           })}
         </nav>
-        
-        <div className="admin-header__user">
+
+        <div className="admin-header__user" onClick={toggleMenu}>
           <div className="admin-header__user-info">
             <div className="admin-header__user-avatar">
-              {user?.username?.charAt(0).toUpperCase() || 'A'}
+              {user?.username?.charAt(0).toUpperCase() || "A"}
             </div>
             <div className="admin-header__user-details">
-              <div className="admin-header__user-name">{user?.username || 'Admin'}</div>
+              <div className="admin-header__user-name">{user?.username || "Admin"}</div>
               <div className="admin-header__user-role">Administrator</div>
             </div>
           </div>
+
+          {open && (
+            <div className="dropdown-menu">
+              <button className="dropdown-item" onClick={handleLogout}>
+                <RiLogoutBoxFill style={{ marginRight: "8px" }} />
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

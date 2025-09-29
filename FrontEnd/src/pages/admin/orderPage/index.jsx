@@ -136,12 +136,9 @@ const OrderAdminPage = () => {
 
     return (
         <div className="container">
+          <h2>QUẢN LÝ ĐƠN HÀNG</h2>
             <div className="orders">
                 <div className="orders__header">
-                    <h2>QUẢN LÝ ĐƠN HÀNG</h2>
-                    <button className="btn-theme" onClick={toggleTheme}>
-                        {isDark ? "☀️" : "🌙"}
-                    </button>
                 </div>
                 <div className="orders__toolbar">
                   <input

@@ -18,6 +18,7 @@ export const ROUTERS = {
     LOGOUT: `${ADMIN_PATH}/logout`,
     SIGNUP: `${ADMIN_PATH}/signup`,
     PRODUCTS: `${ADMIN_PATH}/products`,
+    COUPON: `${ADMIN_PATH}/coupon`,
     USERMANAGER: `${ADMIN_PATH}/usermanager`,
     AUTH: `${ADMIN_PATH}/auth`,
     FORGOT: `${ADMIN_PATH}/forgot`,

@@ -10,7 +10,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  
+
   &__container {
     max-width: 1400px;
     margin: 0 auto;
@@ -19,12 +19,12 @@
     justify-content: space-between;
     padding: 1rem 2rem;
   }
-  
+
   &__logo {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    
+
     &-icon {
       background: rgba(255, 255, 255, 0.1);
       padding: 0.5rem;
@@ -32,25 +32,25 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      
+
       svg {
         color: #64b5f6;
         height: 1.75rem;
         width: 1.75rem;
       }
     }
-    
+
     &-text {
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.5px;
     }
   }
-  
+
   &__nav {
     display: flex;
     gap: 0.5rem;
-    
+
     &-item {
       display: flex;
       align-items: center;
@@ -64,16 +64,16 @@
       transition: all 0.3s ease;
       font-weight: 500;
       position: relative;
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.1);
         color: white;
       }
-      
+
       &--active {
         background: rgba(100, 181, 246, 0.2);
         color: #90caf9;
-        
+
         &::after {
           content: '';
           position: absolute;
@@ -87,23 +87,23 @@
         }
       }
     }
-    
+
     &-icon {
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.25rem;
     }
-    
+
     &-label {
       font-weight: 500;
     }
   }
-  
+
   &__user {
     display: flex;
     align-items: center;
-    
+
     &-info {
       display: flex;
       align-items: center;
@@ -111,12 +111,12 @@
       padding: 0.5rem;
       border-radius: 0.5rem;
       transition: background 0.3s ease;
-      
+
       &:hover {
         background: rgba(255, 255, 255, 0.1);
       }
     }
-    
+
     &-avatar {
       width: 2.5rem;
       height: 2.5rem;
@@ -129,21 +129,21 @@
       font-size: 1.25rem;
       color: white;
     }
-    
+
     &-details {
       display: flex;
       flex-direction: column;
-      
+
       @media (max-width: 768px) {
         display: none;
       }
     }
-    
+
     &-name {
       font-weight: 600;
       font-size: 0.95rem;
     }
-    
+
     &-role {
       font-size: 0.75rem;
       color: rgba(255, 255, 255, 0.6);
@@ -156,7 +156,7 @@
   .admin-header__nav-label {
     display: none;
   }
-  
+
   .admin-header__nav-item {
     padding: 0.75rem;
   }
@@ -166,12 +166,63 @@
   .admin-header__container {
     padding: 1rem;
   }
-  
+
   .admin-header__logo-text {
     display: none;
   }
-  
+
   .admin-header__nav {
     gap: 0.25rem;
+  }
+}
+
+.admin-header__user {
+  position: relative;
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 110%; /* cách avatar một chút */
+  right: 0;
+  background: linear-gradient(135deg, #2c3e50, #008874);
+  border-radius: 0.5rem;
+  padding: 0;
+  min-width: 140px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, #2c3e50, #008874);
+  border: none;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500; 
+  color:  rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 0.3s ease, color 0.3s ease;
+  border-radius: 0.5rem;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.15); 
+  color: #fff;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

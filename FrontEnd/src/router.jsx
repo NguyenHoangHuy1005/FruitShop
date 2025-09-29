@@ -22,6 +22,7 @@ import ForgotPasswordPage from "./pages/admin/forgotPassword";
 // Admin routes
 import Dashboard from "./pages/admin/dashboard";
 import ProductManagerPage from "./pages/admin/productmanagerPage";
+import CouponManagerPage from "./pages/admin/couponmanagerPage";
 import OrderAdminPage from "./pages/admin/orderPage";
 import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
@@ -95,6 +96,7 @@ const renderAdminAppRouter = () => {
   const appRouters = [
     { path: ROUTERS.ADMIN.DASHBOARD,    element: <Dashboard /> },
     { path: ROUTERS.ADMIN.PRODUCTS,    element: <ProductManagerPage /> },
+    { path: ROUTERS.ADMIN.COUPON,    element: <CouponManagerPage /> },
     { path: ROUTERS.ADMIN.USERMANAGER, element: <UserManagerPage /> },
     { path: ROUTERS.ADMIN.ORDERS,      element: <OrderAdminPage /> },
     { path: ROUTERS.ADMIN.STOCK,       element: <StockManagerPage /> },
@@ -133,6 +135,7 @@ const RouterCustom = () => {
     pathname === "/admin" ||
     pathname.startsWith(ROUTERS.ADMIN.DASHBOARD)   ||
     pathname.startsWith(ROUTERS.ADMIN.PRODUCTS)   ||
+    pathname.startsWith(ROUTERS.ADMIN.COUPON)   ||
     pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
     pathname.startsWith(ROUTERS.ADMIN.ORDERS) ||
     pathname.startsWith(ROUTERS.ADMIN.STOCK) ||

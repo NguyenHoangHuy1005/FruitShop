@@ -155,9 +155,10 @@ const InvoicePage = () => {
 
     return (
         <div className="container">
+            <h2>QUẢN LÝ HÓA ĐƠN NHẬP KHO</h2>
             <div className="invoices">
                 <div className="invoices__header">
-                    <h2>QUẢN LÝ HÓA ĐƠN NHẬP KHO</h2>
+                    
                 </div>
 
                 <div className="invoices__toolbar toolbar-card">

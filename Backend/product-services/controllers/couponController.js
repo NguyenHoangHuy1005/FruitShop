@@ -1,25 +1,51 @@
 // product-services/controllers/couponController.js
 const Coupon = require("../models/Coupon");
 
+//Chuẩn hóa không phân biệt hoa thường
+const escapeRegExp = (s = "") => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const parseDateAtStart = (s) => {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(0,0,0,0);
+    return d;
+};
+const parseDateAtEnd = (s) => {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(23,59,59,999);
+    return d;
+};
+
 exports.createCoupon = async (req, res) => {
     try {
         let { code, discountType, value, minOrder, usageLimit, startDate, endDate } = req.body;
 
-        // Chuẩn hóa giá trị giảm giá, Chuẩn hóa discountType
-        if (discountType === "%" || discountType.toLowerCase() === "percent") {
+        if (!code || !String(code).trim()) {
+        return res.status(400).json({ ok: false, message: "Thiếu mã coupon." });
+        }
+        if (!startDate) return res.status(400).json({ ok: false, message: "Vui lòng chọn ngày bắt đầu áp dụng." });
+        if (!endDate)   return res.status(400).json({ ok: false, message: "Vui lòng chọn ngày hết hạn." });
+
+        // Chuẩn hoá discountType
+        if (discountType === "%" || String(discountType).toLowerCase() === "percent") {
             discountType = "percent";
-        } else if (discountType.toLowerCase() === "vnđ" || discountType.toLowerCase() === "vnd" || discountType === "fixed") {
+        } else {
             discountType = "fixed";
         }
 
+        const sd = parseDateAtStart(startDate);
+        const ed = parseDateAtEnd(endDate);
+        if (!sd || !ed) return res.status(400).json({ ok: false, message: "Ngày bắt đầu/kết thúc không hợp lệ." });
+        if (ed < sd)    return res.status(400).json({ ok: false, message: "endDate phải sau hoặc bằng startDate." });
+
         const coupon = await Coupon.create({
-            code: String(code || "").trim(),
+            code: String(code).trim(),
             discountType,
             value,
             minOrder,
             usageLimit,
-            startDate,
-            endDate,
+            startDate: sd,
+            endDate: ed,
         });
 
         res.status(201).json({ ok: true, coupon });
@@ -28,10 +54,11 @@ exports.createCoupon = async (req, res) => {
     }
 };
 
+
 exports.extendCoupon = async (req, res) => {
     try {
         const { id } = req.params;
-        let { addUsage = 0, newEndDate, reactivate = false } = req.body || {};
+        let { addUsage = 0, newEndDate, reactivate = false, newMinOrder } = req.body || {};
 
         const c = await Coupon.findById(id);
         if (!c) return res.status(404).json({ ok: false, message: "Không tìm thấy coupon." });
@@ -65,6 +92,15 @@ exports.extendCoupon = async (req, res) => {
                 return res.status(400).json({ ok: false, message: "newEndDate phải lớn hơn thời điểm hiện tại." });
             }
             updates.endDate = d;
+        }
+
+        // Cập nhật đơn tối thiểu
+        if (newMinOrder !== undefined) {
+            const v = Number(newMinOrder);
+            if (!Number.isFinite(v) || v < 0) {
+                return res.status(400).json({ ok: false, message: "newMinOrder phải là số ≥ 0." });
+            }
+            updates.minOrder = v;
         }
 
         // Tuỳ chọn kích hoạt lại nếu trước đó đã ngưng
@@ -101,8 +137,7 @@ exports.toggleCoupon = async (req, res) => {
     await coupon.save();
     res.json({ ok: true, coupon });
 };
-// product-services/controllers/couponController.js
-// product-services/controllers/couponController.js
+
 exports.validateCoupon = async (req, res) => {
     try {
         const { code, subtotal } = req.body || {};
@@ -113,7 +148,9 @@ exports.validateCoupon = async (req, res) => {
             return res.status(400).json({ ok: false, message: "Thiếu hoặc sai giá trị đơn hàng." });
         }
 
-        const coupon = await Coupon.findOne({ code: code.trim(), active: true });
+        const rx = new RegExp(`^${escapeRegExp(String(code).trim())}$`, "i"); // case-insensitive, khớp toàn bộ
+        const coupon = await Coupon.findOne({ code: rx, active: true }).lean();
+
         if (!coupon) {
             return res.status(404).json({ ok: false, message: "Mã giảm giá không tồn tại hoặc đã bị khóa." });
         }

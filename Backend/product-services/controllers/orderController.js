@@ -9,6 +9,8 @@ const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
 
+// dùng trong controller
+const escapeRegExp = (s = "") => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // ==== helper dùng chung ====
 const readBearer = (req) => {
@@ -33,10 +35,11 @@ async function calcTotals(cart, couponCode) {
     let discount = 0;
     let couponApplied = false;
     if (couponCode) {
-        const coupon = await Coupon.findOne({
-            code: { $regex: new RegExp("^" + couponCode.trim() + "$", "i") },
-            active: true
-        });
+        let coupon = null;
+        if (couponCode && String(couponCode).trim()) {
+            const rx = new RegExp(`^${escapeRegExp(String(couponCode).trim())}$`, "i");
+            coupon = await Coupon.findOne({ code: rx, active: true }).lean();
+        }
         const now = new Date();
         if (
             coupon &&
@@ -59,6 +62,9 @@ async function calcTotals(cart, couponCode) {
 
 
 exports.createOrder = async (req, res) => {
+    let decremented = [];
+    let createdOrder = null;
+
     try {
         let userId = null;
         const token = readBearer(req);
@@ -77,6 +83,23 @@ exports.createOrder = async (req, res) => {
         }
 
         const cart = await getOrCreateCart(req, res);
+        // chỉ thanh toán theo danh sách được chọn (nếu có)
+        const selectedIds = Array.isArray(req.body?.selectedProductIds)
+            ? req.body.selectedProductIds.map(String)
+            : null;
+
+        let workingItems = cart.items;
+        if (selectedIds && selectedIds.length > 0) {
+            workingItems = cart.items.filter(i => {
+                const pid = String(i.product?._id || i.product);
+                return selectedIds.includes(pid);
+            });
+            if (!workingItems.length) {
+                return res.status(400).json({ message: "Không có sản phẩm nào để đặt hàng." });
+            }
+        }
+
+
         if (!cart?.items?.length) {
             return res.status(400).json({ message: "Giỏ hàng đang trống." });
         }
@@ -85,11 +108,10 @@ exports.createOrder = async (req, res) => {
         if (!cart.user && userId) cart.user = userId;
 
         // Tổng tiền hiện tại từ giỏ
-        const amount = await calcTotals(cart, couponCode);
+        const amount = await calcTotals({ items: workingItems }, couponCode);
 
         // ===== 1) Trừ kho nguyên tử từng dòng, rollback nếu thiếu =====
-        const decremented = []; // lưu để hoàn kho nếu lỗi
-        for (const line of cart.items) {
+        for (const line of workingItems) {
             const qty = Number(line.quantity) || 1;
 
             // yêu cầu đủ tồn: onHand >= qty
@@ -121,7 +143,7 @@ exports.createOrder = async (req, res) => {
         }
 
         // ===== 2) Rebuild items (đảm bảo giá cuối) =====
-        const items = await Promise.all(cart.items.map(async (i) => {
+        const items = await Promise.all(workingItems.map(async (i) => {
             const product = await Product.findById(i.product).lean();
             if (!product) {
                 // fallback nếu product bị xóa
@@ -158,22 +180,20 @@ exports.createOrder = async (req, res) => {
             status: "pending",
             payment: "COD",
         });
-
+        createdOrder = order;
         // (3.1) Commit coupon usage SAU khi tạo đơn thành công
         if (couponCode && amount.discount > 0) {
             try {
                 const code = String(couponCode).trim();
                 const now = new Date();
+                const rx = new RegExp(`^${escapeRegExp(String(couponCode).trim())}$`, "i");
                 const updatedCoupon = await Coupon.findOneAndUpdate(
                     {
-                        code: { $regex: new RegExp("^" + code + "$", "i") },
+                        code: rx,
                         active: true,
                         startDate: { $lte: now },
                         endDate:   { $gte: now },
-                        $or: [
-                        { usageLimit: 0 },
-                        { $expr: { $lt: ["$usedCount", "$usageLimit"] } }
-                        ],
+                        $or: [{ usageLimit: 0 }, { $expr: { $lt: ["$usedCount", "$usageLimit"] } }],
                     },
                     { $inc: { usedCount: 1 } },
                     { new: false }
@@ -195,25 +215,41 @@ exports.createOrder = async (req, res) => {
         if (purchaseCount.length > 0) {
             await Product.bulkWrite(purchaseCount);
         }
-        // ===== 4) Đổi trạng thái giỏ & phát sinh giỏ mới =====
-        cart.status = "ordered";
-        await cart.save();
 
-        const newCart = await Carts.create({
-            user: cart.user || null,
-            cartKey: crypto.randomUUID(),
-            status: "active",
-            items: [],
-            summary: { totalItems: 0, subtotal: 0 },
-        });
+        // ===== 4) Cập nhật giỏ sau khi đặt đơn =====
+        const purchasedSet = new Set(workingItems.map(i => String(i.product?._id || i.product)));
+        const remaining = cart.items.filter(i => !purchasedSet.has(String(i.product?._id || i.product)));
 
-        // set lại cookie CART_ID = cartKey mới
-        res.cookie("CART_ID", newCart.cartKey, {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
-            path: "/",
-        });
+        if (remaining.length === 0) {
+            // Mua hết -> đóng giỏ cũ, tạo giỏ mới & set cookie
+            cart.status = "ordered";
+            await cart.save();
+
+            const newCart = await Carts.create({
+                user: cart.user || null,
+                cartKey: crypto.randomUUID(),
+                status: "active",
+                items: [],
+                summary: { totalItems: 0, subtotal: 0 },
+            });
+
+            res.cookie("CART_ID", newCart.cartKey, {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: process.env.NODE_ENV === "production",
+                path: "/",
+            });
+        } else {
+            // Mua một phần -> giữ giỏ, chỉ xoá các item đã mua và recalc summary
+            cart.items = remaining;
+            let subtotal = 0, totalItems = 0;
+            for (const it of remaining) {
+                subtotal += (Number(it.price) || 0) * (Number(it.quantity) || 0);
+                totalItems += Number(it.quantity) || 0;
+            }
+            cart.summary = { totalItems, subtotal };
+            await cart.save();
+        }
 
         const payload = {
             id: order._id,
@@ -242,6 +278,26 @@ exports.createOrder = async (req, res) => {
             createdAt: order.createdAt,
         });
     } catch (e) {
+        // hoàn kho những dòng đã trừ
+        try {
+            for (const d of decremented) {
+            await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
+            // cập nhật lại Product.onHand + status sau khi hoàn kho
+            const stock = await Stock.findOne({ product: d.product }).lean();
+            const newQty = Math.max(0, Number(stock?.onHand) || 0);
+            await Product.findByIdAndUpdate(
+                d.product,
+                { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
+            );
+            }
+            // nếu đã tạo order nhưng lỗi về sau → xoá order rác
+            if (createdOrder?._id) {
+            await Order.findByIdAndDelete(createdOrder._id);
+            }
+        } catch (rbErr) {
+            console.error("rollback error:", rbErr);
+        }
+
         console.error("createOrder error:", e);
         return res.status(500).json({ message: "Tạo đơn thất bại." });
     }

@@ -23,7 +23,7 @@ const generate6Digit = () =>
 const COOKIE_OPTS = {
     httpOnly: true,
     secure: isProd,
-    sameSite: "lax",
+    sameSite: isProd ? "none" : "lax",
     path: "/",
 };
 

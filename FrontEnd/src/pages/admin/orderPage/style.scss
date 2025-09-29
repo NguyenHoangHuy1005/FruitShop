@@ -67,7 +67,7 @@ $zinc: #71717a;
 
     &__toolbar {
         display: grid;
-        grid-template-columns: 1fr 220px 140px;
+        grid-template-columns: 1fr 180px 16px 180px 220px 140px auto;
         gap: 12px;
         margin: 12px 0 16px;
 
@@ -85,6 +85,34 @@ $zinc: #71717a;
                 @include ring($blue);
                 background: #fff;
             }
+        }
+        .dash {
+            align-self: center;
+            text-align: center;
+            color: #9ca3af;   /* slate-400 */
+            font-weight: 800;
+        }
+        input[type="date"] { min-width: 160px; }
+
+        /* + ADD: nút Xóa lọc */
+        .btn-clear {
+            height: 42px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: linear-gradient(135deg, #2c3e50, #008874);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s, transform .06s;
+
+            &:hover {
+                border-color: $blue;
+                @include ring($blue);
+                transform: translateY(-1px);
+            }
+            
+            &:active { transform: translateY(0); }
         }
     }
 

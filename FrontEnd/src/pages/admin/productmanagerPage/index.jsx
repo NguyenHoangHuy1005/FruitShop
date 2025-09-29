@@ -21,23 +21,7 @@ const ProductManagerPage = () => {
     const [editingProduct, setEditingProduct] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
-    // Coupons state
-    const [coupons, setCoupons] = useState([]);
-    const [newCoupon, setNewCoupon] = useState({
-        code: "",
-        discountType: "percent",
-        value: 0,
-        endDate: "",
-        usageLimit: 0,
-    });
-    const [extendModal, setExtendModal] = useState({
-        open: false,
-        coupon: null,
-        addUsage: 0,
-        newEndDate: "",
-        reactivate: true, // mặc định bật lại nếu đã ngưng/hết hạn
-        submitting: false,
-    });
+    // ===== Helpers =====
     const fmtDateInput = (d) => {
         try {
         const dd = new Date(d);
@@ -50,6 +34,55 @@ const ProductManagerPage = () => {
         return "";
         }
     };
+    // + ADD: chuẩn hóa đầu/ngày cuối cho lọc khoảng
+    const toStartOfDay = (iso) => {
+        if (!iso) return null;
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+    };
+    const toEndOfDay = (iso) => {
+        if (!iso) return null;
+        const [y, m, d] = iso.split("-").map(Number);
+        return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+    };
+
+
+    // ===== Coupons =====
+    const [coupons, setCoupons] = useState([]);
+
+    const [couponFilter, setCouponFilter] = useState({
+        code: "",
+        type: "all",   // all | percent | fixed
+        fromDate: "",  // YYYY-MM-DD
+        toDate: "",    // YYYY-MM-DD
+    });
+
+
+    // Modal gia hạn
+    const [extendModal, setExtendModal] = useState({
+        open: false,
+        coupon: null,
+        addUsage: 0,
+        newEndDate: "",
+        reactivate: true,
+        submitting: false,
+        minOrder: 0,
+    });
+
+    // Modal tạo mới coupon (có minOrder)
+    const [createModal, setCreateModal] = useState({
+        open: false,
+        submitting: false,
+        data: {
+        code: "",
+        discountType: "percent",
+        value: 0,
+        startDate: "",
+        endDate: "",
+        usageLimit: 0,
+        minOrder: 0,
+        },
+    });
 
     useEffect(() => {
         getAllProduct(dispatch);
@@ -65,49 +98,82 @@ const ProductManagerPage = () => {
         }
     };
 
-    const handleAddCoupon = async () => {
-        try {
-        if (!newCoupon.code || !newCoupon.value || !newCoupon.endDate) {
-            alert("Nhập đủ thông tin mã giảm giá!");
+    // ===== CREATE COUPON (modal) =====
+    const submitCreateCoupon = async () => {
+        const p = createModal.data;
+
+        if (!p.code || !p.value || !p.startDate || !p.endDate) {
+            alert("Vui lòng nhập đủ: Mã, Giá trị, Ngày bắt đầu, Ngày hết hạn.");
             return;
         }
 
-        await createCoupon({
-            code: newCoupon.code,
-            discountType: newCoupon.discountType,
-            value: Number(newCoupon.value),
-            endDate: newCoupon.endDate,
-            minOrder: 0,
-            usageLimit: Number(newCoupon.usageLimit), // ✅ thêm số lần được dùng
-        });
+        try {
+            // ép kiểu & clamp %
+            let value = Number(p.value);
+            if (p.discountType === "percent" && value > 100) value = 100;
 
-        alert("Thêm coupon thành công!");
-        setNewCoupon({
-            code: "",
-            discountType: "percent",
-            value: 0,
-            endDate: "",
-            usageLimit: 0,
-        });
-        await loadCoupons();
+            // chuẩn hoá ngày: start = 00:00:00.000, end = 23:59:59.999
+            const sd = new Date(p.startDate);
+            const ed = new Date(p.endDate);
+            if (isNaN(sd.getTime()) || isNaN(ed.getTime())) {
+                alert("Ngày không hợp lệ.");
+                return;
+            }
+            const startDateISO = new Date(sd.setHours(0,0,0,0)).toISOString();
+            const endDateISO   = new Date(ed.setHours(23,59,59,999)).toISOString();
+            if (new Date(endDateISO) < new Date(startDateISO)) {
+                alert("Ngày hết hạn phải sau hoặc bằng ngày bắt đầu.");
+                return;
+            }
+
+            setCreateModal((s) => ({ ...s, submitting: true }));
+            await createCoupon({
+                code: p.code.trim(),
+                discountType: p.discountType,
+                value,
+                startDate: startDateISO,                      // [ADD]
+                endDate:   endDateISO,                        // [CHANGE] gửi ISO cuối ngày
+                minOrder: Number(p.minOrder) || 0,
+                usageLimit: Number(p.usageLimit) || 0,
+            });
+
+            await loadCoupons();
+            setCreateModal({
+                open: false,
+                submitting: false,
+                data: {
+                    code: "",
+                    discountType: "percent",
+                    value: 0,
+                    startDate: "",                              // [RESET]
+                    endDate: "",
+                    usageLimit: 0,
+                    minOrder: 0,
+                },
+            });
+            alert("Tạo coupon thành công!");
         } catch (e) {
-        alert(e?.response?.data?.message || "Tạo coupon thất bại!");
+            alert(e?.response?.data?.message || "Tạo coupon thất bại!");
+            setCreateModal((s) => ({ ...s, submitting: false }));
         }
     };
+
+
+    // ===== EXTEND COUPON =====
     const openExtend = (c) => {
         setExtendModal({
-        open: true,
-        coupon: c,
-        addUsage: 0,
-        newEndDate: fmtDateInput(c?.endDate) || "",
-        reactivate: true,
-        submitting: false,
+            open: true,
+            coupon: c,
+            addUsage: 0,
+            newEndDate: fmtDateInput(c?.endDate) || "",
+            reactivate: true,
+            submitting: false,
+            newMinOrder: Number(c?.minOrder || 0),
         });
     };
 
-    // ... trong component ProductManagerPage
     const submitExtend = async () => {
-        const { coupon, addUsage, newEndDate, reactivate } = extendModal;
+        const { coupon, addUsage, newEndDate, reactivate, newMinOrder } = extendModal;
         if (!coupon) return;
 
         const payload = {};
@@ -115,10 +181,23 @@ const ProductManagerPage = () => {
         if (Number.isFinite(addNum) && addNum > 0) payload.addUsage = addNum;
         if (newEndDate && newEndDate.trim()) payload.newEndDate = newEndDate.trim();
         if (reactivate) payload.reactivate = true;
+        //  thêm block minOrder
+        if (newMinOrder !== undefined && newMinOrder !== null) {
+            const v = Number(newMinOrder);
+            if (!Number.isNaN(v) && v >= 0) {
+                // (tuỳ bạn) chỉ gửi khi thay đổi
+                if (v !== Number(coupon?.minOrder || 0)) {
+                payload.newMinOrder = v;
+                }
+            } else {
+                alert("Đơn tối thiểu phải là số ≥ 0.");
+                return;
+            }
+        }
 
-        if (!payload.addUsage && !payload.newEndDate && !payload.reactivate) {
-        alert("Không có thay đổi nào được chọn.");
-        return;
+        if (!payload.addUsage && !payload.newEndDate && !payload.reactivate && payload.newMinOrder === undefined) {
+            alert("Không có thay đổi nào được chọn.");
+            return;
         }
 
         try {
@@ -133,6 +212,7 @@ const ProductManagerPage = () => {
         }
     };
 
+    // ===== PRODUCT LIST =====
     const handleSearch = (e) => setSearchTerm(e.target.value);
     const handleCloseModal = () => setShowModal(false);
     const handleEdit = (product) => {
@@ -151,11 +231,33 @@ const ProductManagerPage = () => {
         return products.filter((p) => (p?.name || "").toLowerCase().includes(key));
     }, [products, searchTerm]);
 
+    // ===== FILTER COUPONS (theo mã + ngày hết hạn) =====
+    const filteredCoupons = useMemo(() => {
+        const codeKey = (couponFilter.code || "").trim().toLowerCase();
+        const { type, fromDate, toDate } = couponFilter;
+
+        const from = toStartOfDay(fromDate);
+        const to = toEndOfDay(toDate);
+
+        return (coupons || []).filter((c) => {
+            const okCode = !codeKey || (c?.code || "").toLowerCase().includes(codeKey);
+            const okType = type === "all" || c?.discountType === type;
+
+            let okDate = true;
+            const end = c?.endDate ? new Date(c.endDate) : null;
+            if (from && end) okDate = okDate && end >= from;
+            if (to && end)   okDate = okDate && end <= to;
+
+            return okCode && okType && okDate;
+        });
+    }, [coupons, couponFilter]);
+
+
     return (
         <div className="container">
             <h2>QUẢN LÝ SẢN PHẨM</h2>
 
-            {/* Thanh công cụ */}
+            {/* ===== Toolbar sản phẩm ===== */}
             <div className="toolbar">
                 <button
                 className="btn-add"
@@ -174,116 +276,117 @@ const ProductManagerPage = () => {
                 />
             </div>
 
-            {/* Bảng sản phẩm */}
+            {/* ===== Bảng sản phẩm ===== */}
             <table className="product-table">
                 <thead>
-                    <tr>
-                        <th>Tên sản phẩm</th>
-                        <th>Hình ảnh</th>
-                        <th>Giá (VNĐ)</th>
-                        <th>Giảm (%)</th>
-                        <th>Số lượng</th>
-                        <th>Danh mục</th>
-                        <th>Trạng thái</th>
-                        <th>Hành động</th>
-                    </tr>
+                <tr>
+                    <th>Tên sản phẩm</th>
+                    <th>Hình ảnh</th>
+                    <th>Giá (VNĐ)</th>
+                    <th>Giảm (%)</th>
+                    <th>Số lượng</th>
+                    <th>Danh mục</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                </tr>
                 </thead>
                 <tbody>
-                    {filteredProducts.length > 0 ? (
-                        filteredProducts.map((product) => {
-                        const imgSrc = Array.isArray(product.image)
-                            ? product.image[0] || "/placeholder.png"
-                            : product.image || "/placeholder.png";
+                {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => {
+                    const imgSrc = Array.isArray(product.image)
+                        ? product.image[0] || "/placeholder.png"
+                        : product.image || "/placeholder.png";
 
-                        return (
-                            <tr key={product._id}>
-                                <td>{product.name || "—"}</td>
-                                <td>
-                                    <img
-                                    src={imgSrc}
-                                    alt={product.name || "Ảnh"}
-                                    style={{ width: "60px", height: "60px", objectFit: "cover" }}
-                                    />
-                                </td>
-                                <td>{(Number(product.price) || 0).toLocaleString()} VND</td>
-                                <td>{Number(product.discountPercent || 0)}%</td>
-                                <td><b>{Number(product.onHand || 0)}</b></td>
-                                <td>{product.category || "Chưa phân loại"}</td>
-                                <td>
-                                    <span
-                                    className={
-                                        product.status === "Còn hàng" ? "status in-stock" : "status out-stock"
-                                    }
-                                    >
-                                    {product.status}
-                                    </span>
-                                </td>
-                                <td>
-                                    <button className="btn-edit" onClick={() => handleEdit(product)}>Sửa</button>
-                                    <button className="btn-delete" onClick={() => handleDelete(product._id)}>Xóa</button>
-                                </td>
-                            </tr>
-                            );
-                        })
-                    ) : (
-                        <tr>
-                            <td colSpan="8" className="no-data">Không tìm thấy sản phẩm</td>
+                    return (
+                        <tr key={product._id}>
+                        <td>{product.name || "—"}</td>
+                        <td>
+                            <img
+                            src={imgSrc}
+                            alt={product.name || "Ảnh"}
+                            style={{ width: "60px", height: "60px", objectFit: "cover" }}
+                            />
+                        </td>
+                        <td>{(Number(product.price) || 0).toLocaleString()} VND</td>
+                        <td>{Number(product.discountPercent || 0)}%</td>
+                        <td><b>{Number(product.onHand || 0)}</b></td>
+                        <td>{product.category || "Chưa phân loại"}</td>
+                        <td>
+                            <span
+                            className={
+                                product.status === "Còn hàng" ? "status in-stock" : "status out-stock"
+                            }
+                            >
+                            {product.status}
+                            </span>
+                        </td>
+                        <td>
+                            <button className="btn-edit" onClick={() => handleEdit(product)}>Sửa</button>
+                            <button className="btn-delete" onClick={() => handleDelete(product._id)}>Xóa</button>
+                        </td>
                         </tr>
-                    )}
+                    );
+                    })
+                ) : (
+                    <tr>
+                    <td colSpan="8" className="no-data">Không tìm thấy sản phẩm</td>
+                    </tr>
+                )}
                 </tbody>
             </table>
 
-            {/* Form Coupon */}
+            {/* ===== Coupons ===== */}
             <div className="coupon-section">
                 <h3>QUẢN LÝ MÃ GIẢM GIÁ</h3>
 
-                <div className="coupon-form">
-                <input
-                    type="text"
-                    placeholder="Mã code"
-                    value={newCoupon.code}
-                    onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value })}
-                />
+                {/* Toolbar lọc coupon (giống toolbar ở trên) */}
+                <div className="coupon-toolbar">
+                    <input
+                        type="text"
+                        placeholder="Mã code"
+                        value={couponFilter.code}
+                        onChange={(e) => setCouponFilter((s) => ({ ...s, code: e.target.value }))}
+                    />
 
-                <select
-                    value={newCoupon.discountType}
-                    onChange={(e) => setNewCoupon({ ...newCoupon, discountType: e.target.value })}
-                >
-                    <option value="percent">Giảm theo %</option>
-                    <option value="fixed">Giảm theo VNĐ</option>
-                </select>
+                    {/* + ADD: lọc đơn vị */}
+                    <select
+                        value={couponFilter.type}
+                        onChange={(e) => setCouponFilter((s) => ({ ...s, type: e.target.value }))}
+                        title="Lọc theo đơn vị giảm"
+                    >
+                        <option value="all">Tất cả đơn vị</option>
+                        <option value="percent">%</option>
+                        <option value="fixed">VNĐ</option>
+                    </select>
 
-                <input
-                    type="number"
-                    min="0"
-                    max={newCoupon.discountType === "percent" ? 100 : undefined}
-                    value={newCoupon.value}
-                    onChange={(e) => {
-                        let val = Number(e.target.value);
-                        if (newCoupon.discountType === "percent" && val > 100) val = 100; // fix % max = 100
-                        setNewCoupon({ ...newCoupon, value: val });
-                    }}
-                    placeholder="Giá trị"
-                />
+                    {/* + CHANGE: lọc theo khoảng ngày endDate */}
+                    <input
+                        type="date"
+                        value={couponFilter.fromDate}
+                        onChange={(e) => setCouponFilter((s) => ({ ...s, fromDate: e.target.value }))}
+                        title="Từ ngày (endDate)"
+                    />
+                    <span className="range-sep">→</span>
+                    <input
+                        type="date"
+                        value={couponFilter.toDate}
+                        onChange={(e) => setCouponFilter((s) => ({ ...s, toDate: e.target.value }))}
+                        title="Đến ngày (endDate)"
+                    />
 
-                <input
-                    type="date"
-                    value={newCoupon.endDate}
-                    onChange={(e) => setNewCoupon({ ...newCoupon, endDate: e.target.value })}
-                />
+                    {/* + CHANGE: reset đúng các trường mới */}
+                    <button onClick={() => setCouponFilter({ code: "", type: "all", fromDate: "", toDate: "" })}>
+                        Xóa lọc
+                    </button>
 
-                <input
-                    type="number"
-                    min="0"
-                    value={newCoupon.usageLimit}
-                    onChange={(e) =>
-                        setNewCoupon({ ...newCoupon, usageLimit: Number(e.target.value) })
-                    }
-                    placeholder="Số lần sử dụng"
-                />
-
-                <button onClick={handleAddCoupon}>+ Thêm Coupon</button>
+                    <button
+                        className="btn-add"
+                        onClick={() => setCreateModal((s) => ({ ...s, open: true }))}
+                    >
+                        + Thêm Coupon
+                    </button>
                 </div>
+
 
                 <table className="coupon-table">
                 <thead>
@@ -291,6 +394,8 @@ const ProductManagerPage = () => {
                     <th>Code</th>
                     <th>Loại</th>
                     <th>Giá trị</th>
+                    <th>Đơn tối thiểu</th>
+                    <th>Bắt đầu</th>
                     <th>Hạn sử dụng</th>
                     <th>Sử dụng</th>
                     <th>Trạng thái</th>
@@ -298,10 +403,11 @@ const ProductManagerPage = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {coupons.length > 0 ? (
-                    coupons.map((c) => {
+                    {filteredCoupons.length > 0 ? (
+                    filteredCoupons.map((c) => {
                         const expired = new Date(c.endDate) < new Date();
                         const usedUp = c.usageLimit > 0 && c.usedCount >= c.usageLimit;
+                        const notStarted = c.startDate && new Date(c.startDate) > new Date();
 
                         return (
                         <tr key={c._id} className={!c.active || expired || usedUp ? "expired" : ""}>
@@ -310,12 +416,14 @@ const ProductManagerPage = () => {
                             <td>
                             {c.discountType === "percent"
                                 ? `${c.value}%`
-                                : `${c.value.toLocaleString()} ₫`}
+                                : `${(c.value || 0).toLocaleString()} ₫`}
                             </td>
+                            <td>{c.minOrder ? `${Number(c.minOrder).toLocaleString()} ₫` : "—"}</td>
+                            <td>{c.startDate ? new Date(c.startDate).toLocaleDateString() : "—"}</td>
                             <td>{new Date(c.endDate).toLocaleDateString()}</td>
                             <td>{c.usedCount}/{c.usageLimit || "∞"}</td>
                             <td>
-                                {expired || usedUp ? "Hết hạn/Đã dùng hết" : c.active ? "Đang hoạt động" : "Ngưng"}
+                                {notStarted ? "Chưa bắt đầu" : (expired || usedUp) ? "Hết hạn/Đã dùng hết" : c.active ? "Đang hoạt động" : "Ngưng"}
                             </td>
                             <td>
                             {/* Toggle */}
@@ -334,7 +442,8 @@ const ProductManagerPage = () => {
                             >
                                 {c.active ? "Ngưng" : "Bật"}
                             </button>
-                            {/* ✅ NEW: Gia hạn */}
+
+                            {/* Gia hạn */}
                             <button
                                 className="btn-extend"
                                 onClick={() => openExtend(c)}
@@ -342,17 +451,18 @@ const ProductManagerPage = () => {
                             >
                                 Gia hạn
                             </button>
+
                             {/* Xóa */}
                             <button
                                 className="btn-delete"
                                 onClick={async () => {
                                 if (window.confirm("Xóa coupon này?")) {
                                     try {
-                                        await deleteCoupon(c._id);
-                                        await loadCoupons();
+                                    await deleteCoupon(c._id);
+                                    await loadCoupons();
                                     } catch (e) {
-                                        console.error("Toggle lỗi:", e);
-                                        alert("Xóa thất bại!");
+                                    console.error("Delete lỗi:", e);
+                                    alert("Xóa thất bại!");
                                     }
                                 }
                                 }}
@@ -365,94 +475,201 @@ const ProductManagerPage = () => {
                     })
                     ) : (
                     <tr>
-                        <td colSpan="7" className="no-data">Không có mã giảm giá</td>
+                        <td colSpan="8" className="no-data">Không có mã giảm giá</td>
                     </tr>
                     )}
                 </tbody>
                 </table>
             </div>
 
-            {/* Modal Form */}
+            {/* ===== Modal sản phẩm ===== */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                         <ProductForm
-                            initialData={editingProduct}
-                            onSubmit={async (data) => {
-                                if (editingProduct) {
-                                await updateProduct(editingProduct._id, data, dispatch);
-                                } else {
-                                await createProduct(data, dispatch);
-                                }
-                                setShowModal(false);
-                            }}
-                            onClose={handleCloseModal}
+                        initialData={editingProduct}
+                        onSubmit={async (data) => {
+                            if (editingProduct) {
+                            await updateProduct(editingProduct._id, data, dispatch);
+                            } else {
+                            await createProduct(data, dispatch);
+                            }
+                            setShowModal(false);
+                        }}
+                        onClose={handleCloseModal}
                         />
                     </div>
                 </div>
             )}
 
-            {/* ✅ NEW: Modal gia hạn coupon */}
+            {/* ===== Modal gia hạn coupon ===== */}
             {extendModal.open && (
                 <div className="modal-overlay" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
-                <div className="modal-content extend-modal" onClick={(e) => e.stopPropagation()}>
-                    <h3>Gia hạn Coupon: <span className="code">{extendModal.coupon?.code}</span></h3>
+                    <div className="modal-content extend-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Gia hạn Coupon: <span className="code">{extendModal.coupon?.code}</span></h3>
 
-                    <div className="meta">
-                    <div>
-                        Hạn hiện tại: <b>{new Date(extendModal.coupon?.endDate).toLocaleString()}</b>
-                    </div>
-                    <div>
-                        Đã dùng: <b>{extendModal.coupon?.usedCount}</b> /
-                        Giới hạn: <b>{extendModal.coupon?.usageLimit || "∞"}</b>
-                    </div>
-                    </div>
+                        <div className="meta">
+                            <div>Đơn tối thiểu hiện tại: <b>{Number(extendModal.coupon?.minOrder || 0).toLocaleString()} ₫</b></div>
+                            <div>Áp dụng từ: <b>{extendModal.coupon?.startDate ? new Date(extendModal.coupon.startDate).toLocaleDateString() : "—"}</b></div>
+                            <div>Hạn hiện tại: <b>{new Date(extendModal.coupon?.endDate).toLocaleString()}</b></div>
+                            <div>Đã dùng: <b>{extendModal.coupon?.usedCount}</b> / Giới hạn: <b>{extendModal.coupon?.usageLimit || "∞"}</b></div>
+                        </div>
 
-                    <div className="form-grid">
-                    <label>
-                        Thêm số lượt sử dụng
-                        <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={extendModal.addUsage}
-                        onChange={(e) => setExtendModal((s) => ({ ...s, addUsage: e.target.value }))}
-                        placeholder="0"
-                        />
-                    </label>
+                        <div className="form-grid">
+                            <label>
+                                Thêm số lượt sử dụng
+                                <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={extendModal.addUsage}
+                                onChange={(e) => setExtendModal((s) => ({ ...s, addUsage: e.target.value }))}
+                                placeholder="0"
+                                />
+                            </label>
 
-                    <label>
-                        Ngày hết hạn mới
-                        <input
-                        type="date"
-                        value={extendModal.newEndDate}
-                        onChange={(e) => setExtendModal((s) => ({ ...s, newEndDate: e.target.value }))}
-                        />
-                    </label>
+                            <label>
+                                Ngày hết hạn mới
+                                <input
+                                type="date"
+                                value={extendModal.newEndDate}
+                                onChange={(e) => setExtendModal((s) => ({ ...s, newEndDate: e.target.value }))}
+                                />
+                            </label>
 
-                    <label className="reactivate">
-                        <input
-                        type="checkbox"
-                        checked={extendModal.reactivate}
-                        onChange={(e) => setExtendModal((s) => ({ ...s, reactivate: e.target.checked }))}
-                        />
-                        Bật lại coupon nếu đang ngưng/hết hạn
-                    </label>
-                    </div>
+                            <label>
+                                Đơn tối thiểu (VNĐ)
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1000}
+                                    value={extendModal.newMinOrder}
+                                    onChange={(e) => {
+                                    const v = e.target.value;
+                                    setExtendModal((s) => ({ ...s, newMinOrder: v === "" ? "" : Number(v) }));
+                                    }}
+                                    placeholder="0"
+                                />
+                            </label>
 
-                    <div className="actions">
-                    <button className="btn-cancel" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
-                        Hủy
-                    </button>
-                    <button
-                        className="btn-save"
-                        onClick={submitExtend}
-                        disabled={extendModal.submitting}
-                    >
-                        {extendModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
-                    </button>
+
+                            <label className="reactivate">
+                                <input
+                                type="checkbox"
+                                checked={extendModal.reactivate}
+                                onChange={(e) => setExtendModal((s) => ({ ...s, reactivate: e.target.checked }))}
+                                />
+                                Bật lại coupon nếu đang ngưng/hết hạn
+                            </label>
+                        </div>
+
+                        <div className="actions">
+                        <button className="btn-cancel" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
+                            Hủy
+                        </button>
+                        <button className="btn-save" onClick={submitExtend} disabled={extendModal.submitting}>
+                            {extendModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
+                        </button>
+                        </div>
                     </div>
                 </div>
+            )}
+
+            {/* ===== Modal tạo coupon ===== */}
+            {createModal.open && (
+                <div className="modal-overlay" onClick={() => setCreateModal((s) => ({ ...s, open: false }))}>
+                    <div className="modal-content coupon-modal create-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Tạo Coupon mới</h3>
+
+                        <div className="form-grid">
+                        <label>
+                            Mã code
+                            <input
+                            type="text"
+                            value={createModal.data.code}
+                            onChange={(e) => setCreateModal((s) => ({ ...s, data: { ...s.data, code: e.target.value } }))}
+                            />
+                        </label>
+
+                        <label>
+                            Loại giảm
+                            <select
+                            value={createModal.data.discountType}
+                            onChange={(e) => setCreateModal((s) => ({ ...s, data: { ...s.data, discountType: e.target.value } }))}
+                            >
+                            <option value="percent">Giảm theo %</option>
+                            <option value="fixed">Giảm theo VNĐ</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Giá trị
+                            <input
+                            type="number"
+                            min={0}
+                            max={createModal.data.discountType === "percent" ? 100 : undefined}
+                            value={createModal.data.value}
+                            onChange={(e) => {
+                                let val = Number(e.target.value);
+                                if (createModal.data.discountType === "percent" && val > 100) val = 100;
+                                setCreateModal((s) => ({ ...s, data: { ...s.data, value: val } }));
+                            }}
+                            />
+                        </label>
+
+                        <label>
+                            Ngày bắt đầu áp dụng
+                            <input
+                                type="date"
+                                value={createModal.data.startDate}
+                                onChange={(e) =>
+                                setCreateModal((s) => ({
+                                    ...s,
+                                    data: { ...s.data, startDate: e.target.value }
+                                }))
+                                }
+                            />
+                        </label>
+
+                        <label>
+                            Ngày hết hạn
+                            <input
+                            type="date"
+                            value={createModal.data.endDate}
+                            onChange={(e) => setCreateModal((s) => ({ ...s, data: { ...s.data, endDate: e.target.value } }))}
+                            />
+                        </label>
+
+                        <label>
+                            Số lần sử dụng (0 = ∞)
+                            <input
+                            type="number"
+                            min={0}
+                            value={createModal.data.usageLimit}
+                            onChange={(e) => setCreateModal((s) => ({ ...s, data: { ...s.data, usageLimit: Number(e.target.value) } }))}
+                            />
+                        </label>
+
+                        <label>
+                            Đơn tối thiểu (VNĐ)
+                            <input
+                            type="number"
+                            min={0}
+                            value={createModal.data.minOrder}
+                            onChange={(e) => setCreateModal((s) => ({ ...s, data: { ...s.data, minOrder: Number(e.target.value) } }))}
+                            />
+                        </label>
+                        </div>
+
+                        <div className="actions">
+                        <button className="btn-cancel" onClick={() => setCreateModal((s) => ({ ...s, open: false }))}>
+                            Hủy
+                        </button>
+                        <button className="btn-save" onClick={submitCreateCoupon} disabled={createModal.submitting}>
+                            {createModal.submitting ? "Đang tạo..." : "Tạo coupon"}
+                        </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

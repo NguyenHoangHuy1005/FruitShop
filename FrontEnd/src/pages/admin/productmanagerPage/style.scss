@@ -133,6 +133,8 @@ $product-main: map.get(theme.$theme-colors, "main");
     color: #888;
   }
 }
+/* ... giữ nguyên các biến và styles phía trên ... */
+
 .coupon-section {
   margin-top: 50px;
   padding: 25px;
@@ -148,14 +150,14 @@ $product-main: map.get(theme.$theme-colors, "main");
     font-weight: 700;
   }
 
-  .coupon-form {
+  /*  Toolbar lọc (thay cho .coupon-form cũ) */
+  .coupon-toolbar {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 25px;
+    margin-bottom: 18px;
 
-    input,
-    select {
+    input, select {
       flex: 1;
       min-width: 160px;
       padding: 10px 12px;
@@ -180,9 +182,12 @@ $product-main: map.get(theme.$theme-colors, "main");
       cursor: pointer;
       transition: all 0.25s ease;
 
-      &:hover {
-        background: #2c3e50;
-      }
+      &:hover { background: #2c3e50; }
+    }
+    .range-sep {
+      align-self: center;
+      font-weight: 600;
+      opacity: .6;
     }
   }
 
@@ -194,12 +199,12 @@ $product-main: map.get(theme.$theme-colors, "main");
     overflow: hidden;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
 
-    th,
-    td {
+    th, td {
       padding: 12px;
       text-align: left;
       border-bottom: 1px solid #eee;
       font-size: 14px;
+      white-space: nowrap;
     }
 
     th {
@@ -207,9 +212,7 @@ $product-main: map.get(theme.$theme-colors, "main");
       font-weight: bold;
     }
 
-    tr:hover td {
-      background: #f9f9f9;
-    }
+    tr:hover td { background: #f9f9f9; }
 
     .expired {
       color: $product-red;
@@ -224,6 +227,7 @@ $product-main: map.get(theme.$theme-colors, "main");
   }
 }
 
+/* Nút hành động trong bảng coupon */
 .coupon-table {
   .btn-toggle,
   .btn-extend,
@@ -237,25 +241,14 @@ $product-main: map.get(theme.$theme-colors, "main");
     transition: transform .05s ease-in;
     &:active { transform: scale(0.98); }
   }
-  
-  .btn-toggle {
-    background: #fbc02d;
-    color: #fff;
-    &:hover { background: #e0a800; }
-  }
 
-  .btn-extend {
-    background: #0288d1;
-    color: #fff;
-    &:hover { background: #0277bd; }
-  }
-
-  .btn-delete {
-    background: #c62828;
-    color: #fff;
-    &:hover { background: #a61c1c; }
-  }
+  .btn-toggle { background: #fbc02d; color: #fff; &:hover { background: #e0a800; } }
+  .btn-extend { background: #0288d1; color: #fff; &:hover { background: #0277bd; } }
+  .btn-delete { background: #c62828; color: #fff; &:hover { background: #a61c1c; } }
 }
+
+/* Modal dùng chung (.extend-modal đã có) – giữ nguyên */
+
 
 
 /* ✅ Modal gia hạn */
@@ -341,7 +334,124 @@ $product-main: map.get(theme.$theme-colors, "main");
 .modal-overlay {
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
-
-
 }
+
+// modal tạo coupon mới
+/* ===== Coupon Create Modal – polished ===== */
+.coupon-modal {
+  max-width: 620px;
+  width: 100%;
+  padding: 20px 22px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+  animation: popup .12s ease-out;
+
+  @keyframes popup {
+    from { transform: translateY(6px) scale(.98); opacity: .6; }
+    to   { transform: translateY(0)   scale(1);    opacity: 1; }
+  }
+}
+
+.create-modal {
+  h3 {
+    margin: 6px 0 18px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: .2px;
+    color: map.get(theme.$theme-colors, "main");
+  }
+
+  /* Lưới 2 cột, tự về 1 cột khi màn nhỏ */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin-bottom: 18px;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151; /* slate-700 */
+    }
+
+    input,
+    select {
+      padding: 12px 12px;
+      font-size: 14px;
+      border: 1px solid #e5e7eb;      /* gray-200 */
+      border-radius: 10px;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+
+      &:focus {
+        outline: none;
+        border-color: map.get(theme.$theme-colors, "main");
+        box-shadow: 0 0 0 3px rgba(map.get(theme.$theme-colors, "main"), .18);
+      }
+    }
+
+    /* Số nhìn gọn, canh phải */
+    input[type="number"] {
+      text-align: right;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+
+  /* Khu nút hành động */
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+
+    .btn-cancel {
+      background: #f3f4f6;  /* gray-100 */
+      color: #374151;
+      border-radius: 10px;
+      padding: 10px 16px;
+      border: 1px solid #e5e7eb;
+      font-weight: 600;
+    }
+
+    .btn-save {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 18px;
+      border: none;
+      font-weight: 700;
+      box-shadow: 0 6px 14px rgba(22, 163, 74, .22);
+      transition: transform .06s ease, box-shadow .15s ease;
+
+      &:hover { box-shadow: 0 8px 18px rgba(22, 163, 74, .28); }
+      &:active { transform: translateY(1px); }
+      &:disabled { opacity: .7; cursor: not-allowed; box-shadow: none; }
+    }
+  }
+}
+
+/* Nhẹ nhàng hơn cho overlay (đang dùng blur rồi) */
+.modal-overlay {
+  background: rgba(17, 24, 39, .28);  /* slate-900/28 */
+}
+.coupon-table th:nth-child(5),
+.coupon-table td:nth-child(5),
+.coupon-table th:nth-child(6),
+.coupon-table td:nth-child(6) {
+  width: 1%;
+}
+
 

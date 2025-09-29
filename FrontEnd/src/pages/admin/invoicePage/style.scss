@@ -20,8 +20,18 @@
 
     &__toolbar {
         display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         gap: 12px;
         margin-bottom: 18px;
+
+        input[type="date"] { min-width: 160px; }
+        
+        .range-sep {
+            align-self: center;
+            font-weight: 700;
+            opacity: .55;
+        }
 
         input,
         select {
@@ -140,6 +150,89 @@
         }
     }
 }
+
+.invoices {
+    &__toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end; /* label trên, input dưới */
+        gap: 12px;
+        margin-bottom: 18px;
+
+        /* thẻ card nhẹ cho toolbar */
+        &.toolbar-card {
+            width: 100%;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.04);
+        }
+
+        /* field chuẩn: nhãn nhỏ + control */
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+
+            label {
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: .3px;
+                text-transform: uppercase;
+                color: #6b7280; /* slate-500 */
+            }
+
+            input,
+            select {
+                height: 42px;
+                padding: 0 12px;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                font-size: 14px;
+                transition: border-color .15s, box-shadow .15s;
+
+                &:focus {
+                    outline: none;
+                    border-color: #008874;
+                    box-shadow: 0 0 0 3px rgba(0,136,116,.18);
+                }
+            }
+
+            &.grow { flex: 1 1 280px; }
+            &.compact { width: 160px; }
+        }
+
+        /* dấu mũi tên giữa khoảng ngày */
+        .dash {
+            align-self: center;
+            padding: 0 4px 10px; /* canh với đáy input */
+            font-weight: 800;
+            color: #9ca3af; /* slate-400 */
+        }
+
+        /* nút ghost */
+        .btn.ghost {
+            height: 42px;
+            align-self: flex-end;
+            padding: 0 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #2c3e50, #008874);
+            color: #fff;
+            font-weight: 700;
+            transition: box-shadow .15s, transform .06s;
+            &:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); transform: translateY(-1px); }
+        }
+
+        /* responsive: về 1 cột đẹp */
+        @media (max-width: 720px) {
+            .field.compact { width: 120px; }
+            .dash { display: none; }
+        }
+    }
+}
+
 
 /* ========== MODAL ========== */
 .modal-backdrop {

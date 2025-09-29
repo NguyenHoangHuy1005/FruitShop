@@ -10,10 +10,25 @@ const CheckoutPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
+    const selectedProductIds = location.state?.selectedProductIds || null;
 
     const cart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
-    const SHIPPING_FEE = 30000; // ví dụ 30k
+    const getId = (it) =>
+        typeof it.product === "object" && it.product
+        ? String(it.product._id || it.product.id || it.product)
+        : String(it.product);
+
+    const itemsToShow = (cart?.items || []).filter(
+        (it) => !selectedProductIds || selectedProductIds.includes(getId(it))
+    );
+
+    const subtotal = itemsToShow.reduce(
+        (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0
+    );
+    const SHIPPING_FEE = 30000;
+    const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
+
 
     const coupon = location.state?.coupon?.code || cart?.coupon?.code || "";
     const discount = location.state?.coupon?.discount || cart?.coupon?.discount || 0;
@@ -28,12 +43,12 @@ const CheckoutPage = () => {
 
     const onSubmit = async (e) => {
         e.preventDefault();
-        if (!cart?.items?.length) {
-        alert("Giỏ hàng trống!");
-        return;
+        if (!(itemsToShow?.length > 0)) {
+            alert("Chưa có sản phẩm nào để đặt hàng.");
+            return;
         }
         await placeOrder(
-            { ...form, couponCode: coupon },
+            { ...form, couponCode: coupon, selectedProductIds },
             user?.accessToken,
             dispatch,
             navigate
@@ -111,8 +126,8 @@ const CheckoutPage = () => {
                 <div className="checkout__order">
                 <h3>Đơn hàng</h3>
                 <ul>
-                    {(cart?.items || []).map((it) => (
-                        <li key={it.product}>
+                    {(itemsToShow || []).map((it) => (
+                        <li key={getId(it)}>
                         <span>{it.name}</span>
                         <b>{formatter(it.price)} ({it.quantity})</b>
                         </li>
@@ -127,7 +142,7 @@ const CheckoutPage = () => {
 
                     <li className="checkout__order__shipping">
                         <h4>Phí vận chuyển:</h4>
-                        {cart?.summary?.subtotal >= 199000 ? (
+                        {subtotal >= 199000 ? (
                             <div className="shipping-free">
                             <span className="old">{formatter(SHIPPING_FEE)}</span>
                             <span className="free-text">Miễn phí</span>
@@ -140,11 +155,7 @@ const CheckoutPage = () => {
                     <li className="checkout__order__subtotal">
                         <h3>Tổng tiền:</h3>
                         <b>
-                            {formatter(
-                            (cart?.summary?.subtotal || 0) +
-                            (cart?.summary?.subtotal >= 199000 ? 0 : SHIPPING_FEE) -
-                            discount
-                            )}
+                            {formatter(Math.max(0, subtotal + shipping - discount))}
                         </b>
                     </li>
                 </ul>

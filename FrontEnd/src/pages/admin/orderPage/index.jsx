@@ -21,6 +21,18 @@ const formatDateTime = (iso) => {
     return iso || "";
   }
 };
+// + ADD: chuẩn hóa đầu/cuối ngày cho lọc khoảng
+const toStartOfDay = (iso) => {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+};
+const toEndOfDay = (iso) => {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+};
+
 
 const OrderAdminPage = () => {
   const navigate = useNavigate();
@@ -31,6 +43,8 @@ const OrderAdminPage = () => {
     const [page, setPage]   = useState(1);
     const [limit, setLimit] = useState(20);
     const [q, setQ]         = useState("");
+    const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
+    const [toDate, setToDate]     = useState(""); // YYYY-MM-DD
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
@@ -78,6 +92,8 @@ const OrderAdminPage = () => {
             });
             if (q.trim()) params.set("q", q.trim());
             if (status) params.set("status", status);
+            if (fromDate) params.set("from", fromDate); // YYYY-MM-DD
+            if (toDate)   params.set("to", toDate);     // YYYY-MM-DD
 
             const res = await API.get(`/order?${params.toString()}`, {
                 headers, validateStatus: () => true,
@@ -93,42 +109,29 @@ const OrderAdminPage = () => {
             setLoading(false);
         })();
         return () => { alive = false; };
-    }, [page, limit, q, status, headers]);
+    }, [page, limit, q, status, fromDate, toDate, headers]);
 
   const pages = Math.max(1, Math.ceil(total / limit));
 
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "pending":
-        return "status-pending";
-      case "paid":
-        return "status-paid";
-      case "shipped":
-        return "status-shipped";
-      case "completed":
-        return "status-completed";
-      case "cancelled":
-        return "status-cancelled";
-      default:
-        return "status-default";
-    }
-  };
+  // + ADD: chỉ lọc theo createdAt để hiển thị
+  const viewRows = useMemo(() => {
+    const from = toStartOfDay(fromDate);
+    const to   = toEndOfDay(toDate);
+    return (data || []).filter((o) => {
+      let ok = true;
+      if (ok && from) ok = new Date(o.createdAt) >= from;
+      if (ok && to)   ok = new Date(o.createdAt) <= to;
+      return ok;
+    });
+  }, [data, fromDate, toDate]);
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case "pending":
-        return "Pending";
-      case "paid":
-        return "Paid";
-      case "shipped":
-        return "Shipped";
-      case "completed":
-        return "Completed";
-      case "cancelled":
-        return "Cancelled";
-      default:
-        return status;
-    }
+  // + ADD
+  const resetFilters = () => {
+    setQ("");
+    setFromDate("");
+    setToDate("");
+    setStatus("");
+    setPage(1);
   };
 
     return (
@@ -140,26 +143,44 @@ const OrderAdminPage = () => {
                         {isDark ? "☀️" : "🌙"}
                     </button>
                 </div>
-
                 <div className="orders__toolbar">
-                    <input
-                        value={q}
-                        onChange={(e) => { setPage(1); setQ(e.target.value); }}
-                        placeholder="Tìm tên/điện thoại/email/sản phẩm…"
-                    />
-                    <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="pending">pending</option>
-                        <option value="paid">paid</option>
-                        <option value="shipped">shipped</option>
-                        <option value="completed">completed</option>
-                        <option value="cancelled">cancelled</option>
-                    </select>
-                    <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
-                        <option value={10}>10 / trang</option>
-                        <option value={20}>20 / trang</option>
-                        <option value={50}>50 / trang</option>
-                    </select>
+                  <input
+                    value={q}
+                    onChange={(e) => { setPage(1); setQ(e.target.value); }}
+                    placeholder="Tìm tên/điện thoại/email/sản phẩm…"
+                  />
+
+                  {/* + ADD: Từ ngày */}
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
+                    title="Từ ngày (theo ngày đặt)"
+                  />
+                  <span className="dash">→</span>
+                  {/* + ADD: Đến ngày */}
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => { setPage(1); setToDate(e.target.value); }}
+                    title="Đến ngày (theo ngày đặt)"
+                  />
+
+                  <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="pending">pending</option>
+                    <option value="paid">paid</option>
+                    <option value="shipped">shipped</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                  </select>
+
+                  <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
+                    <option value={10}>10 / trang</option>
+                    <option value={20}>20 / trang</option>
+                    <option value={50}>50 / trang</option>
+                  </select>
+                  <button className="btn-clear" onClick={resetFilters}>Xóa lọc</button>
                 </div>
 
                 <div className="orders__content">
@@ -178,7 +199,7 @@ const OrderAdminPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.map((o) => {
+                                {viewRows.map((o) => {
                                     const id = String(o._id || "");
                                     const total = o?.amount?.total ?? o?.amount ?? 0;
                                     return (
@@ -221,7 +242,7 @@ const OrderAdminPage = () => {
                                         </tr>
                                     );
                                 })}
-                                {data.length === 0 && (
+                                {viewRows.length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="no-data">Không có đơn nào.</td>
                                     </tr>

@@ -6,6 +6,19 @@ import { getAllUsers, deleteUser, updateUser } from "../../../component/redux/ap
 import { useSelector, useDispatch } from "react-redux";
 import EditUserModal from "../../../component/modals/editUserModal";
 
+// Chuẩn hóa đầu/cuối ngày cho lọc khoảng
+const toStartOfDay = (iso) => {
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+};
+const toEndOfDay = (iso) => {
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+};
+
+
 const UserManagerPage = () => {
     const dispatch = useDispatch();
     const user = useSelector((state) => state.auth.login?.currentUser);
@@ -13,6 +26,11 @@ const UserManagerPage = () => {
 
     const [editingUser, setEditingUser] = useState(null);
     const [viewingUser, setViewingUser] = useState(null); // ✅ user đang xem
+    // Bộ lọc
+    const [q, setQ] = useState("");           // mã/username/email/phone
+    const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
+    const [toDate, setToDate]     = useState(""); // YYYY-MM-DD
+
 
     useEffect(() => {
         if (user?.accessToken) {
@@ -31,10 +49,73 @@ const UserManagerPage = () => {
     };
 
     console.log("Danh sách user:", userList);
+
+    const viewUsers = (Array.isArray(userList) ? userList : []).filter((u) => {
+        const key = q.trim().toLowerCase();
+        const from = toStartOfDay(fromDate);
+        const to   = toEndOfDay(toDate);
+
+        // match text: id, username, email, phone
+        const haystack = [
+            u?._id, u?.username, u?.email, u?.phone
+        ].map(x => (x || "").toString().toLowerCase()).join(" | ");
+
+        let ok = !key || haystack.includes(key);
+
+        const created = u?.createdAt ? new Date(u.createdAt) : null;
+        if (ok && from && created) ok = created >= from;
+        if (ok && to   && created) ok = created <= to;
+
+        return ok;
+    });
+
     return (
         <div className="container">
             <div className="user-management">
                 <h2>QUẢN LÝ KHÁCH HÀNG</h2>
+
+                {/* Toolbar bộ lọc */}
+                <div className="user-toolbar toolbar-card">
+                    <div className="field grow">
+                        <label>Tìm kiếm</label>
+                        <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="ID / Username / Email / SĐT…"
+                        />
+                    </div>
+
+                    <div className="field">
+                        <label>Từ ngày</label>
+                        <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        title="Từ ngày (ngày đăng ký)"
+                        />
+                    </div>
+
+                    <div className="dash">→</div>
+
+                    <div className="field">
+                        <label>Đến ngày</label>
+                        <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        title="Đến ngày (ngày đăng ký)"
+                        />
+                    </div>
+
+                    <button
+                        className="btn-clear"
+                        onClick={() => { setQ(""); setFromDate(""); setToDate(""); }}
+                    >
+                        Xóa lọc
+                    </button>
+                </div>
+
+
                 <table>
                     <thead>
                         <tr>
@@ -49,8 +130,8 @@ const UserManagerPage = () => {
                     </thead>
                     <tbody>
 
-                        {Array.isArray(userList) && userList.length > 0 ? (
-                            [...userList]
+                        {viewUsers.length > 0 ? (
+                            [...viewUsers]
                                 .sort((a, b) => a._id.localeCompare(b._id))
                                 .map((u, index) => (
                                     <tr key={u._id}>
@@ -90,7 +171,7 @@ const UserManagerPage = () => {
                         ) : (
                             <tr>
                                 <td colSpan={7} style={{ textAlign: "center", color: "#64748b", padding: 20 }}>
-                                    Không có khách hàng.
+                                    Không có khách hàng phù hợp bộ lọc.
                                 </td>
                             </tr>
                         )}

@@ -57,6 +57,7 @@ export const ensureAccessToken = async (maybeToken, dispatch, navigate, isAdmin 
         if (r.status === 200 && r.data?.accessToken) {
         const t = r.data.accessToken;
         API.defaults.headers.common.Authorization = `Bearer ${t}`;
+        markHasRefresh();
         return t;
         }
     } catch (e) {
@@ -65,6 +66,7 @@ export const ensureAccessToken = async (maybeToken, dispatch, navigate, isAdmin 
 
     // ❌ refresh fail → đừng điều hướng khi gọi “âm thầm”
     dispatch?.({ type: "auth/logoutSuccess" });
+    clearHasRefresh();
     return null;
 };
 

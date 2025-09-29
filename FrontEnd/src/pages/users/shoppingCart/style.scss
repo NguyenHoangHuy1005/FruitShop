@@ -1,6 +1,9 @@
 @use "sass:map";
 @use "../../../style/pages/theme";
 
+
+$main: map.get(theme.$theme-colors, "main");
+
 .table__cart {
     overflow-y: auto;
 
@@ -42,15 +45,18 @@
                 white-space: normal;
                 word-break: break-word;   // cho phép xuống dòng khi tên dài
                 flex: 1;
-                margin-left: 20px;
 
                 &:hover {
                     color: #008874;
                 }
+
+                &__text {
+                    margin-left: 20px;
+                }
             }
         }
 
-        // ✅ Style giá
+        //  Style giá
         .price-box {
             display: flex;
             flex-direction: column;
@@ -151,4 +157,35 @@
 .shipping-fee {
     font-weight: 600;
     color: #333;
+}
+
+/* CHỈ style cột checkbox chọn SP */
+.table__cart {
+    table {
+        /* Cố định độ rộng + canh giữa cột checkbox (select-all + từng dòng) */
+        thead th:first-child,
+        tbody td:first-child {
+        width: 52px;
+        text-align: center;
+        padding-left: 8px;
+        padding-right: 8px;
+        }
+
+        /* Nút checkbox */
+        input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: $main;              /* màu chủ đạo cho checkbox */
+        transition: transform .08s ease;
+
+        &:hover  { transform: scale(1.06); }
+        &:active { transform: scale(.98); }
+
+        &:focus-visible {
+            outline: 2px solid rgba($main, .35);
+            outline-offset: 2px;
+        }
+        }
+    }
 }

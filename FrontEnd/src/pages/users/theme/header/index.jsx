@@ -154,7 +154,9 @@ const Header = () => {
     let cancelled = false;
 
     const hydrate = async () => {
+      if (cancelled) return;
       const t = await ensureAccessToken(null, dispatch, navigate, false);
+      if (cancelled) return;
       if (t) API.defaults.headers.common.Authorization = `Bearer ${t}`;
       await ensureCart(dispatch);
     };

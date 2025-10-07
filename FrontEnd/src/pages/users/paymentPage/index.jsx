@@ -314,29 +314,33 @@ const PaymentPendingView = memo(() => {
                     </section>
 
                     <section className="payment-card__section payment-card__section--qr">
-                        <h3>Các mẫu mã quét thanh toán</h3>
-                        <p className="payment-card__section-desc">
-                            Chọn phương thức phù hợp và quét thử các mẫu dưới đây để kiểm tra luồng thanh toán (ngân hàng, thẻ và ví điện tử).
-                        </p>
-                        <div className="payment-card__qr-grid">
-                            {PAYMENT_QR_SAMPLES.map((sample) => (
-                                <article key={sample.key} className="payment-card__qr-item">
-                                    <div className="payment-card__qr-visual">
-                                        <img src={sample.image} alt={sample.title} loading="lazy" />
-                                    </div>
-                                    <div className="payment-card__qr-info">
-                                        <h4>{sample.title}</h4>
-                                        <p>{sample.description}</p>
-                                        <ul>
-                                            {sample.hints.map((hint, idx) => (
-                                                <li key={idx}>{hint}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
+                        <h3>Mã QR thanh toán</h3>
+                        {!selectedChannel ? (
+                            <p className="payment-card__section-desc">
+                            Vui lòng chọn loại hình thanh toán để hiển thị mã QR tương ứng.
+                            </p>
+                        ) : (
+                            <div className="payment-card__qr-display">
+                                {PAYMENT_QR_SAMPLES.filter((sample) => sample.key === selectedChannel).map((sample) => (
+                                    <article key={sample.key} className="payment-card__qr-item active">
+                                        <div className="payment-card__qr-visual">
+                                            <img src={sample.image} alt={sample.title} loading="lazy" />
+                                        </div>
+                                        <div className="payment-card__qr-info">
+                                            <h4>{sample.title}</h4>
+                                            <p>{sample.description}</p>
+                                            <ul>
+                                                {sample.hints.map((hint, idx) => (
+                                                    <li key={idx}>{hint}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
                     </section>
+
 
                     <footer className="payment-card__footer">
                         <div className="payment-card__actions">

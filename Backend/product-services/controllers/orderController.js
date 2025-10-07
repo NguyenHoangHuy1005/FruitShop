@@ -61,6 +61,64 @@ async function calcTotals(cart, couponCode) {
 }
 
 
+const restoreInventory = async (orderDoc) => {
+    if (!orderDoc) return;
+    for (const it of orderDoc.items || []) {
+        await Stock.findOneAndUpdate(
+            { product: it.product },
+            { $inc: { onHand: it.quantity } }
+        );
+
+        const stock = await Stock.findOne({ product: it.product }).lean();
+        const newQty = Math.max(0, Number(stock?.onHand) || 0);
+        await Product.findByIdAndUpdate(
+            it.product,
+            { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
+        );
+    }
+};
+
+const autoCancelExpiredOrders = async (extraFilter = {}) => {
+    const now = new Date();
+    const filter = {
+        status: "pending",
+        paymentDeadline: { $ne: null, $lte: now },
+        ...extraFilter,
+    };
+
+    const expiredOrders = await Order.find(filter);
+    if (!expiredOrders.length) return [];
+
+    const updatedIds = [];
+    for (const order of expiredOrders) {
+        try {
+            await restoreInventory(order);
+        } catch (err) {
+            console.error("[order] restoreInventory failed while auto-cancelling:", err);
+        }
+
+        order.status = "cancelled";
+        order.paymentDeadline = null;
+        order.paymentMeta = {
+            ...(order.paymentMeta || {}),
+            autoCancelledAt: new Date(),
+            cancelReason: "timeout",
+        };
+        try {
+            order.markModified("paymentMeta");
+        } catch (_) { }
+        try {
+            await order.save();
+            updatedIds.push(order._id);
+        } catch (err) {
+            console.error("[order] autoCancelExpiredOrders save error:", err);
+        }
+    }
+
+    return updatedIds;
+};
+
+
 exports.createOrder = async (req, res) => {
     let decremented = [];
     let createdOrder = null;
@@ -326,20 +384,7 @@ exports.cancelOrder = async (req, res) => {
         }
 
         // 🔄 Trả lại tồn kho
-        for (const it of order.items) {
-        await Stock.findOneAndUpdate(
-            { product: it.product },
-            { $inc: { onHand: it.quantity } }
-        );
-
-        // cập nhật Product.onHand và status
-        const stock = await Stock.findOne({ product: it.product });
-        const newQty = Math.max(0, Number(stock?.onHand) || 0);
-        await Product.findByIdAndUpdate(
-            it.product,
-            { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
-        );
-        }
+        await restoreInventory(order);
 
         // 🔴 Đổi trạng thái đơn
         order.status = "cancelled";
@@ -349,6 +394,9 @@ exports.cancelOrder = async (req, res) => {
             cancelledAt: new Date(),
             cancelReason: "user_cancelled",
         };
+        try {
+            order.markModified("paymentMeta");
+        } catch (_) { }
         await order.save();
 
         return res.json({ ok: true, message: "Đơn hàng đã được hủy.", order });
@@ -370,6 +418,7 @@ exports.myOrders = async (req, res) => {
         const userId = payload?.id || payload?._id || null;
         if (!userId) return res.status(401).json({ message: "Phiên đăng nhập hết hạn hoặc token không hợp lệ." });
 
+        await autoCancelExpiredOrders({ user: userId });
         const orders = await Order.find({ user: userId }).sort({ createdAt: -1 }).lean();
         return res.json(orders);
     } catch {
@@ -406,6 +455,8 @@ exports.adminList = async (req, res) => {
         if (to) filter.createdAt.$lte = new Date(to);
     }
 
+    await autoCancelExpiredOrders();
+
     const [total, rows] = await Promise.all([
         Order.countDocuments(filter),
         Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -418,6 +469,7 @@ exports.adminList = async (req, res) => {
 };
 
 exports.adminGetOne = async (req, res) => {
+    await autoCancelExpiredOrders({ _id: req.params.id });
     const doc = await Order.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     return res.json(doc);

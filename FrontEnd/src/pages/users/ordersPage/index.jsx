@@ -1,5 +1,5 @@
 // src/pages/user/orders/index.jsx
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
@@ -35,6 +35,43 @@ const formatCountdown = (ms) => {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
+const PAYMENT_METHOD_LABELS = {
+    COD: "Thanh toán khi nhận hàng (COD)",
+    BANK: "Chuyển khoản ngân hàng (VietQR)",
+    VNPAY: "Cổng VNPAY / Thẻ quốc tế",
+};
+
+const PAYMENT_CHANNEL_LABELS = {
+    vietqr: "Quét mã VietQR - Ngân hàng nội địa",
+    card: "QR thẻ quốc tế (Visa/Mastercard)",
+    momo: "Ví MoMo",
+};
+
+const PAYMENT_CANCEL_REASON_LABELS = {
+    timeout: "Đơn hàng đã được hủy tự động do quá hạn thanh toán. Kho đã được hoàn lại.",
+    user_cancelled: "Đơn hàng đã được bạn hủy.",
+    admin_cancelled: "Đơn hàng đã được quản trị viên hủy.",
+};
+
+const resolvePaymentLabels = (order) => {
+    const methodCode = order?.payment;
+    const channelCode = order?.paymentMeta?.channel;
+    const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
+    const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
+        ? PAYMENT_CHANNEL_LABELS[channelCode]
+        : "";
+    return { methodLabel, channelLabel };
+};
+
+const resolveCancelMessage = (order) => {
+    if (!order || order.status !== "cancelled") return "";
+    const reason = order?.paymentMeta?.cancelReason;
+    if (reason && PAYMENT_CANCEL_REASON_LABELS[reason]) {
+        return PAYMENT_CANCEL_REASON_LABELS[reason];
+    }
+    return "Đơn hàng đã được hủy.";
+};
+
 const OrdersPage = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -46,6 +83,8 @@ const OrdersPage = () => {
     const [error, setError] = useState("");
     const [now, setNow] = useState(() => Date.now());
     const [reorderLoading, setReorderLoading] = useState(null);
+    const [reloadTick, setReloadTick] = useState(0);
+    const refreshOnExpiryRef = useRef(false);
 
     const tokenHeader = useMemo(() => {
         // Back-end chấp nhận 'Authorization' hoặc 'token'
@@ -68,7 +107,7 @@ const OrdersPage = () => {
             // Chưa đăng nhập => điều hướng về trang đăng nhập (đang dùng chung trang Admin Login)
             navigate(ROUTERS.ADMIN.LOGIN, { replace: true });
             return;
-        }   
+        }
 
         let alive = true;
         (async () => {
@@ -89,6 +128,7 @@ const OrdersPage = () => {
                     setError(msg);
                 }
             } catch (e) {
+                if (!alive) return;
                 const msg = e?.response?.data?.message || e?.message || "Lỗi mạng khi tải đơn hàng.";
                 setError(msg);
             } finally {
@@ -99,7 +139,7 @@ const OrdersPage = () => {
         return () => {
             alive = false;
         };
-    }, [navigate, tokenHeader, user?.accessToken]);
+    }, [navigate, reloadTick, tokenHeader, user?.accessToken]);
 
     useEffect(() => {
         const hasPendingWithDeadline = orders.some(
@@ -112,6 +152,29 @@ const OrdersPage = () => {
         }, 1000);
         return () => clearInterval(timer);
     }, [orders]);
+
+    useEffect(() => {
+        if (!Number.isFinite(now)) {
+            refreshOnExpiryRef.current = false;
+            return undefined;
+        }
+        const hasExpiredPending = orders.some((ord) => {
+            if (ord?.status !== "pending" || !ord?.paymentDeadline) return false;
+            const deadline = new Date(ord.paymentDeadline).getTime();
+            if (Number.isNaN(deadline)) return false;
+            return deadline <= now;
+        });
+        if (!hasExpiredPending) {
+            refreshOnExpiryRef.current = false;
+            return undefined;
+        }
+        if (refreshOnExpiryRef.current) return undefined;
+        refreshOnExpiryRef.current = true;
+        const timer = setTimeout(() => {
+            setReloadTick((tick) => tick + 1);
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, [now, orders]);
 
     const orderMeta = useMemo(() => {
         const metaMap = new Map();
@@ -276,6 +339,7 @@ const OrdersPage = () => {
                     const isOpen = openIds.has(id);
                     const isReorderLoading = reorderLoading === id;
                     const meta = orderMeta.get(id) || {};
+                    const { methodLabel, channelLabel } = resolvePaymentLabels(o);
 
                     return (
                         <tr key={id} style={{ borderTop: "1px solid #eee" }}>
@@ -289,7 +353,10 @@ const OrdersPage = () => {
                             </span>
                         </td>
                         <td>
-                            <div>{o?.payment || "COD"}</div>
+                            <div className="payment-method-label">{methodLabel}</div>
+                            {channelLabel ? (
+                                <div className="payment-channel-label">{channelLabel}</div>
+                            ) : null}
                             {meta.stillValid ? (
                             <div className="payment-countdown">Còn {meta.countdown} để thanh toán</div>
                             ) : null}
@@ -318,6 +385,8 @@ const OrdersPage = () => {
                     const meta = orderMeta.get(id) || {};
                     const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", id);
                     const isReorderLoading = reorderLoading === id;
+                    const { methodLabel, channelLabel } = resolvePaymentLabels(o);
+                    const cancelMessage = resolveCancelMessage(o);
                     return (
                         <div key={`${id}-details`} className="order-details" style={{ margin: "12px 0 28px" }}>
                             <div className="card" style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 8 }}>
@@ -332,6 +401,22 @@ const OrdersPage = () => {
                                             <br />
                                             <b>Ghi chú: </b>
                                             {o.customer.note}
+                                        </>
+                                    ) : null}
+                                </div>
+                                
+                                <div style={{ marginBottom: 12, lineHeight: 1.6 }}>
+                                    <b>Thanh toán: </b>
+                                    {methodLabel}
+                                    {channelLabel ? (
+                                        <span className="payment-channel-inline"> — {channelLabel}</span>
+                                    ) : null}
+                                    {o?.paymentCompletedAt ? (
+                                        <>
+                                            <br />
+                                            <span className="payment-timestamp">
+                                                Hoàn tất lúc: {formatDateTime(o.paymentCompletedAt)}
+                                            </span>
                                         </>
                                     ) : null}
                                 </div>
@@ -440,6 +525,9 @@ const OrdersPage = () => {
                                     <div className="order-payment-expired">
                                         <strong>Thanh toán đã quá hạn.</strong> Hệ thống sẽ sớm hủy đơn và hoàn lại tồn kho sản phẩm.
                                     </div>
+                                )}
+                                {o.status === "cancelled" && cancelMessage && (
+                                    <div className="order-payment-cancelled">{cancelMessage}</div>
                                 )}
                                 <div className="order-actions">
                                     <button

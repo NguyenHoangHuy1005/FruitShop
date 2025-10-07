@@ -153,6 +153,31 @@ $zinc: #71717a;
         }
     }
 
+    &__payment {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 13px;
+        color: var(--text);
+    }
+
+    &__payment-method {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    &__payment-channel,
+    &__payment-time {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    &__payment-note {
+        font-size: 12px;
+        color: $rose;
+        font-weight: 600;
+    }
+    
     &__row { border-top: 1px solid var(--border); }
 
     .badge {

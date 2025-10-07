@@ -47,6 +47,26 @@
     font-weight: 600;
 }
 
+.payment-method-label {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.payment-channel-label {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #475569;
+}
+
+.payment-channel-inline {
+    color: #475569;
+}
+
+.payment-timestamp {
+    font-size: 13px;
+    color: #475569;
+}
+
 /* ===== Badge trạng thái ===== */
 .badge {
     display: inline-block;
@@ -155,6 +175,16 @@
     border-radius: 10px;
     background: #fef2f2;
     color: #991b1b;
+    border: 1px solid #fecaca;
+    font-size: 0.95rem;
+}
+
+.order-payment-cancelled {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #fee2e2;
+    color: #b91c1c;
     border: 1px solid #fecaca;
     font-size: 0.95rem;
 }

@@ -33,6 +33,43 @@ const toEndOfDay = (iso) => {
   return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
 };
 
+const PAYMENT_METHOD_LABELS = {
+  COD: "Thanh toán khi nhận hàng (COD)",
+  BANK: "Chuyển khoản ngân hàng (VietQR)",
+  VNPAY: "Cổng VNPAY / Thẻ quốc tế",
+};
+
+const PAYMENT_CHANNEL_LABELS = {
+  vietqr: "Quét mã VietQR - Ngân hàng nội địa",
+  card: "QR thẻ quốc tế (Visa/Mastercard)",
+  momo: "Ví MoMo",
+};
+
+const PAYMENT_CANCEL_REASON_LABELS = {
+  timeout: "Tự hủy do quá hạn thanh toán",
+  user_cancelled: "Khách tự hủy đơn",
+  admin_cancelled: "Quản trị viên hủy đơn",
+};
+
+const resolvePaymentLabels = (order) => {
+  const methodCode = order?.payment;
+  const channelCode = order?.paymentMeta?.channel;
+  const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
+  const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
+    ? PAYMENT_CHANNEL_LABELS[channelCode]
+    : "";
+  return { methodLabel, channelLabel };
+};
+
+const resolveCancelNote = (order) => {
+  if (!order || order.status !== "cancelled") return "";
+  const reason = order?.paymentMeta?.cancelReason;
+  if (reason && PAYMENT_CANCEL_REASON_LABELS[reason]) {
+    return PAYMENT_CANCEL_REASON_LABELS[reason];
+  }
+  return "Đơn đã bị hủy";
+};
+
 
 const OrderAdminPage = () => {
   const navigate = useNavigate();
@@ -192,6 +229,7 @@ const OrderAdminPage = () => {
                                     <th className="td-right">Tổng đơn</th>
                                     <th>Khách hàng</th>
                                     <th>Ngày đặt</th>
+                                    <th>Thanh toán</th>
                                     <th>Trạng thái</th>
                                 </tr>
                             </thead>
@@ -199,6 +237,9 @@ const OrderAdminPage = () => {
                                 {viewRows.map((o) => {
                                     const id = String(o._id || "");
                                     const total = o?.amount?.total ?? o?.amount ?? 0;
+                                    const { methodLabel, channelLabel } = resolvePaymentLabels(o);
+                                    const cancelNote = resolveCancelNote(o);
+                                    const paidAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";
                                     return (
                                         <tr key={id} className="orders__row">
                                             <td>{id.slice(-8).toUpperCase()}</td>
@@ -210,6 +251,20 @@ const OrderAdminPage = () => {
                                                 </div>
                                             </td>
                                             <td>{formatDateTime(o?.createdAt)}</td>
+                                            <td>
+                                                <div className="orders__payment">
+                                                    <span className="orders__payment-method">{methodLabel}</span>
+                                                    {channelLabel ? (
+                                                        <span className="orders__payment-channel">{channelLabel}</span>
+                                                    ) : null}
+                                                    {paidAt ? (
+                                                        <span className="orders__payment-time">Hoàn tất: {paidAt}</span>
+                                                    ) : null}
+                                                    {cancelNote ? (
+                                                        <span className="orders__payment-note">{cancelNote}</span>
+                                                    ) : null}
+                                                </div>
+                                            </td>
                                             <td>
                                               <select
                                                 value={o?.status}
@@ -241,7 +296,7 @@ const OrderAdminPage = () => {
                                 })}
                                 {viewRows.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="no-data">Không có đơn nào.</td>
+                                        <td colSpan={6} className="no-data">Không có đơn nào.</td>
                                     </tr>
                                 )}
                             </tbody>

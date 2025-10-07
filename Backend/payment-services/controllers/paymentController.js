@@ -117,11 +117,20 @@ exports.confirmPayment = async (req, res) => {
         order.status = "paid";
         order.paymentDeadline = null;
         order.paymentCompletedAt = new Date();
+        const channel = typeof req.body?.channel === "string" && req.body.channel.trim()
+            ? req.body.channel.trim()
+            : null;
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             transactionId: req.body?.transactionId || null,
             paidAt: order.paymentCompletedAt,
         };
+        if (channel) {
+            order.paymentMeta.channel = channel;
+        }
+        try {
+            order.markModified("paymentMeta");
+        } catch (_) { }
         await order.save();
 
         return res.json({ ok: true, order: sanitizeOrder(order) });

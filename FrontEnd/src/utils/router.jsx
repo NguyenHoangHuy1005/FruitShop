@@ -10,6 +10,8 @@ export const ROUTERS = {
     SHOPPINGCART: "/cart",
     CHECKOUT: "/checkout",
     CONTACT: "/contact",
+    PAYMENT: "/payment/:id",
+    PAYMENT_SUCCESS: "/payment/:id/success",
   },
   ADMIN: {
     DASHBOARD: `${ADMIN_PATH}/dashboard`,

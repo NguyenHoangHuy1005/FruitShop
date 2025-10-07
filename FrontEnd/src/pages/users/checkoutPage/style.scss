@@ -85,3 +85,57 @@
     font-weight: 600;
     color: #333;
     }
+
+    .checkout__payment {
+    margin-top: 24px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    h4 {
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+    }
+
+    &__options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    &__hint {
+        margin-top: 12px;
+        font-size: 0.9rem;
+        color: #ef4444;
+    }
+}
+
+.payment-option {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    input {
+        margin-top: 4px;
+    }
+
+    &.active {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .payment-option__title {
+        display: block;
+        font-weight: 600;
+    }
+
+    .payment-option__desc {
+        display: block;
+        font-size: 0.9rem;
+        color: #475569;
+    }
+}

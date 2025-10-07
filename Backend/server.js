@@ -55,6 +55,7 @@ const orderRoutes    = require("./product-services/routes/order");
 const stockRoutes    = require("./product-services/routes/stock");
 const productRoutes  = require("./product-services/routes/product");
 const couponRoutes   = require("./product-services/routes/coupon");
+const paymentRoutes  = require("./payment-services/routes/payment");
 
 // Static file
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -76,6 +77,7 @@ app.use("/api/product", productRoutes);      // GET sản phẩm (user)
 app.use("/api/coupon",  couponRoutes);
 app.use("/api/cart",    cartRoutes);
 app.use("/api/order",   orderRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: "Not Found", path: req.originalUrl }));

@@ -482,7 +482,7 @@ export const clearCart = async (dispatch) => {
 
 /* ======================= ORDER (Checkout) ======================= */
 // Lưu đơn hàng (MongoDB) từ giỏ hiện tại  thông tin form
-export const placeOrder = async (payload, accessToken, dispatch, navigate) => {
+export const placeOrder = async (payload, accessToken, dispatch) => {
     // payload: { fullName, address, phone, email, note }
     try {
         const res = await API.post("/order", payload, {
@@ -491,11 +491,102 @@ export const placeOrder = async (payload, accessToken, dispatch, navigate) => {
         alert(res?.data?.message || "Đặt hàng thành công!");
         // BE thường clear cart sau khi tạo order → làm mới cart:
         await ensureCart(dispatch);
-        navigate(ROUTERS.USER.ORDERS);
+        return res.data;
     } catch (e) {
         const msg = e?.response?.data?.message || "Đặt hàng thất bại!";
         alert(msg);
+        return null;
     }
+};
+
+const buildAuthError = () => {
+    const err = new Error("AUTH_REQUIRED");
+    err.code = "AUTH_REQUIRED";
+    return err;
+};
+
+export const fetchPaymentSession = async (orderId, token, dispatch) => {
+    let accessToken = await ensureAccessToken(token, dispatch);
+    if (!accessToken) throw buildAuthError();
+
+    let res = await API.get(`/payment/${orderId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        validateStatus: () => true,
+    });
+
+    if (res.status === 401) {
+        accessToken = await ensureAccessToken(null, dispatch);
+        if (!accessToken) throw buildAuthError();
+        res = await API.get(`/payment/${orderId}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            validateStatus: () => true,
+        });
+    }
+
+    if (res.status !== 200) {
+        const message = res?.data?.message || `Không lấy được thông tin thanh toán (HTTP ${res.status}).`;
+        const err = new Error(message);
+        err.status = res.status;
+        throw err;
+    }
+
+    return res.data;
+};
+
+export const confirmPaymentSession = async (orderId, payload, token, dispatch) => {
+    let accessToken = await ensureAccessToken(token, dispatch);
+    if (!accessToken) throw buildAuthError();
+
+    let res = await API.post(`/payment/${orderId}/confirm`, payload || {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        validateStatus: () => true,
+    });
+
+    if (res.status === 401) {
+        accessToken = await ensureAccessToken(null, dispatch);
+        if (!accessToken) throw buildAuthError();
+        res = await API.post(`/payment/${orderId}/confirm`, payload || {}, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            validateStatus: () => true,
+        });
+    }
+
+    if (res.status !== 200) {
+        const message = res?.data?.message || `Thanh toán thất bại (HTTP ${res.status}).`;
+        const err = new Error(message);
+        err.status = res.status;
+        throw err;
+    }
+
+    return res.data;
+};
+
+export const cancelPaymentSession = async (orderId, token, dispatch) => {
+    let accessToken = await ensureAccessToken(token, dispatch);
+    if (!accessToken) throw buildAuthError();
+
+    let res = await API.post(`/payment/${orderId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        validateStatus: () => true,
+    });
+
+    if (res.status === 401) {
+        accessToken = await ensureAccessToken(null, dispatch);
+        if (!accessToken) throw buildAuthError();
+        res = await API.post(`/payment/${orderId}/cancel`, {}, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            validateStatus: () => true,
+        });
+    }
+
+    if (res.status !== 200) {
+        const message = res?.data?.message || `Không thể hủy thanh toán (HTTP ${res.status}).`;
+        const err = new Error(message);
+        err.status = res.status;
+        throw err;
+    }
+
+    return res.data;
 };
 
 export const fetchMyOrders = async (accessToken) => {

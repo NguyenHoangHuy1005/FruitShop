@@ -1,16 +1,18 @@
 import Breadcrumb from "../theme/breadcrumb";
 import { formatter } from "../../../utils/fomater";
 import "./style.scss";
-import { memo, useState } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { placeOrder } from "../../../component/redux/apiRequest";
 import { useNavigate, useLocation } from "react-router-dom";
+import { ROUTERS } from "../../../utils/router";
 
 const CheckoutPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
-    const selectedProductIds = location.state?.selectedProductIds || null;
+    const repeatOrder = location.state?.repeatOrder || null;
+    const selectedProductIds = repeatOrder?.selectedProductIds || location.state?.selectedProductIds || null;
 
     const cart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
@@ -30,16 +32,29 @@ const CheckoutPage = () => {
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
 
-    const coupon = location.state?.coupon?.code || cart?.coupon?.code || "";
-    const discount = location.state?.coupon?.discount || cart?.coupon?.discount || 0;
+    const coupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";
+    const discount = repeatOrder?.coupon?.discount || location.state?.coupon?.discount || cart?.coupon?.discount || 0;
 
-    const [form, setForm] = useState({
-        fullName: "",
-        address: "",
-        phone: "",
-        email: "",
-        note: "",
-    });
+    const repeatFormDefaults = useMemo(() => ({
+        fullName: repeatOrder?.form?.fullName || "",
+        address: repeatOrder?.form?.address || "",
+        phone: repeatOrder?.form?.phone || "",
+        email: repeatOrder?.form?.email || "",
+        note: repeatOrder?.form?.note || "",
+    }), [repeatOrder]);
+
+    const [form, setForm] = useState(repeatFormDefaults);
+    const [paymentMethod, setPaymentMethod] = useState(repeatOrder?.paymentMethod || "COD");
+
+    useEffect(() => {
+        setForm(repeatFormDefaults);
+        setPaymentMethod(repeatOrder?.paymentMethod || "COD");
+    }, [repeatFormDefaults, repeatOrder]);
+
+    const paymentOptions = [
+        { value: "COD", label: "Thanh toán khi nhận hàng (COD)", description: "Quý khách thanh toán trực tiếp cho shipper khi nhận hàng." },
+        { value: "BANK", label: "Chuyển khoản ngân hàng", description: "Đặt cọc online và hoàn tất trong 10 phút." },
+    ];
 
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -47,12 +62,20 @@ const CheckoutPage = () => {
             alert("Chưa có sản phẩm nào để đặt hàng.");
             return;
         }
-        await placeOrder(
-            { ...form, couponCode: coupon, selectedProductIds },
+        const result = await placeOrder(
+            { ...form, couponCode: coupon, selectedProductIds, paymentMethod },
             user?.accessToken,
-            dispatch,
-            navigate
+            dispatch
         );
+
+        if (!result) return;
+
+        if (result.requiresPayment && result.orderId) {
+            const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", result.orderId);
+            navigate(paymentPath, { replace: true });
+        } else {
+            navigate(ROUTERS.USER.ORDERS, { replace: true });
+        }
     };
 
     return (
@@ -159,6 +182,27 @@ const CheckoutPage = () => {
                         </b>
                     </li>
                 </ul>
+                <div className="checkout__payment">
+                    <h4>Phương thức thanh toán</h4>
+                    <div className="checkout__payment__options">
+                        {paymentOptions.map((opt) => (
+                            <label key={opt.value} className={`payment-option ${paymentMethod === opt.value ? "active" : ""}`}>
+                                <input
+                                    type="radio"
+                                    name="paymentMethod"
+                                    value={opt.value}
+                                    checked={paymentMethod === opt.value}
+                                    onChange={() => setPaymentMethod(opt.value)}
+                                />
+                                <div>
+                                    <span className="payment-option__title">{opt.label}</span>
+                                    <span className="payment-option__desc">{opt.description}</span>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                    <p className="checkout__payment__hint">Thanh toán online cần hoàn tất trong vòng 10 phút, quá thời gian hệ thống sẽ tự hủy đơn.</p>
+                </div>
                 <button type="submit" className="button-submit">
                     Đặt hàng
                 </button>

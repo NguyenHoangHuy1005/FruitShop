@@ -76,6 +76,9 @@ exports.createOrder = async (req, res) => {
         }
 
         const { name, fullName, address, phone, email, note, couponCode } = req.body || {};
+        const paymentMethodRaw = (req.body?.paymentMethod || req.body?.payment || "").toString().toUpperCase();
+        const allowedMethods = ["COD", "BANK", "VNPAY"];
+        const paymentMethod = allowedMethods.includes(paymentMethodRaw) ? paymentMethodRaw : "COD";
         const customerName = name || fullName;
 
         if (!customerName || !address || !phone || !email) {
@@ -172,13 +175,16 @@ exports.createOrder = async (req, res) => {
         }));
 
         // ===== 3) Tạo đơn =====
+        const paymentDeadline = paymentMethod === "COD" ? null : new Date(Date.now() + 10 * 60 * 1000);
+
         const order = await Order.create({
             user: userId || cart.user || null,
             customer: { name: customerName, address, phone, email, note: note || "" },
             items,
             amount,
             status: "pending",
-            payment: "COD",
+            payment: paymentMethod,
+            paymentDeadline,
         });
         createdOrder = order;
         // (3.1) Commit coupon usage SAU khi tạo đơn thành công
@@ -276,6 +282,9 @@ exports.createOrder = async (req, res) => {
             orderId: order._id,
             amount,
             createdAt: order.createdAt,
+            paymentMethod,
+            paymentDeadline,
+            requiresPayment: paymentMethod !== "COD",
         });
     } catch (e) {
         // hoàn kho những dòng đã trừ
@@ -334,6 +343,12 @@ exports.cancelOrder = async (req, res) => {
 
         // 🔴 Đổi trạng thái đơn
         order.status = "cancelled";
+        order.paymentDeadline = null;
+        order.paymentMeta = {
+            ...(order.paymentMeta || {}),
+            cancelledAt: new Date(),
+            cancelReason: "user_cancelled",
+        };
         await order.save();
 
         return res.json({ ok: true, message: "Đơn hàng đã được hủy.", order });
@@ -409,10 +424,13 @@ exports.adminGetOne = async (req, res) => {
 };
 
 exports.adminUpdate = async (req, res) => {
-    const { status, payment } = req.body || {};
+    const { status, payment, paymentDeadline, paymentCompletedAt, paymentMeta } = req.body || {};
     const update = {};
     if (status) update.status = status;   // pending|paid|shipped|completed|cancelled
     if (payment) update.payment = payment; // COD|BANK|VNPAY
+    if (paymentDeadline !== undefined) update.paymentDeadline = paymentDeadline;
+    if (paymentCompletedAt !== undefined) update.paymentCompletedAt = paymentCompletedAt;
+    if (paymentMeta !== undefined) update.paymentMeta = paymentMeta;
     if (!Object.keys(update).length) {
         return res.status(400).json({ message: "Không có trường nào để cập nhật." });
     }
@@ -435,9 +453,18 @@ exports.updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: "Trạng thái không hợp lệ." });
         }
 
+        const update = { status };
+        if (status === "paid") {
+            update.paymentDeadline = null;
+            update.paymentCompletedAt = new Date();
+        }
+        if (status === "cancelled") {
+            update.paymentDeadline = null;
+        }
+
         const order = await Order.findByIdAndUpdate(
             id,
-            { status },
+            update,
             { new: true }
         );
 

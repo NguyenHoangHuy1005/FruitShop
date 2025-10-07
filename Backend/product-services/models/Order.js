@@ -28,6 +28,9 @@ const OrderSchema = new mongoose.Schema({
     },
     status: { type: String, enum: ["pending", "paid", "shipped", "completed", "cancelled"], default: "pending" },
     payment: { type: String, enum: ["COD", "BANK", "VNPAY"], default: "COD" },
+    paymentDeadline: { type: Date, default: null },
+    paymentCompletedAt: { type: Date, default: null },
+    paymentMeta: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Order", OrderSchema);

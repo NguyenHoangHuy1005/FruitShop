@@ -22,14 +22,20 @@ const requireAdmin = async (req, res, next) => {
         const isAdminFromToken = !!(payload?.admin || payload?.isAdmin);
 
         if (isAdminFromToken) {
-        req.userId = uid; req.isAdmin = true; return next();
+            req.userId = uid;
+            req.user = { id: uid, admin: true };
+            req.isAdmin = true;
+            return next();
         }
 
         // Fallback kiểm DB nếu token không chứa flag admin
         if (!uid) return res.status(403).json({ message: "Yêu cầu quyền admin." });
         const user = await User.findById(uid).select("admin isAdmin").lean();
         if (user?.admin || user?.isAdmin) {
-        req.userId = uid; req.isAdmin = true; return next();
+            req.userId = uid;
+            req.user = { id: uid, admin: true };
+            req.isAdmin = true;
+            return next();
         }
         return res.status(403).json({ message: "Yêu cầu quyền admin." });
     } catch (e) {

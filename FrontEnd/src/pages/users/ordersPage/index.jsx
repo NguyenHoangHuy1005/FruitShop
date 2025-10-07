@@ -8,7 +8,6 @@ import {
     API,
     addToCart,
     cancelOrder,
-    clearCart,
 } from "../../../component/redux/apiRequest"; // dùng axios instance sẵn có
 import { ROUTERS } from "../../../utils/router";
 import "./style.scss"; // nếu cần style dùng chung
@@ -218,8 +217,6 @@ const OrdersPage = () => {
 
         setReorderLoading(id);
         try {
-            await clearCart(dispatch);
-
             const selectedIds = [];
             const skipped = [];
             for (const line of items) {
@@ -337,7 +334,6 @@ const OrdersPage = () => {
                     const total = o?.amount?.total ?? o?.amount ?? 0;
                     const createdAt = o?.createdAt || o?.updatedAt || "";
                     const isOpen = openIds.has(id);
-                    const isReorderLoading = reorderLoading === id;
                     const meta = orderMeta.get(id) || {};
                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
 

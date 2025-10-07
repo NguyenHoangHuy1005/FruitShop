@@ -1,6 +1,28 @@
 @use "sass:map";
 @use "../../../style/pages/theme";
 
+@keyframes reminderPulse {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.25); }
+    70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+@keyframes countdownBlink {
+    0%, 100% { color: #dc2626; }
+    50% { color: #f97316; }
+}
+
+@keyframes floatUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ===== Khối trạng thái / thông báo ===== */
 .alert {
     padding: 10px 12px;
@@ -17,6 +39,9 @@
 .table {
     width: 100%;
     border-collapse: collapse;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
 
     thead th {
         font-weight: 600;
@@ -33,6 +58,12 @@
         padding: 10px 12px;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: top;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    tbody tr:hover td {
+        background: #f8fafc;
+        color: #0f172a;
     }
 }
 
@@ -40,22 +71,45 @@
     background: #fcfcfd;
 }
 
-.payment-countdown {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #dc2626;
-    font-weight: 600;
-}
-
 .payment-method-label {
     font-weight: 600;
     color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #f59e0b, #f97316);
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+        animation: floatUp 0.35s ease both;
+    }
 }
 
 .payment-channel-label {
     margin-top: 2px;
     font-size: 12px;
     color: #475569;
+}
+
+.payment-countdown {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #dc2626;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    animation: countdownBlink 1.8s ease-in-out infinite;
+
+    &::before {
+        content: "\23F1";
+        font-size: 14px;
+        line-height: 1;
+    }
 }
 
 .payment-channel-inline {
@@ -128,6 +182,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+    animation: floatUp 0.35s ease;
 }
 
 .order-details table thead th {
@@ -144,6 +199,21 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 16px;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    animation: reminderPulse 6s ease-in-out infinite;
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.55), transparent 60%);
+        opacity: 0;
+        transform: translateX(20px);
+        animation: floatUp 0.5s ease 0.1s forwards;
+        pointer-events: none;
+    }
 }
 
 .order-payment-reminder__content {
@@ -167,6 +237,19 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    animation: floatUp 0.35s ease 0.05s both;
+
+    a,
+    button {
+        position: relative;
+        z-index: 1;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        }
+    }
 }
 
 .order-payment-expired {
@@ -177,6 +260,7 @@
     color: #991b1b;
     border: 1px solid #fecaca;
     font-size: 0.95rem;
+    animation: floatUp 0.35s ease;
 }
 
 .order-payment-cancelled {
@@ -187,6 +271,7 @@
     color: #b91c1c;
     border: 1px solid #fecaca;
     font-size: 0.95rem;
+    animation: floatUp 0.35s ease;
 }
 
 /* ===== Empty state ===== */

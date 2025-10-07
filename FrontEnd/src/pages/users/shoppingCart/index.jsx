@@ -19,6 +19,9 @@ const ShoppingCart = () => {
     const user = useSelector((s) => s.auth?.login?.currentUser);
     const [couponCode, setCouponCode] = useState("");
     const [discount, setDiscount] = useState(0);
+
+    const FREE_SHIPPING_THRESHOLD = 199000;
+    const SHIPPING_FEE = 30000;
     
     // NEW: quản lý chọn sp
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -54,6 +57,28 @@ const ShoppingCart = () => {
         });
     };
 
+    useEffect(() => {
+        const currentIds = new Set((cart?.items || []).map(getId));
+        setSelectedIds((prev) => {
+            const next = new Set();
+            let changed = false;
+
+            prev.forEach((id) => {
+                if (currentIds.has(id)) {
+                    next.add(id);
+                } else {
+                    changed = true;
+                }
+            });
+
+            if (!changed && prev.size === next.size) {
+                return prev;
+            }
+
+            return next;
+        });
+    }, [cart?.items]);
+
     // NEW: danh sách mục đã chọn + tổng tiền theo mục chọn
     const selectedItems = (cart?.items || []).filter((it) => selectedIds.has(getId(it)));
     const selectedSubtotal = selectedItems.reduce(
@@ -61,8 +86,10 @@ const ShoppingCart = () => {
     );
     const selectedTotalQty = selectedItems.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
       // Shipping theo tổng đã chọn
-    const SHIPPING_FEE = 30000;
-    const shippingBySelection = selectedSubtotal >= 199000 ? 0 : SHIPPING_FEE;
+    const shippingBySelection = selectedSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const freeShipPercent = Math.round(Math.min(1, selectedSubtotal / FREE_SHIPPING_THRESHOLD) * 100);
+    const remainingForFreeShip = Math.max(0, FREE_SHIPPING_THRESHOLD - selectedSubtotal);
+    const grandTotal = Math.max(0, selectedSubtotal + shippingBySelection - discount);
 
     // Debounce timers theo từng productId
     const timersRef = useRef({});
@@ -147,7 +174,25 @@ const ShoppingCart = () => {
     return (
         <>
         <Breadcrumb paths={[{ label: "Giỏ hàng" }]} />
-        <div className="container">
+        <div className="container cart-page">
+            <div className="cart__intro">
+                <div>
+                    <h1>Giỏ hàng của bạn</h1>
+                    <p>
+                        {cart?.items?.length
+                            ? `Bạn đang có ${cart.items.length} sản phẩm trong giỏ. Hãy chọn những món muốn thanh toán nhé!`
+                            : "Giỏ hàng đang trống, khám phá thêm sản phẩm để lấp đầy giỏ nào!"}
+                    </p>
+                </div>
+
+                {cart?.items?.length > 0 && (
+                    <div className="cart__intro-meta">
+                        <span className="cart__intro-qty">{selectedTotalQty}</span>
+                        <span>Sản phẩm đã chọn</span>
+                    </div>
+                )}
+            </div>
+
             <div className="table__cart">
                 <table>
                     <thead>
@@ -219,70 +264,116 @@ const ShoppingCart = () => {
                             </tr>
                             );
                         }) : (
-                            <tr><td colSpan={6}>Giỏ hàng trống</td></tr>
+                            <tr>
+                                <td colSpan={6}>
+                                    <div className="cart__empty">
+                                        <span>Giỏ hàng trống.</span>
+                                        <Link to={ROUTERS.USER?.PRODUCTS || "/products"}>Tiếp tục mua sắm</Link>
+                                    </div>
+                                </td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
-            <div className="row">
-                <div className="col-lg-6 col-md-12">
-                    <div className="shopping__cont">
-                        <h3>Mã giảm giá</h3>
-                        <div className="shopping__discount">
+            <div className="cart__panels">
+                <div className="cart__panel">
+                    <div className="cart__panel-head">
+                        <h3>Ưu đãi & mã giảm giá</h3>
+                        <p>Nhập mã khuyến mãi để tiết kiệm hơn cho đơn hàng của bạn.</p>
+                    </div>
+                    <div className="cart__discount">
+                        <div className="cart__discount-input">
                             <input
                                 placeholder="Nhập mã giảm giá"
                                 value={couponCode}
                                 onChange={(e) => setCouponCode(e.target.value)}
                             />
-                            <button type="button" className="button-submit" onClick={applyCoupon}>
+                            <button type="button" onClick={applyCoupon}>
                                 Áp dụng
                             </button>
                         </div>
+                        {discount > 0 && (
+                            <div className="cart__discount-badge">
+                                <span>Mã áp dụng:</span>
+                                <strong>{couponCode}</strong>
+                                <span>-{formatter(discount)}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="col-lg-6 col-md-12">
-                    <div className="shopping__checkout">
-                        <h2>Tổng đơn:</h2>
-                        <ul>
-                            <li>Số lượng: <span>{selectedTotalQty}</span></li>
-                            <li>Thành tiền: <span>{formatter(selectedSubtotal)}</span></li>
+                <div className="cart__panel cart__panel--summary">
+                    <div className="cart__panel-head">
+                        <h3>Tổng quan đơn hàng</h3>
+                        <p>Kiểm tra lại các khoản trước khi tiến hành thanh toán.</p>
+                    </div>
 
+                    <div className="cart__summary">
+                        <div className="cart__progress">
+                            <div className="cart__progress-bar">
+                                <span
+                                    className="cart__progress-fill"
+                                    style={{ width: `${freeShipPercent}%` }}
+                                />
+                            </div>
+                            <div className="cart__progress-text">
+                                {selectedSubtotal >= FREE_SHIPPING_THRESHOLD ? (
+                                    <strong>Chúc mừng! Bạn đã đủ điều kiện miễn phí vận chuyển 🎉</strong>
+                                ) : (
+                                    <span>
+                                        Mua thêm {formatter(remainingForFreeShip)} để được miễn phí giao hàng.
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <ul className="cart__breakdown">
+                            <li>
+                                <span>Số lượng đã chọn</span>
+                                <strong>{selectedTotalQty}</strong>
+                            </li>
+                            <li>
+                                <span>Tạm tính</span>
+                                <strong>{formatter(selectedSubtotal)}</strong>
+                            </li>
                             {discount > 0 && (
-                                <li className="checkout__order__discount">
-                                    Giảm giá: <span>-{formatter(discount)}</span>
+                                <li className="is-discount">
+                                    <span>Giảm giá</span>
+                                    <strong>-{formatter(discount)}</strong>
                                 </li>
                             )}
-
                             <li>
-                                Phí vận chuyển:{" "}
-                                {selectedSubtotal >= 199000 ? (
+                                <span>Phí vận chuyển</span>
+                                {selectedSubtotal >= FREE_SHIPPING_THRESHOLD ? (
                                     <div className="shipping-free">
-                                    <span className="old">{formatter(SHIPPING_FEE)}</span>
-                                    <span className="free-text">Miễn phí</span>
+                                        <span className="old">{formatter(SHIPPING_FEE)}</span>
+                                        <span className="free-text">Miễn phí</span>
                                     </div>
                                 ) : (
-                                    <span className="shipping-fee">{formatter(SHIPPING_FEE)}</span>
+                                    <strong className="shipping-fee">{formatter(SHIPPING_FEE)}</strong>
                                 )}
                             </li>
-
-                            <li>
-                                Tổng cộng:{" "}
-                                <span>{formatter(Math.max(0, selectedSubtotal + shippingBySelection - discount))}</span>
-                            </li>
-
-                            <button type="button" className="button-submit" onClick={handleCheckout}>
-                                Thanh toán
-                            </button>
-
-                            {/* Gợi ý nhỏ khi chưa chọn gì */}
-                            {selectedItems.length === 0 && (
-                                <li style={{ marginTop: 8, opacity: .7, fontStyle: "italic" }}>
-                                    Hãy tick chọn sản phẩm để tính tổng & thanh toán.
-                                </li>
-                            )}
                         </ul>
+
+                        <div className="cart__total">
+                            <span>Tổng cộng</span>
+                            <strong>{formatter(grandTotal)}</strong>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="cart__checkout-btn"
+                            onClick={handleCheckout}
+                            disabled={selectedItems.length === 0}
+                        >
+                            Thanh toán ngay
+                        </button>
+
+                        {selectedItems.length === 0 && (
+                            <p className="cart__hint">Hãy tick chọn sản phẩm để tính tổng & thanh toán.</p>
+                        )}
                     </div>
                 </div>
             </div>

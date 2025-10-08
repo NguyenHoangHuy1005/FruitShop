@@ -287,7 +287,8 @@ $product-main: map.get(theme.$theme-colors, "main");
     /* Số nhìn gọn, canh phải */
     input[type="number"] {
       text-align: right;
-      -moz-appearance: textfield;
+      appearance: textfield;
+
     }
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button {

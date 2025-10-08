@@ -9,6 +9,7 @@ export const ROUTERS = {
     PRODUCT: "/product/detail/:id",
     SHOPPINGCART: "/cart",
     CHECKOUT: "/checkout",
+    ARTICLES: "/articles",
     CONTACT: "/contact",
     PAYMENT: "/payment/:id",
     PAYMENT_SUCCESS: "/payment/:id/success",

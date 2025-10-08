@@ -199,7 +199,7 @@ const Header = () => {
         { name: "Thực phẩm khô", slug: "Thực phẩm khô" },
       ],
     },
-    { name: "Bài viết", path: "" },
+    { name: "Bài viết", path: ROUTERS.USER.ARTICLES },
     { name: "Liên hệ", path: ROUTERS.USER.CONTACT },
   ]);
 

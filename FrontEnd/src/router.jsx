@@ -13,6 +13,7 @@ import ShoppingCart from "./pages/users/shoppingCart";
 import CheckoutPage from "./pages/users/checkoutPage";
 import ContactPage from "./pages/users/contactPage";
 import PaymentPage from "./pages/users/paymentPage";
+import ArticlesPage from "./pages/users/articlesPage";
 
 // Admin auth routes
 import LoginPage from "./pages/admin/loginPage";
@@ -62,6 +63,7 @@ const renderUserRouter = () => {
     { path: ROUTERS.USER.PRODUCT,      element: <ProductDetail /> },
     { path: ROUTERS.USER.SHOPPINGCART, element: <ShoppingCart /> },
     { path: ROUTERS.USER.CHECKOUT,     element: <CheckoutPage /> },
+    { path: ROUTERS.USER.ARTICLES,     element: <ArticlesPage /> },
     { path: ROUTERS.USER.CONTACT,      element: <ContactPage /> },
     { path: ROUTERS.USER.PAYMENT,      element: <PaymentPage /> },
     { path: ROUTERS.USER.PAYMENT_SUCCESS, element: <PaymentPage /> },

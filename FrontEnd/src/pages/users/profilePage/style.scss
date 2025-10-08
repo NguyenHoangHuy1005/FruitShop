@@ -89,6 +89,7 @@
     color: #1e293b;
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(148, 163, 184, 0.3);
+    -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     animation: fadeSlide 360ms ease-out backwards;
 

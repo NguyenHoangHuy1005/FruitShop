@@ -1,4 +1,5 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../../style/pages/theme";
 
 $main: map.get(theme.$theme-colors, "main");
@@ -196,6 +197,7 @@ $accent: #ffb347;
         .icons-close {
             display: flex;
             justify-content: flex-end;
+            position: relative;
 
             .link-btn {
                 width: 40px;
@@ -208,7 +210,9 @@ $accent: #ffb347;
                 align-items: center;
                 justify-content: center;
                 transition: background 0.25s ease, transform 0.25s ease;
-
+                position: absolute;
+                top: -50px;
+                right: 24px; // tuỳ khoảng cách bạn muốn
             svg {
                     transition: transform 0.3s ease;
                 }
@@ -364,7 +368,11 @@ $accent: #ffb347;
             border: none;
             border-radius: 14px;
             padding: 10px 20px;
-            background: linear-gradient(135deg, $main, darken($main, 6%));
+            background: linear-gradient(
+                135deg,
+                $main,
+                color.adjust($main, $lightness: -6%)
+            );
             color: #fff;
             font-weight: 600;
             cursor: pointer;
@@ -424,7 +432,11 @@ $accent: #ffb347;
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(120deg, lighten($main, 5%), darken($main, 5%));
+            background: linear-gradient(
+                120deg,
+                color.adjust($main, $lightness: 5%),
+                color.adjust($main, $lightness: -5%)
+            );
             transition: width 0.45s ease;
         }
     }
@@ -483,7 +495,11 @@ $accent: #ffb347;
     border-radius: 16px;
     font-size: 16px;
     font-weight: 700;
-    background: linear-gradient(135deg, $main, darken($main, 8%));
+    background: linear-gradient(
+        135deg,
+        $main,
+        color.adjust($main, $lightness: -8%)
+    );
     color: #fff;
     cursor: pointer;
     transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;

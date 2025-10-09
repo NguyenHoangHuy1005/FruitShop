@@ -73,6 +73,225 @@
     }
 }
 
+.checkout__coupon {
+    margin-bottom: 28px;
+    padding: 20px 24px;
+    border-radius: 18px;
+    background: linear-gradient(140deg, rgba(14, 165, 233, 0.12), rgba(56, 189, 248, 0.08) 60%, rgba(248, 250, 252, 0.95));
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    &__intro {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #0f172a;
+        }
+
+        p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+    }
+
+    &__control {
+        display: flex;
+        align-items: stretch;
+        gap: 12px;
+
+        input {
+            flex: 1;
+            border-radius: 14px;
+            padding: 12px 18px;
+            border: 1px solid rgba(14, 165, 233, 0.35);
+            background: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+            &:focus {
+                outline: none;
+                border-color: #0ea5e9;
+                box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.18);
+            }
+        }
+
+        button {
+            min-width: 140px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(120deg, #0ea5e9, #38bdf8);
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 22px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+
+            &:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 14px 30px rgba(14, 165, 233, 0.35);
+            }
+
+            &:disabled {
+                cursor: not-allowed;
+                filter: grayscale(0.25);
+                box-shadow: none;
+            }
+        }
+    }
+
+    &__insights {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: rgba(255, 255, 255, 0.55);
+        border-radius: 14px;
+        padding: 14px 16px;
+        border: 1px dashed rgba(14, 165, 233, 0.35);
+    }
+
+    &__tips-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #0284c7;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        &::before {
+            content: "✨";
+            font-size: 1rem;
+        }
+    }
+
+    &__tips-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+
+        button {
+            flex: 1 1 160px;
+            border-radius: 12px;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            background: rgba(240, 249, 255, 0.9);
+            padding: 12px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #0f172a;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+            .code {
+                font-weight: 700;
+                letter-spacing: 0.08em;
+            }
+
+            .save {
+                font-size: 0.85rem;
+                color: #0f766e;
+                font-weight: 600;
+            }
+
+            small {
+                font-size: 0.75rem;
+                color: #64748b;
+            }
+
+            &:hover {
+                transform: translateY(-2px);
+                border-color: #0ea5e9;
+                box-shadow: 0 12px 24px rgba(14, 165, 233, 0.2);
+            }
+        }
+    }
+
+    &__compare {
+        ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            background: rgba(241, 245, 249, 0.7);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+            .code {
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                color: #0f172a;
+            }
+
+            .meta {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+
+                strong {
+                    font-size: 0.9rem;
+                    color: #0f172a;
+                }
+
+                small {
+                    font-size: 0.75rem;
+                    color: #64748b;
+                }
+            }
+
+            &.is-valid {
+                border-color: rgba(16, 185, 129, 0.35);
+                background: rgba(220, 252, 231, 0.7);
+
+                .meta strong {
+                    color: #047857;
+                }
+            }
+
+            &.is-best {
+                transform: translateY(-1px);
+                box-shadow: 0 12px 24px rgba(16, 185, 129, 0.28);
+            }
+
+            &.is-invalid {
+                border-color: rgba(248, 113, 113, 0.3);
+                background: rgba(254, 226, 226, 0.65);
+
+                .meta strong {
+                    color: #b91c1c;
+                }
+            }
+        }
+    }
+}
+
 .checkout__input {
     margin-top: 20px;
     display: flex;
@@ -195,7 +414,6 @@
         color: #fff;
         font-weight: 600;
         font-size: 0.85rem;
-        text-transform: uppercase;
         letter-spacing: 0.04em;
     }
 
@@ -461,5 +679,33 @@
     .checkout__panel__header {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .checkout__coupon {
+        padding: 18px;
+
+        &__control {
+            flex-direction: column;
+
+            button {
+                width: 100%;
+                padding: 14px;
+            }
+        }
+
+        &__tips-list {
+            button {
+                flex: 1 1 100%;
+            }
+        }
+
+        &__compare li {
+            flex-direction: column;
+            align-items: flex-start;
+
+            .meta {
+                align-items: flex-start;
+            }
+        }
     }
 }

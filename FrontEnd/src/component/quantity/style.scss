@@ -6,38 +6,123 @@
 .quantity-container {
     color: map.get(theme.$theme-colors, "decription");
     display: flex;
-    gap: 20px;
-    padding: 40px 0px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 20px;
+    padding: 32px 0 36px;
+
     .quantity {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        
-    
-        span {
-            justify-content: center;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(0, 136, 116, 0.08), rgba(0, 136, 116, 0.18));
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+        }
+
+        &.is-disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .qtybtn {
+            width: 48px;
+            height: 48px;
+            display: grid;
+            place-items: center;
+            font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
+            color: map.get(theme.$theme-colors, "main");
+            background: transparent;
+            transition: background 0.2s ease, color 0.2s ease;
+
+            &:hover {
+                background: rgba(0, 136, 116, 0.12);
+                color: map.get(theme.$theme-colors, "normal-text");
+            }
         }
     
-        .qtybtn,
         input {
-            width: 40px;
-            background: #f5f5f5;
-            height: 52px;
-        }
-    
-        input {
-            border: unset;
-            border-radius: 0;
+            width: 72px;
+            height: 48px;
+            border: none;
+            outline: none;
+            text-align: center;
+            font-weight: 600;
+            font-size: 16px;
+            background: transparent;
+            color: map.get(theme.$theme-colors, "normal-text");
     
             &::-webkit-outer-spin-button,
             &::-webkit-inner-spin-button {
                 -webkit-appearance: none;
                 margin: 0;
             }
-    
+            
+            &:disabled {
+                background: transparent;
+                color: rgba(15, 23, 42, 0.4);
+            }
         }
     }
 
+    .quantity-actions {
+        display: inline-flex;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        &--single {
+            .button-submit {
+                min-width: 220px;
+            }
+        }
+
+        button {
+            border: none;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 15px;
+            padding: 13px 28px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+            letter-spacing: 0.4px;
+
+            &:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 16px 30px rgba(15, 23, 42, 0.15);
+                filter: brightness(1.05);
+            }
+
+            &:disabled {
+                cursor: not-allowed;
+                opacity: 0.6;
+                transform: none;
+                box-shadow: none;
+                filter: none;
+            }
+        }
+
+        .button-submit {
+            background: linear-gradient(135deg, rgba(24, 200, 160, 0.85), rgba(0, 136, 116, 0.95));
+            color: #fff;
+        }
+
+        .button-buy-now {
+            background: #fff;
+            color: map.get(theme.$theme-colors, "main");
+            border: 1px solid rgba(0, 136, 116, 0.4);
+            box-shadow: 0 12px 24px rgba(0, 136, 116, 0.15);
+
+            &:hover {
+                background: linear-gradient(120deg, rgba(255, 255, 255, 0.95), rgba(244, 255, 252, 1));
+            }
+        }
+    }
 }

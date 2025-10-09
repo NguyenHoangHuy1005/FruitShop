@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
 import {
@@ -12,11 +12,13 @@ import {
 import { formatter } from "../../../utils/fomater";
 import { ProductCard } from "../../../component/productCard";
 import Quantity from "../../../component/quantity";
-import { addToCart } from "../../../component/redux/apiRequest"; // Redux action thêm giỏ hàng
+import { addToCart } from "../../../component/redux/apiRequest";
+import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
 const ProductDetail = () => {
     const dispatch = useDispatch();
     const { id } = useParams();
+    const navigate = useNavigate();
 
     const products = useSelector((s) => s.product.products?.allProducts || []);
     const product = products.find((p) => String(p._id) === String(id));
@@ -64,7 +66,7 @@ const ProductDetail = () => {
                     { label: "Chi tiết sản phẩm" },
                 ]}
             />
-            <div className="container">
+            <div className="container product-detail">
                 <div className="row">
                     {/* Hình ảnh sản phẩm */}
                     <div className="col-lg-6 product__detail__pic">
@@ -122,10 +124,27 @@ const ProductDetail = () => {
                                 // Dispatch action Redux (thêm vào giỏ hàng)
                                 addToCart(product._id, qty, dispatch);
                             }}
+                            onBuyNow={async (q) => {
+                                if (isOut) {
+                                    alert("Sản phẩm đã hết hàng.");
+                                    return;
+                                }
+
+                                const qty = Math.max(1, Number(q) || 1);
+                                if (qty > Number(product.onHand)) {
+                                    alert("Số lượng sản phẩm không đủ. Vui lòng giảm số lượng!");
+                                    return;
+                                }
+
+                                await addToCart(product._id, qty, dispatch);
+                                navigate(ROUTERS.USER.CHECKOUT, {
+                                    state: { selectedProductIds: [String(product._id)] },
+                                });
+                            }}
                         />
 
                         {/* Các option khác */}
-                        <div className="product__options">
+                        {/* <div className="product__options">
                             <p>Chọn kiểu:</p>
                             <div className="options">
                                 <label className="option">
@@ -137,7 +156,7 @@ const ProductDetail = () => {
                                     <span>Hộp</span>
                                 </label>
                             </div>
-                        </div>
+                        </div> */}
 
                         <ul>
                             <li>

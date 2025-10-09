@@ -347,13 +347,11 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
         position: absolute;
         width: 100%;
         background: #ffffff;
-
-        /* animation */
         max-height: 500px;
-        /* đủ lớn cho toàn bộ menu */
         opacity: 1;
         overflow: hidden;
         transition: all 0.3s ease;
+        z-index: 100;
 
         li {
             list-style: none;

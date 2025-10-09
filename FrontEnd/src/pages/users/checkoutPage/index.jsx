@@ -3,9 +3,12 @@ import { formatter } from "../../../utils/fomater";
 import "./style.scss";
 import { memo, useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { placeOrder } from "../../../component/redux/apiRequest";
+import { toast } from "react-toastify";
+import { placeOrder, validateCoupon } from "../../../component/redux/apiRequest";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTERS } from "../../../utils/router";
+import { setCoupon } from "../../../component/redux/cartSlice";
+
 
 const CheckoutPage = () => {
     const dispatch = useDispatch();
@@ -31,9 +34,8 @@ const CheckoutPage = () => {
     const SHIPPING_FEE = 30000;
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
-
-    const coupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";
-    const discount = repeatOrder?.coupon?.discount || location.state?.coupon?.discount || cart?.coupon?.discount || 0;
+    const derivedCoupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";
+    const derivedDiscount = repeatOrder?.coupon?.discount || location.state?.coupon?.discount || cart?.coupon?.discount || 0;
 
     const repeatFormDefaults = useMemo(() => ({
         fullName: repeatOrder?.form?.fullName || "",
@@ -45,11 +47,127 @@ const CheckoutPage = () => {
 
     const [form, setForm] = useState(repeatFormDefaults);
     const [paymentMethod, setPaymentMethod] = useState(repeatOrder?.paymentMethod || "COD");
+    const [couponCode, setCouponCode] = useState((derivedCoupon || ""));
+    const [discountValue, setDiscountValue] = useState(Number(derivedDiscount) || 0);
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+    const [couponInsights, setCouponInsights] = useState([]);
 
     useEffect(() => {
         setForm(repeatFormDefaults);
         setPaymentMethod(repeatOrder?.paymentMethod || "COD");
     }, [repeatFormDefaults, repeatOrder]);
+
+    useEffect(() => {
+        const normalized = (derivedCoupon || "").trim();
+        setCouponCode(normalized);
+        setDiscountValue(Number(derivedDiscount) || 0);
+    }, [derivedCoupon, derivedDiscount]);
+
+    useEffect(() => {
+        const normalized = (derivedCoupon || "").trim();
+        if (!normalized || !(Number(derivedDiscount) > 0)) return;
+
+        setCouponInsights((prev) => {
+            const entry = {
+                code: normalized,
+                discount: Number(derivedDiscount) || 0,
+                success: true,
+                message: "Áp dụng sẵn từ giỏ hàng",
+            };
+            const existing = prev.find(
+                (it) => it.code === entry.code && it.discount === entry.discount && it.success === entry.success
+            );
+            if (existing) return prev;
+
+            const filtered = prev.filter((it) => it.code !== entry.code);
+            const next = [entry, ...filtered];
+            next.sort((a, b) => Number(b.discount || 0) - Number(a.discount || 0));
+            return next.slice(0, 5);
+        });
+    }, [derivedCoupon, derivedDiscount]);
+
+    const couponSuggestions = useMemo(() => {
+        const pools = [
+            repeatOrder?.availableCoupons,
+            location.state?.availableCoupons,
+            cart?.availableCoupons,
+        ].filter(Boolean);
+
+        if (!pools.length) return [];
+
+        const merged = pools
+            .flat()
+            .filter(Boolean)
+            .map((it) =>
+                typeof it === "string"
+                    ? { code: it, discount: 0 }
+                    : {
+                        code: (it.code || "").toString(),
+                        discount: Number(it.discount) || 0,
+                        note: it.note || it.description || "",
+                    }
+            );
+
+        const unique = [];
+        const seen = new Set();
+        merged.forEach((entry) => {
+            const code = (entry.code || "").toString();
+            if (!code || seen.has(code)) return;
+            seen.add(code);
+            unique.push({ ...entry, code });
+        });
+
+        unique.sort((a, b) => Number(b.discount || 0) - Number(a.discount || 0));
+        return unique;
+    }, [repeatOrder, location.state, cart?.availableCoupons]);
+
+    const handleApplyCoupon = async () => {
+        const trimmed = (couponCode || "").trim();
+        if (!trimmed) {
+            toast.warn("Vui lòng nhập mã giảm giá.");
+            return;
+        }
+
+        if (!(itemsToShow?.length > 0)) {
+            toast.warn("Chưa có sản phẩm nào để áp dụng mã.");
+            return;
+        }
+
+        setIsApplyingCoupon(true);
+        try {
+            const res = await validateCoupon(trimmed, subtotal);
+            const normalized = (res?.code || trimmed);
+
+            if (res?.ok) {
+                setDiscountValue(Number(res.discount) || 0);
+                setCouponCode(normalized);
+                dispatch(setCoupon({ code: normalized, discount: res.discount }));
+                toast.success(res?.message || "Áp dụng mã giảm giá thành công!");
+            } else {
+                setDiscountValue(0);
+                setCouponCode(normalized);
+                dispatch(setCoupon(null));
+                toast.error(res?.message || "Mã giảm giá không hợp lệ.");
+            }
+
+            setCouponInsights((prev) => {
+                const entry = {
+                    code: normalized,
+                    discount: Number(res?.discount) || 0,
+                    success: !!res?.ok,
+                    message: res?.message || (res?.ok ? "" : "Không phù hợp với đơn hiện tại"),
+                };
+                const filtered = prev.filter((it) => it.code !== entry.code);
+                const next = [entry, ...filtered];
+                next.sort((a, b) => Number(b.discount || 0) - Number(a.discount || 0));
+                return next.slice(0, 5);
+            });
+        } catch (error) {
+            toast.error(error?.message || "Không thể áp dụng mã giảm giá.");
+        } finally {
+            setIsApplyingCoupon(false);
+        }
+    };
 
     const paymentOptions = [
         {
@@ -75,7 +193,7 @@ const CheckoutPage = () => {
             return;
         }
         const result = await placeOrder(
-            { ...form, couponCode: coupon, selectedProductIds, paymentMethod },
+            { ...form, couponCode: couponCode?.trim(), selectedProductIds, paymentMethod },
             user?.accessToken,
             dispatch
         );
@@ -169,6 +287,76 @@ const CheckoutPage = () => {
                             <h2>Đơn hàng</h2>
                             <span className="checkout__order__count">{itemsToShow.length} sản phẩm</span>
                         </div>
+                        <div className="checkout__coupon">
+                            <div className="checkout__coupon__intro">
+                                <h4>Ưu đãi &amp; mã giảm giá</h4>
+                                <p>Nhập mã của bạn hoặc so sánh các gợi ý để chọn ưu đãi tốt nhất.</p>
+                            </div>
+                            <div className="checkout__coupon__control">
+                                <input
+                                    placeholder="Nhập mã giảm giá"
+                                    value={couponCode || ""}
+                                    onChange={(e) => setCouponCode(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleApplyCoupon}
+                                    disabled={isApplyingCoupon}
+                                >
+                                    {isApplyingCoupon ? "Đang áp dụng..." : "Áp dụng"}
+                                </button>
+                            </div>
+                            {(couponSuggestions.length > 0 || couponInsights.length > 0) && (
+                                <div className="checkout__coupon__insights">
+                                    {couponSuggestions.length > 0 && (
+                                        <div className="checkout__coupon__tips">
+                                            <span className="checkout__coupon__tips-title">Gợi ý phù hợp</span>
+                                            <div className="checkout__coupon__tips-list">
+                                                {couponSuggestions.slice(0, 3).map((suggestion) => (
+                                                    <button
+                                                        type="button"
+                                                        key={suggestion.code}
+                                                        onClick={() => setCouponCode((suggestion.code || ""))}
+                                                    >
+                                                        <span className="code">{suggestion.code}</span>
+                                                        {suggestion.discount > 0 && (
+                                                            <span className="save">Tiết kiệm {formatter(suggestion.discount)}</span>
+                                                        )}
+                                                        {suggestion.note && <small>{suggestion.note}</small>}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {couponInsights.length > 0 && (
+                                        <div className="checkout__coupon__compare">
+                                            <span className="checkout__coupon__tips-title">So sánh nhanh</span>
+                                            <ul>
+                                                {couponInsights.map((entry, index) => (
+                                                    <li
+                                                        key={entry.code}
+                                                        className={`${entry.success ? "is-valid" : "is-invalid"} ${
+                                                            index === 0 && entry.success ? "is-best" : ""
+                                                        }`}
+                                                    >
+                                                        <div className="code">{entry.code}</div>
+                                                        <div className="meta">
+                                                            {entry.success ? (
+                                                                <strong>Tiết kiệm {formatter(entry.discount)}</strong>
+                                                            ) : (
+                                                                <strong>Không phù hợp</strong>
+                                                            )}
+                                                            {entry.message && <small>{entry.message}</small>}
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         <ul className="checkout__order__items">
                             {(itemsToShow || []).map((it) => (
                                 <li key={getId(it)}>
@@ -180,13 +368,13 @@ const CheckoutPage = () => {
                                 </li>
                             ))}
 
-                            {discount > 0 && (
+                            {discountValue > 0 && (
                                 <li className="checkout__order__discount">
                                     <div>
                                         <h4>Mã giảm giá</h4>
-                                        <span className="checkout__order__coupon">{coupon}</span>
+                                        <span className="checkout__order__coupon">{couponCode}</span>
                                     </div>
-                                    <b>-{formatter(discount)}</b>
+                                    <b>-{formatter(discountValue)}</b>
                                 </li>
                             )}
 
@@ -210,7 +398,7 @@ const CheckoutPage = () => {
                                     <h3>Tổng tiền</h3>
                                     <span className="checkout__order__summary-note">Đã bao gồm phí và ưu đãi</span>
                                 </div>
-                                <b>{formatter(Math.max(0, subtotal + shipping - discount))}</b>
+                                <b>{formatter(Math.max(0, subtotal + shipping - discountValue))}</b>
                             </li>
                         </ul>
                         <div className="checkout__payment">

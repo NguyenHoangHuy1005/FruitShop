@@ -8,128 +8,244 @@ $product-yellow: #fbc02d; // Vàng
 $product-gray: #f1f1f1;
 $product-main: map.get(theme.$theme-colors, "main");
 
-.container {
-  padding: 100px; // ✅ thêm ;
-  h2 {
-    margin-bottom: 100px;
-    color: map.get(theme.$theme-colors, "main");
-    text-align: center;
-  }
-}
-
 .toolbar {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 15px;
-  gap: 10px;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 14px;
+  padding: 18px;
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0, 136, 116, 0.06);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, $product-main, #00b89b, #f39c12);
+    border-radius: 14px 14px 0 0;
+  }
 
   input {
     flex: 1;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    min-width: 200px;
+    padding: 12px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
     &:focus {
       outline: none;
-      border-color: map.get(theme.$theme-colors, "main");
+      border-color: $product-main;
+      box-shadow: 0 0 0 3px rgba(0, 136, 116, 0.15), 0 2px 8px rgba(0, 136, 116, 0.1);
+      transform: translateY(-1px);
+    }
+
+    &::placeholder {
+      color: #94a3b8;
     }
   }
 
   .btn-add {
-    background: linear-gradient(135deg, #2c3e50, #008874);
+    background: linear-gradient(135deg, #22c55e, #16a34a);
     color: white;
     border: none;
-    padding: 16px 25px;
+    padding: 12px 20px;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+    transition: all 0.25s ease;
+    white-space: nowrap;
 
     &:hover {
-      /* linear-gradient cần >= 2 màu; nếu muốn 1 màu, dùng background-color */
-      background: #2c3e50; // ✅ hover rõ ràng, hợp lệ
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
   }
 }
 
 .product-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
 
   th,
   td {
-    padding: 12px;
+    padding: 14px 16px;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
   }
-  tr:hover td {
-        background: #F3F6FA;
-    }
 
   th {
-    background: $product-gray;
-    font-weight: bold;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    font-weight: 700;
+    font-size: 12px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 2px solid #cbd5e0;
+
+    &:first-child {
+      border-radius: 12px 0 0 0;
+    }
+
+    &:last-child {
+      border-radius: 0 12px 0 0;
+    }
+  }
+
+  tbody tr {
+    transition: all 0.2s ease;
+
+    &:hover td {
+      background: linear-gradient(135deg, rgba(0, 136, 116, 0.03), rgba(0, 184, 155, 0.03));
+    }
+
+    &:last-child td {
+      border-bottom: none;
+    }
   }
 
   img {
     width: 60px;
     height: 60px;
     object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid #ddd;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.25s ease;
+
+    &:hover {
+      transform: scale(1.1);
+      border-color: $product-main;
+      box-shadow: 0 4px 12px rgba(0, 136, 116, 0.2);
+    }
   }
 
   .status {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
 
     &.in-stock {
-      background: rgba(map.get(theme.$theme-colors, "main"), 0.1);
-      color: map.get(theme.$theme-colors, "main");
+      background: linear-gradient(135deg, rgba($product-main, 0.15), rgba($product-main, 0.08));
+      color: $product-main;
+      border: 1px solid rgba($product-main, 0.3);
     }
 
     &.out-stock {
-      background: rgba($product-red, 0.1);
+      background: linear-gradient(135deg, rgba($product-red, 0.15), rgba($product-red, 0.08));
       color: $product-red;
+      border: 1px solid rgba($product-red, 0.3);
     }
   }
 
   .btn-edit,
   .btn-delete {
-    padding: 6px 10px;
+    padding: 7px 12px;
     border: none;
-    border-radius: 4px;
-    font-size: 13px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
     cursor: pointer;
-    margin-right: 5px;
+    margin-right: 6px;
+    transition: all 0.25s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s, height 0.3s;
+    }
+
+    &:hover::before {
+      width: 100px;
+      height: 100px;
+    }
   }
 
   .btn-edit {
-    background: $product-yellow;
+    background: linear-gradient(135deg, $product-yellow, #f9a825);
     color: #ffffff;
+    box-shadow: 0 2px 6px rgba(251, 192, 45, 0.3);
 
     &:hover {
-      background: color.adjust($product-yellow, $lightness: -5%);
+      background: linear-gradient(135deg, #f9a825, #f57f17);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(251, 192, 45, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
   }
 
   .btn-delete {
-    background: $product-red;
+    background: linear-gradient(135deg, $product-red, #b71c1c);
     color: white;
+    box-shadow: 0 2px 6px rgba(198, 40, 40, 0.3);
 
     &:hover {
-      background: color.adjust($product-red, $lightness: -5%);
+      background: linear-gradient(135deg, #b71c1c, #d32f2f);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(198, 40, 40, 0.4);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
   }
 
   .no-data {
     text-align: center;
-    padding: 20px;
-    color: #888;
+    padding: 48px 24px;
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 15px;
+
+    &::before {
+      content: '📦';
+      display: block;
+      font-size: 42px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
   }
 }

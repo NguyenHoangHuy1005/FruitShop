@@ -1,66 +1,223 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../../style/pages/all";
 @use "../../../style/pages/theme";
 
+$main: map.get(theme.$theme-colors, "main");
 
-.login{
-    input{
-        width: calc(100% - 10px);
+.login {
+    input {
+        width: calc(100% - 32px);
     }
 
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #eaeaea;
+    background: linear-gradient(135deg, #f5f7fa 0%, #eaeaea 100%);
 
-    &__container{
+    &__container {
         background: #fff;
-        padding: 32px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 36px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        max-width: 440px;
+        width: 100%;
+        position: relative;
+        transition: box-shadow 0.25s ease, transform 0.25s ease;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, $main, #00b89b, #f39c12);
+            border-radius: 16px 16px 0 0;
+        }
+
+        &:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
     }
 
     &__title {
-        font-weight: 700;
-        color: map.get(theme.$theme-colors, "normal-text");
-        margin-bottom: 20px;
-    }   
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 28px;
+        font-size: 24px;
+        letter-spacing: 0.5px;
+        position: relative;
+        padding-bottom: 12px;
+        background: linear-gradient(135deg, $main, #00b89b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, $main, #00b89b);
+            border-radius: 2px;
+        }
+    }
 
     &__form {
         display: flex;
         flex-direction: column;
-        gap: 20px;
-
+        gap: 18px;
     }
+
     &__form-group {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-
+        gap: 8px;
     }
 
     &__label {
-
-        font-size: 15px;
-        font-weight: 600;
+        font-size: 12px;
+        font-weight: 700;
         color: map.get(theme.$theme-colors, "normal-text");
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
 
+    input {
+        height: 46px;
+        padding: 0 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        background: #f8fafc;
+        transition: all 0.25s ease;
+
+        &::placeholder {
+            color: #94a3b8;
+        }
+
+        &:hover {
+            background: #ffffff;
+            border-color: color.adjust($main, $lightness: 18%);
+        }
+
+        &:focus {
+            outline: none;
+            background: #ffffff;
+            border-color: $main;
+            box-shadow: 0 0 0 3px rgba($main, 0.15), 0 2px 8px rgba($main, 0.1);
+            transform: translateY(-1px);
+        }
     }
 
     &__button {
-        height: 45px;
-        font-size: 15px;
-        font-weight: 600;
+        height: 46px;
+        font-size: 13px;
+        font-weight: 700;
         color: #fff;
-        background-color: map.get(theme.$theme-colors, "main");
-        border-radius: 2px; 
+        background: linear-gradient(135deg, $main, #00b89b);
+        border-radius: 10px;
         border: none;
         cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        box-shadow: 0 2px 8px rgba($main, 0.25);
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        &:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        &:hover {
+            background: linear-gradient(135deg, #00b89b, color.adjust($main, $lightness: -5%));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba($main, 0.35);
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
     }
-   a,p{
-    display: flex;
-    justify-content: center;
-    color: map.get(theme.$theme-colors, "normal-text");
-   }
+
+    a, p {
+        display: flex;
+        justify-content: center;
+        color: map.get(theme.$theme-colors, "normal-text");
+        font-weight: 500;
+        margin-top: 8px;
+
+        a {
+            color: $main;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            margin-left: 6px;
+
+            &:hover {
+                text-decoration: underline;
+                text-underline-offset: 2px;
+            }
+        }
+    }
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+    .login__container {
+        padding: 28px 24px;
+        border-radius: 14px;
+    }
+
+    .login__title {
+        font-size: 22px;
+    }
+
+    .login__button {
+        height: 44px;
+    }
+}
+
+@media (max-width: 360px) {
+    .login__container {
+        padding: 24px 20px;
+    }
+
+    .login__title {
+        font-size: 20px;
+    }
+}
+
+/* Better focus visibility */
+*:focus-visible {
+    outline: 2px solid $main;
+    outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+    background: rgba($main, 0.2);
+    color: #1e293b;
 }

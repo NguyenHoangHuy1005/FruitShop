@@ -1,6 +1,9 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../../style/pages/all";
 @use "../../../style/pages/theme";
+
+$main: map.get(theme.$theme-colors, "main");
 
 .container {
     padding: 10px;
@@ -11,6 +14,30 @@
         text-align: center;
     }
 
+    .user-toolbar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+        align-items: center;
+        padding: 18px;
+        background: linear-gradient(135deg, #f8f9fa, #ffffff);
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 2px 12px rgba(0, 136, 116, 0.06);
+        position: relative;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, $main, #00b89b, #f39c12);
+            border-radius: 14px 14px 0 0;
+        }
+    }
+    
     table {
         width: 100%;
         border-collapse: collapse;

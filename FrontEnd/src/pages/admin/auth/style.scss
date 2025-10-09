@@ -28,40 +28,77 @@ $ring: rgba(91, 124, 250, 0.35);
 .auth-verify__card {
     width: 100%;
     max-width: 420px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
     border: 1px solid $border;
     border-radius: 16px;
-    padding: 28px 24px;
-    box-shadow:    0 12px 30px rgba(0,0,0,0.35),    inset 0 1px 0 rgba(255,255,255,0.04);
-    backdrop-filter: blur(6px);
+    padding: 32px 28px;
+    box-shadow: 
+        0 12px 30px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     animation: pop 220ms ease-out both;
+    position: relative;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, $primary, #06b6d4, #00b89b);
+        border-radius: 16px 16px 0 0;
+    }
 }
 
 @keyframes pop {
-    from { transform: translateY(6px); opacity: 0; }
+    from { transform: translateY(8px); opacity: 0; }
     to   { transform: translateY(0);   opacity: 1; }
 }
 
 .auth-verify__title {
-    font-size: 1.35rem;
-    font-weight: 700;
+    font-size: 1.45rem;
+    font-weight: 800;
     text-align: center;
-    margin: 0 0 14px;
-    letter-spacing: 0.2px;
+    margin: 0 0 16px;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, $primary, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    padding-bottom: 12px;
+
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background: linear-gradient(90deg, $primary, #06b6d4);
+        border-radius: 2px;
+    }
 }
 
 .auth-verify__hint {
     color: $muted;
-    font-size: 0.92rem;
-    line-height: 1.5;
-    margin-bottom: 16px;
+    font-size: 0.94rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    text-align: center;
 
-    b { color: $text; }
+    b { 
+        color: $text; 
+        font-weight: 700;
+    }
 }
 
 .auth-verify__form {
     display: grid;
-    gap: 14px;
+    gap: 16px;
 }
 
 .auth-verify__group {
@@ -75,70 +112,118 @@ $ring: rgba(91, 124, 250, 0.35);
 
 .auth-verify__label {
     font-size: 0.94rem;
+    font-weight: 700;
     color: color.adjust($muted, $lightness: 8%, $space: hsl);
-    }
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+}
 
 .auth-verify__input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 13px 16px;
     background: rgba(12, 18, 36, 0.85);
-    border: 1px solid $border;
+    border: 2px solid $border;
     border-radius: 10px;
     color: $text;
+    font-weight: 500;
     outline: none;
-    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .2s ease;
 
-    &::placeholder { color: #6b7280; }
-    &:hover { border-color: rgba(255,255,255,0.16); }
+    &::placeholder { 
+        color: #6b7280; 
+    }
+    
+    &:hover { 
+        border-color: rgba(255,255,255,0.18); 
+    }
 
     &:focus {
         border-color: $primary;
         box-shadow: 0 0 0 4px $ring;
         background: rgba(10, 16, 32, 0.95);
+        transform: translateY(-1px);
     }
 
     &[inputmode="numeric"] {
         letter-spacing: 2px;
         text-align: center;
-        font-weight: 600;
-        font-size: 1.05rem;
+        font-weight: 700;
+        font-size: 1.08rem;
     }
 }
 
 .auth-verify__input--error {
     border-color: $danger !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3) !important;
 }
 
 .auth-verify__button {
     width: 100%;
-    padding: 12px 14px;
+    padding: 13px 16px;
     border-radius: 10px;
-    border: 1px solid transparent;
-    background: $primary;
+    border: none;
+    background: linear-gradient(135deg, $primary, $primary-hover);
     color: white;
-    font-weight: 600;
-    letter-spacing: .2px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    font-size: 13px;
     cursor: pointer;
-    transition: transform .06s ease, background-color .2s ease, box-shadow .2s ease;
+    box-shadow: 0 2px 8px rgba($primary, 0.3);
+    transition: transform .15s ease, background-color .2s ease, box-shadow .2s ease;
+    position: relative;
+    overflow: hidden;
 
-    &:hover { background: $primary-hover; }
-    &:active { transform: translateY(1px); }
+    &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.3s, height 0.3s;
+    }
+
+    &:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    &:hover { 
+        background: linear-gradient(135deg, $primary-hover, color.adjust($primary-hover, $lightness: -5%));
+        box-shadow: 0 4px 14px rgba($primary, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    &:active { 
+        transform: translateY(0); 
+    }
+    
     &:disabled {
         opacity: .65;
         cursor: not-allowed;
         filter: grayscale(.2);
+        
+        &::before {
+            display: none;
+        }
     }
 }
 
 .auth-verify__button--secondary {
     background: transparent;
-    border: 1px solid rgba(255,255,255,0.16);
+    border: 2px solid rgba(255,255,255,0.16);
     color: $text;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 
     &:hover {
-        background: rgba(255,255,255,0.04);
+        background: rgba(255,255,255,0.06);
         border-color: rgba(255,255,255,0.28);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 }
 
@@ -146,23 +231,45 @@ $ring: rgba(91, 124, 250, 0.35);
     margin-top: 6px;
     color: $danger;
     font-size: 0.88rem;
-}
-.alert {
-    margin: 12px 0 16px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-size: 14px;
-}
-.alert-success {
-    background: #eaf7ea;
-    color: #216e2a;
-    border: 1px solid #bfe6c2;
+    font-weight: 600;
 }
 
+.alert {
+    margin: 14px 0 18px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #eaf7ea, #f0fdf0);
+    color: #216e2a;
+    border-color: #bfe6c2;
+    border-left: 4px solid #16a34a;
+}
 
 /* Responsive */
 @media (max-width: 420px) {
-    .auth-verify__card { padding: 22px 18px; }
-    .auth-verify__title { font-size: 1.22rem; }
+    .auth-verify__card { 
+        padding: 26px 20px; 
+    }
+    
+    .auth-verify__title { 
+        font-size: 1.28rem; 
+    }
+}
+
+/* Better focus visibility */
+*:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+    background: rgba($primary, 0.3);
+    color: $text;
 }
 

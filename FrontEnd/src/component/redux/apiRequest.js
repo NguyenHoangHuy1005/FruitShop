@@ -868,8 +868,8 @@ export const extendCoupon = async (id, payload) => {
 };
 
 // User: kiểm tra coupon trước khi đặt hàng
-export const validateCoupon = async (code, subtotal) => {
-    const res = await API.post("/coupon/validate", { code, subtotal }, { validateStatus: () => true });
+export const validateCoupon = async (code, subtotal, cartItems = []) => {
+    const res = await API.post("/coupon/validate", { code, subtotal, cartItems }, { validateStatus: () => true });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
-    return res.data; // { ok:true, discount, message }
+    return res.data; // { ok:true, discount, applicableProductCount, message }
 };

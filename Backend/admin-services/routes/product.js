@@ -11,5 +11,6 @@ router.get("/search", productController.searchProductByName);
 router.post("/create", requireAdmin, productController.creatProduct);
 router.delete("/:id", requireAdmin, productController.deleteProduct);
 router.put("/:id", requireAdmin, productController.updateProduct);
+router.post("/bulk-discount", requireAdmin, productController.bulkDiscount);
 
 module.exports = router;

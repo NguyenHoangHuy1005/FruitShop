@@ -51,7 +51,7 @@ const ShoppingCart = () => {
     const allRowIds = (cart?.items || []).map(getId);
     const allSelected = allRowIds.length > 0 && allRowIds.every((id) => selectedIds.has(id));
     const toggleAll = () => {
-        setSelectedIds((prev) => {
+        setSelectedIds(() => {
         if (allSelected) return new Set();
         return new Set(allRowIds);
         });
@@ -122,12 +122,27 @@ const ShoppingCart = () => {
             toast.warn("Hãy chọn sản phẩm trước khi áp mã.");
             return;
         }
-        const res = await validateCoupon(couponCode, selectedSubtotal); // ✅ theo mục đã chọn
+        
+        // 🔥 Gửi cartItems để backend kiểm tra sản phẩm áp dụng
+        const cartItems = selectedItems.map(item => ({
+            productId: getId(item),
+            quantity: Number(item.quantity) || 0,
+            price: Number(item.price) || 0
+        }));
+
+        const res = await validateCoupon(couponCode, selectedSubtotal, cartItems);
+        
         if (res?.ok) {
             setDiscount(res.discount || 0);
             setCouponCode(res.code || couponCode);
             dispatch(setCoupon({ code: res.code || couponCode, discount: res.discount }));
-            toast.success(res.message || "Áp dụng mã giảm giá thành công!");
+            
+            // 🔥 Hiển thị thông tin chi tiết về coupon
+            let message = res.message || "Áp dụng mã giảm giá thành công!";
+            if (res.applicableProductCount !== undefined && res.applicableProductCount < selectedItems.length) {
+                message += ` (Áp dụng cho ${res.applicableProductCount}/${selectedItems.length} sản phẩm)`;
+            }
+            toast.success(message);
         } else {
             setDiscount(0);
             dispatch(setCoupon(null));
@@ -135,6 +150,7 @@ const ShoppingCart = () => {
         }
         } catch (err) {
         setDiscount(0);
+        dispatch(setCoupon(null));
         toast.error(err.message || "Không thể áp dụng mã giảm giá.");
         }
     };
@@ -157,10 +173,11 @@ const ShoppingCart = () => {
 
         const selectedProductIds = selectedItems.map(getId);
 
+        // 🔥 Truyền coupon đã áp dụng sang CheckoutPage
         navigate(ROUTERS.USER.CHECKOUT, {
             state: {
-                coupon: { code: couponCode, discount },
-                selectedProductIds, // ✅ truyền để trang Checkout chỉ hiển thị & tính tiền các mục này
+                coupon: couponCode && discount > 0 ? { code: couponCode, discount } : null,
+                selectedProductIds,
             },
         });
     };

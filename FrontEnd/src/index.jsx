@@ -16,12 +16,24 @@ import SplashScreen from "../src/component/modals/SplashScreen";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+// 🔥 Import API instance để set token
+import { API } from "./component/redux/apiRequest";
+
 function MainApp() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 3000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // 🔥 Khôi phục token vào axios header khi app khởi động
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      API.defaults.headers.common.Authorization = `Bearer ${token}`;
+      console.log("✅ Token restored to axios:", token.substring(0, 20) + "...");
+    }
   }, []);
 
   return (

@@ -4,7 +4,20 @@ const authSlice = createSlice({
     name: "auth",
     initialState: {
         login: {
-        currentUser: null,
+        currentUser: (() => {
+            // 🔥 Khôi phục user từ localStorage nếu có token
+            try {
+                const token = localStorage.getItem("accessToken");
+                const userStr = localStorage.getItem("currentUser");
+                if (token && userStr) {
+                    const user = JSON.parse(userStr);
+                    return { ...user, accessToken: token };
+                }
+            } catch (e) {
+                console.error("Failed to restore user:", e);
+            }
+            return null;
+        })(),
         isFetching: false,
         error: false,
         },
@@ -28,6 +41,19 @@ const authSlice = createSlice({
         state.login.isFetching = false;
         state.login.currentUser = action.payload;
         state.login.error = false;
+        
+        // 🔥 Lưu accessToken và user vào localStorage
+        if (action.payload?.accessToken) {
+            try {
+                localStorage.setItem("accessToken", action.payload.accessToken);
+                // Lưu thông tin user (trừ token) để restore sau
+                // eslint-disable-next-line no-unused-vars
+                const { accessToken, ...userData } = action.payload;
+                localStorage.setItem("currentUser", JSON.stringify(userData));
+            } catch (e) {
+                console.error("Failed to save auth data:", e);
+            }
+        }
         },
         loginFailure: (state) => {
         state.login.isFetching = false;
@@ -71,6 +97,14 @@ const authSlice = createSlice({
         state.login.isFetching = false;
         state.login.currentUser = null;
         state.login.error = false;
+        
+        // 🔥 Xóa auth data khỏi localStorage
+        try {
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("currentUser");
+        } catch (e) {
+            console.error("Failed to clear auth data:", e);
+        }
         },
         logoutFailure: (state) => {
         state.login.isFetching = false;

@@ -11,6 +11,8 @@ const CouponSchema = new mongoose.Schema({
   startDate: { type: Date, default: Date.now },    // thời gian bắt đầu
   endDate: { type: Date, required: true },         // hết hạn
   active: { type: Boolean, default: true },        // có đang hoạt động không
+  // NEW: Danh sách ID sản phẩm được áp dụng ([] = áp dụng tất cả)
+  applicableProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("Coupon", CouponSchema);

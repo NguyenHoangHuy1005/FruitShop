@@ -41,18 +41,38 @@ async function calcTotals(cart, couponCode) {
             coupon = await Coupon.findOne({ code: rx, active: true }).lean();
         }
         const now = new Date();
+        
+        // 🔥 Kiểm tra coupon hợp lệ
         if (
             coupon &&
             now >= coupon.startDate && now <= coupon.endDate &&
-            (coupon.usageLimit === 0 || coupon.usedCount < coupon.usageLimit) &&
-            subtotal >= (coupon.minOrder || 0)
+            (coupon.usageLimit === 0 || coupon.usedCount < coupon.usageLimit)
         ) {
-            if (coupon.discountType === "percent") {
-                discount = Math.min(subtotal, Math.round(subtotal * coupon.value / 100));
-            } else if (coupon.discountType === "fixed") {
-                discount = Math.min(subtotal, coupon.value);
+            // 🔥 Tính applicableSubtotal (chỉ tính sản phẩm được áp dụng)
+            let applicableSubtotal = subtotal;
+            
+            if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+                // Có danh sách sản phẩm cụ thể => chỉ tính những sản phẩm đó
+                const applicableProductIds = coupon.applicableProducts.map(id => String(id));
+                applicableSubtotal = 0;
+                
+                for (const it of cart.items) {
+                    const productId = String(it.product?._id || it.product);
+                    if (applicableProductIds.includes(productId)) {
+                        applicableSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
+                    }
+                }
             }
-            couponApplied = discount > 0;
+            
+            // Kiểm tra đơn tối thiểu
+            if (applicableSubtotal >= (coupon.minOrder || 0)) {
+                if (coupon.discountType === "percent") {
+                    discount = Math.min(applicableSubtotal, Math.round(applicableSubtotal * coupon.value / 100));
+                } else if (coupon.discountType === "fixed") {
+                    discount = Math.min(applicableSubtotal, coupon.value);
+                }
+                couponApplied = discount > 0;
+            }
         }
     }
 
@@ -549,6 +569,15 @@ exports.adminStats = async (req, res) => {
         orderByStatus[o.status] = (orderByStatus[o.status] || 0) + 1;
         }
 
+        // 🔥 Gom theo trạng thái và tháng
+        const orderByStatusAndMonth = {};
+        for (const o of orders) {
+            const d = new Date(o.createdAt);
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (!orderByStatusAndMonth[monthKey]) orderByStatusAndMonth[monthKey] = {};
+            orderByStatusAndMonth[monthKey][o.status] = (orderByStatusAndMonth[monthKey][o.status] || 0) + 1;
+        }
+
         // Gom theo tháng (YYYY-MM)
         const revenueByMonth = {};
         for (const o of orders) {
@@ -560,7 +589,7 @@ exports.adminStats = async (req, res) => {
         }
         }
 
-        // Top sản phẩm
+        // Top sản phẩm (tất cả thời gian)
         const productMap = {};
         for (const o of orders) {
         for (const it of o.items) {
@@ -572,12 +601,36 @@ exports.adminStats = async (req, res) => {
         .sort((a, b) => b.sales - a.sales)
         .slice(0, 5);
 
+        // 🔥 Top sản phẩm theo từng tháng
+        const topProductsByMonth = {};
+        for (const o of orders) {
+            const d = new Date(o.createdAt);
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (!topProductsByMonth[monthKey]) topProductsByMonth[monthKey] = {};
+            
+            for (const it of o.items) {
+                const productName = it.name;
+                topProductsByMonth[monthKey][productName] = 
+                    (topProductsByMonth[monthKey][productName] || 0) + (it.quantity || 0);
+            }
+        }
+
+        // Convert map to sorted array for each month
+        Object.keys(topProductsByMonth).forEach(monthKey => {
+            topProductsByMonth[monthKey] = Object.entries(topProductsByMonth[monthKey])
+                .map(([name, sales]) => ({ name, sales }))
+                .sort((a, b) => b.sales - a.sales)
+                .slice(0, 5);
+        });
+
         return res.json({
         totalRevenue,
         countOrders,
         orderByStatus,
+        orderByStatusAndMonth,
         revenueByMonth,
         topProducts,
+        topProductsByMonth,
         });
     } catch (err) {
         console.error("adminStats error:", err);

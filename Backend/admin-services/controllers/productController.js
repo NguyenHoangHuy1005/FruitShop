@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const Stock = require('../../product-services/models/Stock');
 
 // helper: clamp %
 const clampPercent = (n) => {
@@ -48,6 +49,13 @@ const productControllers = {
             const newProduct = new Product(req.body);
             const savedProduct = await newProduct.save();
 
+            // 🔥 Tự động tạo Stock với số lượng 0
+            await Stock.findOneAndUpdate(
+                { product: savedProduct._id },
+                { $setOnInsert: { product: savedProduct._id, onHand: 0 } },
+                { upsert: true, new: true }
+            );
+
             res.status(201).json(savedProduct);
         } catch (err) {
             res.status(500).json({ message: "Lỗi thêm sản phẩm", error: err.message });
@@ -84,6 +92,28 @@ getAllProducts: async (req, res) => {
         },
         { $project: { stock: 0 } }
         ]);
+
+        // 🔥 Kiểm tra và reset giảm giá hết hạn
+        const now = new Date();
+        const expiredProducts = [];
+        
+        for (const product of products) {
+            // Nếu có discountEndDate và đã hết hạn
+            if (product.discountEndDate && new Date(product.discountEndDate) < now && product.discountPercent > 0) {
+                expiredProducts.push(product._id);
+                product.discountPercent = 0; // Reset trong response
+                product.discountStartDate = null;
+                product.discountEndDate = null;
+            }
+        }
+
+        // Cập nhật DB cho các sản phẩm hết hạn (async, không chặn response)
+        if (expiredProducts.length > 0) {
+            Product.updateMany(
+                { _id: { $in: expiredProducts } },
+                { $set: { discountPercent: 0, discountStartDate: null, discountEndDate: null } }
+            ).catch(err => console.error("Error resetting expired discounts:", err));
+        }
 
         // shuffle nếu cần
         for (let i = products.length - 1; i > 0; i--) {
@@ -166,6 +196,47 @@ getAllProducts: async (req, res) => {
             res.status(200).json(products);
         } catch (err) {
             res.status(500).json({ message: err.message });
+        }
+    },
+
+    // 🔥 NEW: Giảm giá hàng loạt
+    bulkDiscount: async (req, res) => {
+        try {
+            const { productIds, discountPercent, discountStartDate, discountEndDate } = req.body;
+
+            if (!Array.isArray(productIds) || productIds.length === 0) {
+                return res.status(400).json({ message: "Vui lòng chọn ít nhất 1 sản phẩm!" });
+            }
+
+            const percent = clampPercent(discountPercent);
+
+            // Chuẩn bị update object
+            const updateData = { discountPercent: percent };
+
+            // Xử lý ngày bắt đầu và kết thúc
+            if (discountStartDate) {
+                updateData.discountStartDate = new Date(discountStartDate);
+            } else {
+                updateData.discountStartDate = null;
+            }
+
+            if (discountEndDate) {
+                updateData.discountEndDate = new Date(discountEndDate);
+            } else {
+                updateData.discountEndDate = null;
+            }
+
+            const result = await Product.updateMany(
+                { _id: { $in: productIds } },
+                { $set: updateData }
+            );
+
+            res.status(200).json({
+                message: `Đã áp dụng giảm giá ${percent}% cho ${result.modifiedCount} sản phẩm!`,
+                modifiedCount: result.modifiedCount
+            });
+        } catch (err) {
+            res.status(500).json({ message: "Lỗi giảm giá hàng loạt!", error: err.message });
         }
     },
 

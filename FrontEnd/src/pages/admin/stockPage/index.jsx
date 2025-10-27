@@ -3,7 +3,6 @@ import "./style.scss";
 import {
     listStock,
     stockIn,
-    stockSet,
     getAllProduct,
     stockInWithInvoice,
     getAllSuppliers,
@@ -16,7 +15,6 @@ function SupplierManagerModal({
     open,
     onClose,
     suppliers,
-    onPick,         // (supplier) => void
     onAddSuccess,   // (newSupplier) => void
     initialTab = "list", // "list" | "add"
     }) {
@@ -279,24 +277,6 @@ const StockManagerPage = () => {
         }
     };
 
-    const onStockSet = async (productId) => {
-        const v = prompt("Đặt lại số tồn (>=0):", "0");
-        if (v === null) return;
-        const qty = Math.max(0, parseInt(v, 10) || 0);
-
-        setBusy(true);
-        try {
-        await stockSet(productId, qty);
-        await load();
-        await getAllProduct(dispatch);
-        alert("Cập nhật tồn kho thành công!");
-        } catch (e) {
-        alert(e?.message || "Cập nhật tồn kho thất bại!");
-        } finally {
-        setBusy(false);
-        }
-    };
-
     const openModal = (pid) => {
         setProductId(pid);
         setSupplierId("");
@@ -327,11 +307,6 @@ const StockManagerPage = () => {
         } finally {
         setBusy(false);
         }
-    };
-
-    // khi nhập SL mà chưa chọn NCC => bật modal quản lý NCC ở tab "add"
-    const handleQuantityFocus = () => {
-        if (!supplierId) openSupplierManager("add");
     };
 
     return (
@@ -394,7 +369,6 @@ const StockManagerPage = () => {
                             <td className="actions">
                                 <button className="btn" onClick={() => onStockIn(p._id)}>Nhập kho nhanh</button>
                                 <button className="btn special" onClick={() => openModal(p._id)}>Nhập NCC</button>
-                                <button className="btn outline" onClick={() => onStockSet(p._id)}>Đặt tồn</button>
                             </td>
                         </tr>
                         );

@@ -9,6 +9,7 @@ import { getOrderStats } from "../../../component/redux/apiRequest";
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(""); // "" = all, "2025-01" = Jan 2025
 
   useEffect(() => {
     (async () => {
@@ -31,11 +32,31 @@ const Dashboard = () => {
     ([period, revenue]) => ({ period, revenue })
   );
 
-  const orderData = Object.entries(stats.orderByStatus || {}).map(
-    ([status, value]) => ({ status, value })
-  );
+  // 🔥 Lọc orderByStatus theo tháng
+  const orderData = (() => {
+    if (!selectedMonth) {
+      // Hiển thị tất cả
+      return Object.entries(stats.orderByStatus || {}).map(
+        ([status, value]) => ({ status, value })
+      );
+    }
+    
+    // Lọc theo tháng (cần backend hỗ trợ orderByStatusAndMonth)
+    const monthData = stats.orderByStatusAndMonth?.[selectedMonth] || {};
+    return Object.entries(monthData).map(
+      ([status, value]) => ({ status, value })
+    );
+  })();
 
-  const productData = stats.topProducts || [];
+  // 🔥 Lọc topProducts theo tháng
+  const productData = (() => {
+    if (!selectedMonth) {
+      return stats.topProducts || [];
+    }
+    
+    // Lọc theo tháng (cần backend hỗ trợ topProductsByMonth)
+    return stats.topProductsByMonth?.[selectedMonth] || [];
+  })();
 
   // (Traffic demo)
   const trafficData = [
@@ -56,6 +77,45 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      {/* 🔥 Filter Section */}
+      <div className="filter-section" style={{ 
+        marginBottom: '20px', 
+        padding: '16px', 
+        background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e2e8f0'
+      }}>
+        <label style={{ 
+          fontWeight: '700', 
+          marginRight: '12px', 
+          fontSize: '14px',
+          color: '#334155'
+        }}>
+          🗓️ Lọc theo tháng:
+        </label>
+        <select 
+          value={selectedMonth} 
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{
+            padding: '8px 14px',
+            borderRadius: '8px',
+            border: '2px solid #e2e8f0',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            minWidth: '180px'
+          }}
+        >
+          <option value="">Tất cả thời gian</option>
+          {revenueData.map((item) => (
+            <option key={item.period} value={item.period}>
+              {item.period}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Top Stats */}
       <div className="stats">
         <div className="card highlight blue">
@@ -93,8 +153,14 @@ const Dashboard = () => {
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={revenueData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
               <XAxis dataKey="period"  />
-              <YAxis tick={{ fontSize: 15 }} />
-              <Tooltip />
+              <YAxis 
+                tick={{ fontSize: 15 }} 
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+              />
+              <Tooltip 
+                formatter={(value) => `${Number(value).toLocaleString()} VND`}
+                labelStyle={{ fontWeight: 'bold' }}
+              />
               <Line
                 type="monotone"
                 dataKey="revenue"

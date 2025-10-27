@@ -69,8 +69,13 @@ exports.stockIn = async (req, res) => {
   return res.json({ ok: true, data: doc });
 };
 
-// Set cứng số tồn
+// Set cứng số tồn (DEPRECATED - không dùng nữa)
 exports.setQuantity = async (req, res) => {
+  return res.status(410).json({ 
+    message: "Chức năng 'Đặt tồn' đã bị vô hiệu hóa. Vui lòng chỉ sử dụng 'Nhập kho' để tăng số lượng tồn." 
+  });
+  
+  /* DEPRECATED CODE - kept for reference
   const { productId, qty = 0 } = req.body || {};
   const val = Math.max(0, parseInt(qty, 10) || 0);
   if (!productId) return res.status(400).json({ message: "Thiếu productId" });
@@ -83,6 +88,7 @@ exports.setQuantity = async (req, res) => {
 
   await upsertProductInventory(productId, doc.onHand);
   return res.json({ ok: true, data: doc });
+  */
 };
 
 // ===== nhập kho kèm phiếu + hóa đơn (đã sửa) =====

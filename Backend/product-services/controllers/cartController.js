@@ -96,8 +96,20 @@ exports.addItem = async (req, res) => {
     const qty = Math.max(1, Number(quantity) || 1);
 
     const cart = await getOrCreateCart(req, res);
-    const product = await Product.findById(productId).lean();
+    let product = await Product.findById(productId).lean();
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
+
+    // 🔥 Kiểm tra và reset giảm giá hết hạn
+    const now = new Date();
+    if (product.discountEndDate && new Date(product.discountEndDate) < now && product.discountPercent > 0) {
+        // Reset giảm giá hết hạn
+        await Product.findByIdAndUpdate(productId, {
+            $set: { discountPercent: 0, discountStartDate: null, discountEndDate: null }
+        });
+        product.discountPercent = 0;
+        product.discountStartDate = null;
+        product.discountEndDate = null;
+    }
 
     // ✅ giá sau giảm
     const pct = Number(product.discountPercent) || 0;

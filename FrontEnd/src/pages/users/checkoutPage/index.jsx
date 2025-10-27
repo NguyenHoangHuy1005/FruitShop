@@ -135,7 +135,14 @@ const CheckoutPage = () => {
 
         setIsApplyingCoupon(true);
         try {
-            const res = await validateCoupon(trimmed, subtotal);
+            // 🔥 Gửi cartItems để backend kiểm tra sản phẩm áp dụng
+            const cartItems = itemsToShow.map(item => ({
+                productId: getId(item),
+                quantity: Number(item.quantity) || 0,
+                price: Number(item.price) || 0
+            }));
+
+            const res = await validateCoupon(trimmed, subtotal, cartItems);
             const normalized = (res?.code || trimmed);
 
             if (res?.ok) {

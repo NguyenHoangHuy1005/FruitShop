@@ -2,65 +2,234 @@
 @use "../../style/pages/all";
 @use "../../style/pages/theme";
 
+$product-main: map.get(theme.$theme-colors, "main");
+$product-red: #c62828;
 
-/* Lớp nền mờ toàn màn hình */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
+/* Form sản phẩm */
+.product-form {
+  padding: 0;
+  
+  h2 {
+    margin: 0 0 24px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: $product-main;
+    position: relative;
+    padding-bottom: 12px;
 
-/* Khung modal */
-.modal-content {
-  background: #fff;
-  border-radius: 8px;
-  width: 500px;
-  max-width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, $product-main, #00b89b);
+      border-radius: 2px;
+    }
+  }
 
-  /* Canh chỉnh form bên trong */
-  .product-form{
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+
     label {
       display: flex;
       flex-direction: column;
-      font-weight: 500;
-      color: map.get(theme.$theme-colors, "normal-text");
+      gap: 8px;
+
+      &.full-width {
+        grid-column: 1 / -1;
+      }
+
+      .label-text {
+        font-size: 13px;
+        font-weight: 700;
+        color: #334155;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        .required {
+          color: $product-red;
+          font-weight: 900;
+        }
+      }
 
       input,
       select,
       textarea {
         width: 100%;
-        padding: 10px;
-        margin-top: 5px;
-        border: 1px solid #ccc;
-        border-radius: 6px;
+        padding: 11px 13px;
         font-size: 14px;
+        font-weight: 500;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+        transition: all 0.25s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         box-sizing: border-box;
-        transition: border 0.3s;
 
         &:focus {
           outline: none;
+          border-color: $product-main;
+          box-shadow: 0 0 0 3px rgba(0, 136, 116, 0.15), 0 2px 8px rgba(0, 136, 116, 0.1);
+          transform: translateY(-1px);
         }
+
+        &::placeholder {
+          color: #94a3b8;
+          font-weight: 400;
+        }
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+        font-family: inherit;
+        line-height: 1.5;
+      }
+
+      input[type="number"] {
+        text-align: right;
+        appearance: textfield;
+
+        &::-webkit-outer-spin-button,
+        &::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      }
+
+      select {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23334155' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+      }
+    }
+  }
+
+  // Preview giá
+  .price-preview {
+    background: linear-gradient(135deg, rgba(0, 136, 116, 0.08), rgba(0, 184, 155, 0.05));
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    margin-top: 8px;
+
+    .preview-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .preview-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      .original-price {
+        font-size: 16px;
+        color: #94a3b8;
+        text-decoration: line-through;
+        font-weight: 600;
+      }
+
+      .discount-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+      }
+
+      .final-price {
+        font-size: 24px;
+        font-weight: 800;
+        color: $product-main;
+        letter-spacing: 0.5px;
+      }
+    }
+  }
+
+  // Form actions
+  .form-actions {
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+
+    .button-submit {
+      width: 100%;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+      }
+
+      &:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
     }
   }
 }
+
 .error-msg {
-  color: red;
+  color: $product-red;
   font-size: 13px;
   margin-top: 4px;
+  font-weight: 600;
 }

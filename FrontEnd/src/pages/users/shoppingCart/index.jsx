@@ -218,6 +218,7 @@ const ShoppingCart = () => {
                                 <input type="checkbox" checked={allSelected} onChange={toggleAll} />
                             </th>
                             <th>Tên</th>
+                            <th>Đơn vị</th>
                             <th>Giá</th>
                             <th>Số lượng</th>
                             <th>Thành tiền</th>
@@ -245,6 +246,7 @@ const ShoppingCart = () => {
                                         <span className="item-name__text">{name}</span>
                                     </Link>
                                 </td>
+                                <td>{it.unit || "kg"}</td>
                                 <td>
                                     {it.discountPercent > 0 ? (
                                         <div className="price-box">

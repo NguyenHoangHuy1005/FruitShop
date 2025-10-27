@@ -17,6 +17,7 @@ export const ProductCard = ({
     status,                 // "Còn hàng" | "Hết hàng" (BE) hoặc "out_of_stock"
     discountPercent = 0,    // từ BE (0..100)
     onHand = 0,             // ✅ THÊM: tồn kho
+    unit = "sp",            // ✅ Đơn vị tính (kg, cái, bó, sp...)
 }) => {
     const dispatch = useDispatch();
     const detailPath = id ? generatePath(ROUTERS.USER.PRODUCT, { id }) : null;
@@ -115,9 +116,11 @@ export const ProductCard = ({
                     <h5>{formatter(price)}</h5>
                 )}
 
-                {/* ✅ Hiện tồn khi <= 10 sp */}
+                {/* ✅ Hiện tồn khi <= 10 */}
                 {Number(onHand) > 0 && Number(onHand) <= 10 && (
-                    <div className="stock-hint low">Chỉ còn {Number(onHand)} sp</div>
+                    <div className="stock-hint low">
+                        Chỉ còn {Number(onHand)} {(unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"}
+                    </div>
                 )}
             </div>
 

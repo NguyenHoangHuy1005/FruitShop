@@ -16,6 +16,7 @@ const ProductsPage = () => {
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
     const [sortType, setSortType] = useState("Mới nhất");
+    const [selectedFamily, setSelectedFamily] = useState(""); // ✅ Lọc theo họ
 
     // Lấy sản phẩm từ Redux
     const products = useSelector(
@@ -46,14 +47,25 @@ const ProductsPage = () => {
     const queryParams = new URLSearchParams(routerLocation.search);
     const categoryParam = queryParams.get("category"); // dùng đúng 1 biến
 
-    // Filter theo tìm kiếm, giá, danh mục
+    // ✅ Lấy danh sách họ từ sản phẩm đã lọc theo category
+    const availableFamilies = [
+        ...new Set(
+            products
+                .filter((p) => !categoryParam || p.category === categoryParam)
+                .map((p) => p.family)
+                .filter(Boolean) // Loại bỏ giá trị rỗng
+        ),
+    ].sort();
+
+    // Filter theo tìm kiếm, giá, danh mục, họ
     let filteredProducts = products.filter((p) => {
         const finalPrice = getFinalPrice(p);
         const matchesSearch = normalizeString(p.name).includes(normalizeString(searchTerm));
         const matchesMin = minPrice === "" || finalPrice >= Number(minPrice);
         const matchesMax = maxPrice === "" || finalPrice <= Number(maxPrice);
         const matchesCategory = !categoryParam || p.category === categoryParam;
-        return matchesSearch && matchesMin && matchesMax && matchesCategory;
+        const matchesFamily = !selectedFamily || p.family === selectedFamily; // ✅ Lọc họ
+        return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
     });
 
     // Sắp xếp sản phẩm
@@ -164,6 +176,30 @@ const ProductsPage = () => {
                                 </div>
                             </div>
 
+                            {/* ✅ Bộ lọc theo họ (chỉ hiện khi có category) */}
+                            {categoryParam && availableFamilies.length > 0 && (
+                                <div className="sidebar_item">
+                                    <h2>Họ {categoryParam}</h2>
+                                    <div className="tags">
+                                        <div
+                                            className={`tag ${!selectedFamily ? "active" : ""}`}
+                                            onClick={() => setSelectedFamily("")}
+                                        >
+                                            Tất cả
+                                        </div>
+                                        {availableFamilies.map((family, key) => (
+                                            <div
+                                                key={key}
+                                                className={`tag ${selectedFamily === family ? "active" : ""}`}
+                                                onClick={() => setSelectedFamily(family)}
+                                            >
+                                                {family}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
                     </div>
 
@@ -186,6 +222,7 @@ const ProductsPage = () => {
                                             status={item.status}
                                             discountPercent={item.discountPercent}
                                             onHand={item.onHand}
+                                            unit={item.unit}
                                         />
                                     </div>
                                 ))

@@ -106,6 +106,11 @@ const ProductDetail = () => {
                             <h3>{formatter(product.price)}</h3>
                         )}
 
+                        {/* ✅ Đơn vị tính */}
+                        <div className="product-unit">
+                            <b>Đơn vị tính:</b> <span>{product.unit || "kg"}</span>
+                        </div>
+
                         {/* ✅ Chọn số lượng + thêm vào giỏ */}
                         <Quantity
                             hasAddToCart
@@ -142,22 +147,7 @@ const ProductDetail = () => {
                                 });
                             }}
                         />
-
-                        {/* Các option khác */}
-                        {/* <div className="product__options">
-                            <p>Chọn kiểu:</p>
-                            <div className="options">
-                                <label className="option">
-                                    <input type="radio" name="type" value="ki" defaultChecked />
-                                    <span>Kí</span>
-                                </label>
-                                <label className="option">
-                                    <input type="radio" name="type" value="hop" />
-                                    <span>Hộp</span>
-                                </label>
-                            </div>
-                        </div> */}
-
+                        
                         <ul>
                             <li>
                                 <b>Tình trạng:</b>{" "}
@@ -169,10 +159,17 @@ const ProductDetail = () => {
                                         className={`stock-inline ${Number(product.onHand) <= 10 ? "low-stock" : "high-stock"
                                             }`}
                                     >
-                                        (Còn: {Number(product.onHand)} sp)
+                                        (Còn: {Number(product.onHand)} {(product.unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"})
                                     </span>
                                 )}
                             </li>
+
+                            {/* ✅ Họ sản phẩm (nếu có) */}
+                            {product.family && (
+                                <li>
+                                    <b>Họ:</b> <span>{product.family}</span>
+                                </li>
+                            )}
 
                             <li>
                                 <b>Chia sẻ:</b>{" "}
@@ -209,6 +206,7 @@ const ProductDetail = () => {
                                 status={item.status}
                                 discountPercent={item.discountPercent}
                                 onHand={item.onHand}
+                                unit={item.unit}
                             />
                         </div>
                     ))}

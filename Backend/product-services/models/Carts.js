@@ -8,6 +8,7 @@ const CartItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1, default: 1 },
     total:    { type: Number, required: true, min: 0 },
     discountPercent: { type: Number, default: 0 },
+    unit:     { type: String, default: "kg" }, // ✅ Lưu đơn vị
 }, { _id: false });
 
 const CartSchema = new mongoose.Schema({

@@ -137,6 +137,7 @@ exports.addItem = async (req, res) => {
         cart.items[idx].quantity += maxAdd;
         cart.items[idx].price = finalPrice;
         cart.items[idx].discountPercent = pct;
+        cart.items[idx].unit = product.unit || "kg"; // ✅ Cập nhật unit
         } else {
         cart.items.push({
             product: product._id,
@@ -146,6 +147,7 @@ exports.addItem = async (req, res) => {
             quantity: maxAdd,
             total: 0,
             discountPercent: pct,
+            unit: product.unit || "kg", // ✅ Lưu đơn vị
         });
         }
     } else {
@@ -154,6 +156,7 @@ exports.addItem = async (req, res) => {
         cart.items[idx].quantity += qty;
         cart.items[idx].price = finalPrice;
         cart.items[idx].discountPercent = pct;
+        cart.items[idx].unit = product.unit || "kg"; // ✅ Cập nhật unit
         } else {
         cart.items.push({
             product: product._id,
@@ -163,6 +166,7 @@ exports.addItem = async (req, res) => {
             quantity: qty,
             total: 0,
             discountPercent: pct,
+            unit: product.unit || "kg", // ✅ Lưu đơn vị
         });
         }
     }

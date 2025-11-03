@@ -31,7 +31,7 @@ const CheckoutPage = () => {
     const subtotal = itemsToShow.reduce(
         (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0
     );
-    const SHIPPING_FEE = 30000;
+    const SHIPPING_FEE = 0; //30k
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
     const derivedCoupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";

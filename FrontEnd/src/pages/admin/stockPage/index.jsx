@@ -312,7 +312,6 @@ const StockManagerPage = () => {
     return (
         <div className="container stock-manager">
             <h2>QUẢN LÝ TỒN KHO</h2>
-
             <div className="toolbar">
                 <input
                     type="text"

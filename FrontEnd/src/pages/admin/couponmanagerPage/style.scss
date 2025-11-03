@@ -29,6 +29,7 @@ $product-main: map.get(theme.$theme-colors, "main");
     .coupon-toolbar {
         display: flex;
         flex-wrap: wrap;
+        align-items: flex-end;
         gap: 14px;
         margin-bottom: 24px;
         padding: 18px;
@@ -49,16 +50,40 @@ $product-main: map.get(theme.$theme-colors, "main");
             border-radius: 14px 14px 0 0;
         }
 
-        input, select {
+        .filter-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             flex: 1;
-            min-width: 140px;
-            padding: 12px 14px;
+            min-width: 160px;
+
+            &:first-child {
+                flex: 2;
+                min-width: 280px;
+            }
+
+            label {
+                font-size: 11px;
+                font-weight: 700;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                line-height: 1;
+                margin: 0;
+            }
+        }
+
+        input, select {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             font-size: 14px;
             font-weight: 500;
             transition: all 0.25s ease;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            background: #fff;
 
             &:focus {
                 outline: none;
@@ -72,18 +97,54 @@ $product-main: map.get(theme.$theme-colors, "main");
             }
         }
 
+        input[type="date"] {
+            color: #64748b;
+            
+            &::-webkit-calendar-picker-indicator {
+                cursor: pointer;
+                opacity: 0.6;
+                transition: opacity 0.2s;
+
+                &:hover {
+                    opacity: 1;
+                }
+            }
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        .range-sep {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 24px;
+            color: $product-main;
+            flex-shrink: 0;
+            padding: 0 8px;
+        }
+
         button {
             background: linear-gradient(135deg, #2c3e50, $product-main);
             color: #fff;
             border: none;
-            padding: 12px 18px;
+            height: 44px;
+            padding: 0 20px;
             border-radius: 10px;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12px;
             cursor: pointer;
             transition: all 0.25s ease;
             box-shadow: 0 2px 8px rgba(0, 136, 116, 0.25);
-            letter-spacing: 0.3px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
             white-space: nowrap;
             flex-shrink: 0;
@@ -99,22 +160,24 @@ $product-main: map.get(theme.$theme-colors, "main");
             }
         }
 
-        .btn-add {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+        .btn-filter {
+            background: linear-gradient(135deg, #2c3e50, #008874);
+            box-shadow: 0 2px 8px rgba(0, 136, 116, 0.25);
 
             &:hover {
-                background: linear-gradient(135deg, #16a34a, #15803d);
-                box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+                background: linear-gradient(135deg, #008874, #00b89b);
+                box-shadow: 0 4px 14px rgba(0, 136, 116, 0.35);
             }
         }
 
-        .range-sep {
-            align-self: center;
-            font-weight: 800;
-            font-size: 16px;
-            color: $product-main;
-            flex-shrink: 0;
+        .btn-add {
+            background: linear-gradient(135deg, #2c3e50, #008874);
+            box-shadow: 0 2px 8px rgba(0, 136, 116, 0.25);
+
+            &:hover {
+                background: linear-gradient(135deg, #008874, #00b89b);
+                box-shadow: 0 4px 14px rgba(0, 136, 116, 0.35);
+            }
         }
 
         @media (max-width: 768px) {
@@ -1269,6 +1332,178 @@ $product-main: map.get(theme.$theme-colors, "main");
 
     &:active {
         transform: translateY(0);
+    }
+}
+
+// Modal gia hạn mã giảm giá
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content.extend-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+    h3 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 24px;
+        text-align: center;
+
+        .code {
+            color: $product-main;
+            background: #e6f7f4;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+        }
+    }
+
+    .meta {
+        background: #f8f9fa;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+        border-left: 4px solid $product-main;
+
+        div {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+
+            b {
+                color: #1e293b;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 20px;
+        margin-bottom: 28px;
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+
+            &.reactivate {
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+                padding: 12px;
+                background: #fff7ed;
+                border-radius: 8px;
+                border: 2px solid #fed7aa;
+
+                input[type="checkbox"] {
+                    width: 20px;
+                    height: 20px;
+                    cursor: pointer;
+                }
+            }
+
+            input[type="number"],
+            input[type="date"] {
+                padding: 12px 14px;
+                border: 2px solid #e2e8f0;
+                border-radius: 10px;
+                font-size: 14px;
+                transition: all 0.25s ease;
+
+                &:focus {
+                    outline: none;
+                    border-color: $product-main;
+                    box-shadow: 0 0 0 3px rgba(0, 136, 116, 0.15);
+                }
+            }
+        }
+    }
+
+    .actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding-top: 20px;
+        border-top: 2px solid #f1f5f9;
+
+        button {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+
+            &.btn-edit-products {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                margin-right: auto;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                }
+            }
+
+            &.btn-cancel {
+                background: #f1f5f9;
+                color: #64748b;
+
+                &:hover {
+                    background: #e2e8f0;
+                    color: #475569;
+                }
+            }
+
+            &.btn-save {
+                background: linear-gradient(135deg, $product-main, #00b89b);
+                color: white;
+
+                &:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 14px rgba(0, 136, 116, 0.35);
+                }
+
+                &:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+            }
+
+            &:active:not(:disabled) {
+                transform: translateY(0);
+            }
+        }
     }
 }
 

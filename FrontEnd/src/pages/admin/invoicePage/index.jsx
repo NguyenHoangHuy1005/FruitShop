@@ -157,10 +157,6 @@ const InvoicePage = () => {
         <div className="container">
             <h2>QUẢN LÝ HÓA ĐƠN NHẬP KHO</h2>
             <div className="invoices">
-                <div className="invoices__header">
-                    
-                </div>
-
                 <div className="invoices__toolbar toolbar-card">
                     <div className="field grow">
                         <label>Tìm kiếm</label>

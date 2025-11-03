@@ -230,11 +230,16 @@ $main: map.get(theme.$theme-colors, "main");
         }
 
         .dash {
-        align-self: end;
-        padding-bottom: 10px;
-        text-align: center;
-        color: #9ca3af;
-        font-weight: 800;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 24px;
+            color: #008874;
+            flex-shrink: 0;
+            padding: 0 8px;
+            margin-top: 17px;
         }
 
         .btn-clear {

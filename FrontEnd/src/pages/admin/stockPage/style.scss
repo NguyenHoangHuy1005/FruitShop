@@ -15,16 +15,14 @@ $main: map.get(theme.$theme-colors, "main");
     h2 {
         text-align: center;
         font-weight: 800;
-        background: linear-gradient(135deg, $main, #00b89b);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        background: linear-gradient(135deg, $main, #008874);
         background-clip: text;
-        margin-bottom: 28px;
-        text-transform: uppercase;
-        font-size: 26px;
-        letter-spacing: 1.2px;
+        margin-top: -19px;
+        margin-bottom: 15px;
+        letter-spacing: 0.5px;
+        font-size: 25px;
         position: relative;
-        padding-bottom: 14px;
+        padding-bottom: 5px;
     }
 
     /* ------- Toolbar ------- */
@@ -82,6 +80,31 @@ $main: map.get(theme.$theme-colors, "main");
 
         .btn {
             white-space: nowrap;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: none;
+
+            &.outline {
+                background: linear-gradient(135deg, #2c3e50, #008874);
+                color: white;
+                box-shadow: 0 2px 8px rgba(0, 136, 116, 0.25);
+
+                &:hover {
+                    background: linear-gradient(135deg, #008874, #00b89b);
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 14px rgba(0, 136, 116, 0.35);
+                }
+
+                &:active {
+                    transform: translateY(0);
+                }
+            }
         }
     }
 

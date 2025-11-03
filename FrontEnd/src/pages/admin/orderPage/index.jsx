@@ -35,7 +35,7 @@ const toEndOfDay = (iso) => {
 
 const PAYMENT_METHOD_LABELS = {
   COD: "Thanh toán khi nhận hàng (COD)",
-  BANK: "Chuyển khoản ngân hàng (VietQR)",
+  BANK: "Thanh toán trực tuyến (SePay QR)",
   VNPAY: "Cổng VNPAY / Thẻ quốc tế",
 };
 
@@ -52,7 +52,10 @@ const PAYMENT_CANCEL_REASON_LABELS = {
 };
 
 const resolvePaymentLabels = (order) => {
-  const methodCode = order?.payment;
+  // Handle both old format (string) and new format (object with gateway)
+  const methodCode = typeof order?.payment === 'object' 
+    ? order?.payment?.gateway 
+    : order?.payment;
   const channelCode = order?.paymentMeta?.channel;
   const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
   const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
@@ -178,43 +181,47 @@ const OrderAdminPage = () => {
                 <div className="orders__header">
                 </div>
                 <div className="orders__toolbar">
-                  <input
-                    value={q}
-                    onChange={(e) => { setPage(1); setQ(e.target.value); }}
-                    placeholder="Tìm tên/điện thoại/email/sản phẩm…"
-                  />
+                  <div className="filter-field search-field">
+                    <label>TÌM KIẾM</label>
+                    <input
+                      value={q}
+                      onChange={(e) => { setPage(1); setQ(e.target.value); }}
+                      placeholder="Mã HD / Nhà cung cấp / Người nhập..."
+                    />
+                  </div>
 
-                  {/* + ADD: Từ ngày */}
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
-                    title="Từ ngày (theo ngày đặt)"
-                  />
+                  <div className="filter-field">
+                    <label>TỪ NGÀY</label>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
+                      title="Từ ngày (theo ngày đặt)"
+                    />
+                  </div>
+
                   <span className="dash">→</span>
-                  {/* + ADD: Đến ngày */}
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => { setPage(1); setToDate(e.target.value); }}
-                    title="Đến ngày (theo ngày đặt)"
-                  />
 
-                  <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="pending">pending</option>
-                    <option value="paid">paid</option>
-                    <option value="shipped">shipped</option>
-                    <option value="completed">completed</option>
-                    <option value="cancelled">cancelled</option>
-                  </select>
+                  <div className="filter-field">
+                    <label>ĐẾN NGÀY</label>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => { setPage(1); setToDate(e.target.value); }}
+                      title="Đến ngày (theo ngày đặt)"
+                    />
+                  </div>
 
-                  <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
-                    <option value={10}>10 / trang</option>
-                    <option value={20}>20 / trang</option>
-                    <option value={50}>50 / trang</option>
-                  </select>
-                  <button className="btn-clear" onClick={resetFilters}>Xóa lọc</button>
+                  <div className="filter-field">
+                    <label>SỐ DÒNG</label>
+                    <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
+                      <option value={10}>10 / trang</option>
+                      <option value={20}>20 / trang</option>
+                      <option value={50}>50 / trang</option>
+                    </select>
+                  </div>
+
+                  <button className="btn-clear" onClick={resetFilters}>XÓA LỌC</button>
                 </div>
 
                 <div className="orders__content">
@@ -240,8 +247,9 @@ const OrderAdminPage = () => {
                                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
                                     const cancelNote = resolveCancelNote(o);
                                     const paidAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";
+                                    const statusClass = o?.status ? `order-${o.status}` : '';
                                     return (
-                                        <tr key={id} className="orders__row">
+                                        <tr key={id} className={`orders__row ${statusClass}`}>
                                             <td>{id.slice(-8).toUpperCase()}</td>
                                             <td className="td-right fw-bold">{formatter(total)}</td>
                                             <td>
@@ -266,30 +274,13 @@ const OrderAdminPage = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                              <select
-                                                value={o?.status}
-                                                onChange={async (e) => {
-                                                  const newStatus = e.target.value;
-                                                  try {
-                                                    await API.patch(`/order/${o._id}/status`, { status: newStatus }, { headers });
-                                                    // cập nhật lại state để FE phản ánh ngay
-                                                    setData((prev) =>
-                                                      prev.map((item) =>
-                                                        item._id === o._id ? { ...item, status: newStatus } : item
-                                                      )
-                                                    );
-                                                  } catch (err) {
-                                                    alert("Cập nhật trạng thái thất bại!");
-                                                  }
-                                                }}
-                                                className={`status-select status-${o?.status}`}
-                                              >
-                                                <option value="pending">Pending</option>
-                                                <option value="paid">Paid</option>
-                                                <option value="shipped">Shipped</option>
-                                                <option value="completed">Completed</option>
-                                                <option value="cancelled">Cancelled</option>
-                                              </select>
+                                              <span className={`status-badge status-${o?.status}`}>
+                                                {o?.status === 'pending' && 'Pending'}
+                                                {o?.status === 'paid' && 'Paid'}
+                                                {o?.status === 'shipped' && 'Shipped'}
+                                                {o?.status === 'completed' && 'Completed'}
+                                                {o?.status === 'cancelled' && 'Cancelled'}
+                                              </span>
                                             </td>
                                         </tr>
                                     );

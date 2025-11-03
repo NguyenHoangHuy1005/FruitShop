@@ -9,6 +9,29 @@ const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
 
+// Helper function to generate VietQR code
+const generateVietQR = (order) => {
+    const bankId = process.env.SEPAY_BANK_ID;
+    const accountNo = process.env.SEPAY_ACCOUNT_NO; 
+    const accountName = process.env.SEPAY_ACCOUNT_NAME;
+    const template = process.env.SEPAY_QR_TEMPLATE || "compact2";
+
+    const orderAmount = order.amount?.total || 0;
+    const transferContent = `DH${String(order._id).slice(-8).toUpperCase()}`;
+
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${orderAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accountName)}`;
+
+    return {
+        qrUrl,
+        code: transferContent,
+        reference: transferContent,
+        bankId,
+        accountNo,
+        accountName,
+        amount: orderAmount,
+    };
+};
+
 // dùng trong controller
 const escapeRegExp = (s = "") => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -28,8 +51,8 @@ async function calcTotals(cart, couponCode) {
         subtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
         totalItems += Number(it.quantity) || 0;
     }
-
-    const SHIPPING_FEE = 30000;
+// phí ship 30k
+    const SHIPPING_FEE = 0;
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
     let discount = 0;
@@ -265,6 +288,32 @@ exports.createOrder = async (req, res) => {
             paymentDeadline,
         });
         createdOrder = order;
+        
+        // Generate QR code immediately for BANK payment
+        if (paymentMethod === "BANK") {
+            try {
+                const qrData = generateVietQR(order);
+                order.paymentMeta = {
+                    ...(order.paymentMeta || {}),
+                    sepay: {
+                        createdAt: new Date(),
+                        qrUrl: qrData.qrUrl,
+                        code: qrData.code,
+                        reference: qrData.reference,
+                        bankId: qrData.bankId,
+                        accountNo: qrData.accountNo,
+                        accountName: qrData.accountName,
+                        amount: qrData.amount,
+                    }
+                };
+                order.markModified("paymentMeta");
+                await order.save();
+            } catch (qrErr) {
+                console.error("[createOrder] QR generation failed:", qrErr);
+                // Continue anyway - QR can be generated later via /payment/qr/:id endpoint
+            }
+        }
+        
         // (3.1) Commit coupon usage SAU khi tạo đơn thành công
         if (couponCode && amount.discount > 0) {
             try {
@@ -342,6 +391,11 @@ exports.createOrder = async (req, res) => {
             amount,
             couponCode: (req.body?.couponCode || "").trim(),
             customer: { name: customerName, address, phone, email, note: note || "" },
+            payment: {
+                method: paymentMethod,
+                deadline: paymentDeadline,
+                qrCode: order.paymentMeta?.sepay?.qrUrl || null,
+            },
         };
         const opts = {
             shopName: process.env.SHOP_NAME || "FruitShop",
@@ -513,42 +567,6 @@ exports.adminUpdate = async (req, res) => {
     ).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     return res.json({ ok: true, data: doc });
-};
-// PATCH /order/:id/status
-exports.updateOrderStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        const allowed = ["pending", "paid", "shipped", "completed", "cancelled"];
-        if (!allowed.includes(status)) {
-            return res.status(400).json({ message: "Trạng thái không hợp lệ." });
-        }
-
-        const update = { status };
-        if (status === "paid") {
-            update.paymentDeadline = null;
-            update.paymentCompletedAt = new Date();
-        }
-        if (status === "cancelled") {
-            update.paymentDeadline = null;
-        }
-
-        const order = await Order.findByIdAndUpdate(
-            id,
-            update,
-            { new: true }
-        );
-
-        if (!order) {
-            return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
-        }
-
-        return res.json(order);
-    } catch (err) {
-        console.error("updateOrderStatus error:", err);
-        return res.status(500).json({ message: "Lỗi server khi cập nhật trạng thái." });
-    }
 };
 
 // Thống kê cho admin

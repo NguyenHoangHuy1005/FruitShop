@@ -257,7 +257,7 @@ const CouponManagerPage = () => {
         await extendCoupon(coupon._id, payload);
         await loadCoupons();
         setExtendModal({ open: false, coupon: null, addUsage: 0, newEndDate: "", reactivate: true, submitting: false });
-        alert("Gia hạn coupon thành công!");
+        alert("Gia hạn mã giảm giá thành công!");
         } catch (e) {
         alert(e?.response?.data?.message || e?.message || "Gia hạn không thành công.");
         setExtendModal((s) => ({ ...s, submitting: false }));
@@ -291,49 +291,60 @@ const CouponManagerPage = () => {
             <div className="coupon-section">
                 {/* Toolbar lọc coupon */}
                 <div className="coupon-toolbar">
-                    <input
-                        type="text"
-                        placeholder="Mã code"
-                        value={couponFilter.code}
-                        onChange={(e) => setCouponFilter((s) => ({ ...s, code: e.target.value }))}
-                    />
+                    <div className="filter-field">
+                        <label>TÌM KIẾM</label>
+                        <input
+                            type="text"
+                            placeholder="Mã HD / Nhà cung cấp / Người nhập..."
+                            value={couponFilter.code}
+                            onChange={(e) => setCouponFilter((s) => ({ ...s, code: e.target.value }))}
+                        />
+                    </div>
 
-                    {/* + ADD: lọc đơn vị */}
-                    <select
-                        value={couponFilter.type}
-                        onChange={(e) => setCouponFilter((s) => ({ ...s, type: e.target.value }))}
-                        title="Lọc theo đơn vị giảm"
-                    >
-                        <option value="all">Tất cả đơn vị</option>
-                        <option value="percent">%</option>
-                        <option value="fixed">VNĐ</option>
-                    </select>
+                    <div className="filter-field">
+                        <label>TỪ NGÀY</label>
+                        <input
+                            type="date"
+                            value={couponFilter.fromDate}
+                            onChange={(e) => setCouponFilter((s) => ({ ...s, fromDate: e.target.value }))}
+                            title="Từ ngày (endDate)"
+                        />
+                    </div>
 
-                    {/* + CHANGE: lọc theo khoảng ngày endDate */}
-                    <input
-                        type="date"
-                        value={couponFilter.fromDate}
-                        onChange={(e) => setCouponFilter((s) => ({ ...s, fromDate: e.target.value }))}
-                        title="Từ ngày (endDate)"
-                    />
                     <span className="range-sep">→</span>
-                    <input
-                        type="date"
-                        value={couponFilter.toDate}
-                        onChange={(e) => setCouponFilter((s) => ({ ...s, toDate: e.target.value }))}
-                        title="Đến ngày (endDate)"
-                    />
 
-                    {/* + CHANGE: reset đúng các trường mới */}
-                    <button onClick={() => setCouponFilter({ code: "", type: "all", fromDate: "", toDate: "" })}>
-                        Xóa lọc
+                    <div className="filter-field">
+                        <label>ĐẾN NGÀY</label>
+                        <input
+                            type="date"
+                            value={couponFilter.toDate}
+                            onChange={(e) => setCouponFilter((s) => ({ ...s, toDate: e.target.value }))}
+                            title="Đến ngày (endDate)"
+                        />
+                    </div>
+
+                    <div className="filter-field">
+                        <label>SỐ DÒNG</label>
+                        <select
+                            value={couponFilter.type}
+                            onChange={(e) => setCouponFilter((s) => ({ ...s, type: e.target.value }))}
+                            title="Lọc theo đơn vị giảm"
+                        >
+                            <option value="all">20 / trang</option>
+                            <option value="percent">%</option>
+                            <option value="fixed">VNĐ</option>
+                        </select>
+                    </div>
+
+                    <button className="btn-filter" onClick={() => setCouponFilter({ code: "", type: "all", fromDate: "", toDate: "" })}>
+                        XÓA LỌC
                     </button>
 
                     <button
                         className="btn-add"
                         onClick={() => setCreateModal((s) => ({ ...s, open: true }))}
                     >
-                        + Thêm Coupon
+                        + THÊM COUPON
                     </button>
                 </div>
 
@@ -430,11 +441,11 @@ const CouponManagerPage = () => {
                 </tbody>
                 </table>
             </div>
-            {/* ===== Modal gia hạn coupon ===== */}
+            {/* ===== Modal gia hạn mã giảm giá ===== */}
             {extendModal.open && (
                 <div className="modal-overlay" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
                     <div className="modal-content extend-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Gia hạn Coupon: <span className="code">{extendModal.coupon?.code}</span></h3>
+                        <h3>Gia hạn mã giảm giá: <span className="code">{extendModal.coupon?.code}</span></h3>
 
                         <div className="meta">
                             <div>Đơn tối thiểu hiện tại: <b>{Number(extendModal.coupon?.minOrder || 0).toLocaleString()} ₫</b></div>
@@ -480,33 +491,32 @@ const CouponManagerPage = () => {
                                 />
                             </label>
 
-
                             <label className="reactivate">
                                 <input
                                 type="checkbox"
                                 checked={extendModal.reactivate}
                                 onChange={(e) => setExtendModal((s) => ({ ...s, reactivate: e.target.checked }))}
                                 />
-                                Bật lại coupon nếu đang ngưng/hết hạn
+                                Bật lại mã giảm giá nếu đang ngưng/hết hạn
                             </label>
                         </div>
 
                         <div className="actions">
-                        <button 
-                            className="btn-edit-products"
-                            onClick={() => {
-                                setExtendModal((s) => ({ ...s, open: false }));
-                                openEditProducts(extendModal.coupon);
-                            }}
-                        >
-                            Sửa SP áp dụng
-                        </button>
-                        <button className="btn-cancel" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
-                            Hủy
-                        </button>
-                        <button className="btn-save" onClick={submitExtend} disabled={extendModal.submitting}>
-                            {extendModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
-                        </button>
+                            <button 
+                                className="btn-edit-products"
+                                onClick={() => {
+                                    setExtendModal((s) => ({ ...s, open: false }));
+                                    openEditProducts(extendModal.coupon);
+                                }}
+                            >
+                                Sửa SP áp dụng
+                            </button>
+                            <button className="btn-cancel" onClick={() => setExtendModal((s) => ({ ...s, open: false }))}>
+                                Hủy
+                            </button>
+                            <button className="btn-save" onClick={submitExtend} disabled={extendModal.submitting}>
+                                {extendModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
+                            </button>
                         </div>
                     </div>
                 </div>

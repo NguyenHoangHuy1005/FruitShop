@@ -36,12 +36,12 @@ const formatCountdown = (ms) => {
 
 const PAYMENT_METHOD_LABELS = {
     COD: "Thanh toán khi nhận hàng (COD)",
-    BANK: "Chuyển khoản ngân hàng (VietQR)",
+    BANK: "Thanh toán trực tuyến (SePay QR)",
     VNPAY: "Cổng VNPAY / Thẻ quốc tế",
 };
 
 const PAYMENT_CHANNEL_LABELS = {
-    vietqr: "Quét mã VietQR - Ngân hàng nội địa",
+    vietqr: "Quét mã SePay - Ngân hàng nội địa",
     card: "QR thẻ quốc tế (Visa/Mastercard)",
     momo: "Ví MoMo",
 };
@@ -53,7 +53,14 @@ const PAYMENT_CANCEL_REASON_LABELS = {
 };
 
 const resolvePaymentLabels = (order) => {
-    const methodCode = order?.payment;
+    // Handle both old format (string) and new format (object)
+    let methodCode;
+    if (typeof order?.payment === 'object') {
+        methodCode = order?.payment?.gateway || 'BANK';
+    } else {
+        methodCode = order?.payment;
+    }
+    
     const channelCode = order?.paymentMeta?.channel;
     const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
     const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
@@ -77,7 +84,7 @@ const OrdersPage = () => {
     const user = useSelector((s) => s.auth?.login?.currentUser);
 
     const [orders, setOrders] = useState([]);
-    const [openIds, setOpenIds] = useState(() => new Set()); // toggle chi tiết từng đơn
+    const [selectedOrderId, setSelectedOrderId] = useState(null); // chỉ hiển thị 1 đơn
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [now, setNow] = useState(() => Date.now());
@@ -198,12 +205,12 @@ const OrdersPage = () => {
     }, [now, orders]);
 
     const toggleOpen = (id) => {
-        setOpenIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
+        // Nếu click vào đơn đang mở thì đóng, nếu không thì mở đơn mới
+        setSelectedOrderId((prev) => (prev === id ? null : id));
+        // Scroll lên đầu trang để xem chi tiết
+        if (selectedOrderId !== id) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleRepeatOrder = async (order) => {
@@ -277,7 +284,7 @@ const OrdersPage = () => {
                         email: customer.email || "",
                         note: customer.note || "",
                     },
-                    paymentMethod: order.payment || "COD",
+                    paymentMethod: typeof order.payment === 'object' ? order.payment?.gateway : (order.payment || "COD"),
                 },
             };
 
@@ -292,7 +299,7 @@ const OrdersPage = () => {
     return (
         <>
         <Breadcrumb paths={[{ label: "Đơn mua" }]} />
-        <div className="container">
+        <div className="container orders-page-container">
             <h2 style={{ margin: "12px 0 16px" }}>Đơn hàng của tôi</h2>
 
             {loading && <p>Đang tải đơn hàng…</p>}
@@ -317,7 +324,200 @@ const OrdersPage = () => {
 
             {!loading && !error && orders && orders.length > 0 && (
             <div className="orders-list">
-                <table className="table table-striped" style={{ width: "100%", borderCollapse: "collapse" }}>
+                {/* Chi tiết đơn hàng được chọn - hiển thị ở đầu */}
+                {selectedOrderId && (() => {
+                    const selectedOrder = orders.find(o => String(o._id || o.id || "") === selectedOrderId);
+                    if (!selectedOrder) return null;
+                    
+                    const id = String(selectedOrder._id || selectedOrder.id || "");
+                    const meta = orderMeta.get(id) || {};
+                    const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", id);
+                    const isReorderLoading = reorderLoading === id;
+                    const { methodLabel, channelLabel } = resolvePaymentLabels(selectedOrder);
+                    const cancelMessage = resolveCancelMessage(selectedOrder);
+                    const total = selectedOrder?.amount?.total ?? selectedOrder?.amount ?? 0;
+                    
+                    return (
+                        <div className="order-detail-card">
+                            <div className={`order-detail-header header-status-${selectedOrder?.status || "pending"}`}>
+                                <div className="order-detail-header-left">
+                                    <h3>Chi tiết đơn hàng #{id.slice(-8).toUpperCase()}</h3>
+                                    <span className={`badge-large status-${selectedOrder?.status || "pending"}`}>
+                                        {selectedOrder?.status === "paid" ? "ĐÃ THANH TOÁN" : 
+                                         selectedOrder?.status === "cancelled" ? "ĐÃ HỦY" :
+                                         selectedOrder?.status === "pending" ? "CHỜ THANH TOÁN" :
+                                         selectedOrder?.status?.toUpperCase()}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="btn-close-detail"
+                                    onClick={() => setSelectedOrderId(null)}
+                                    aria-label="Đóng chi tiết"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="order-detail-body">
+                                {/* Thông tin khách hàng */}
+                                <section className="detail-section">
+                                    <h4 className="detail-section-title">Thông tin người nhận</h4>
+                                    <div className="detail-info-grid">
+                                        <div className="info-item">
+                                            <span className="info-label">Tên:</span>
+                                            <span className="info-value">{selectedOrder?.customer?.name}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="info-label">Điện thoại:</span>
+                                            <span className="info-value">{selectedOrder?.customer?.phone}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <span className="info-label">Email:</span>
+                                            <span className="info-value">{selectedOrder?.customer?.email}</span>
+                                        </div>
+                                        <div className="info-item full-width">
+                                            <span className="info-label">Địa chỉ:</span>
+                                            <span className="info-value">{selectedOrder?.customer?.address}</span>
+                                        </div>
+                                        {selectedOrder?.customer?.note && (
+                                            <div className="info-item full-width">
+                                                <span className="info-label">Ghi chú:</span>
+                                                <span className="info-value">{selectedOrder.customer.note}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                {/* Thông tin thanh toán */}
+                                <section className="detail-section">
+                                    <h4 className="detail-section-title">Thông tin thanh toán</h4>
+                                    <div className="detail-info-grid">
+                                        <div className="info-item">
+                                            <span className="info-label">Phương thức:</span>
+                                            <span className="info-value">{methodLabel}</span>
+                                        </div>
+                                        {channelLabel && (
+                                            <div className="info-item">
+                                                <span className="info-label">Kênh:</span>
+                                                <span className="info-value">{channelLabel}</span>
+                                            </div>
+                                        )}
+                                        {selectedOrder?.paymentCompletedAt && (
+                                            <div className="info-item full-width">
+                                                <span className="info-label">Hoàn tất lúc:</span>
+                                                <span className="info-value highlight-success">
+                                                    {formatDateTime(selectedOrder.paymentCompletedAt)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                {/* Danh sách sản phẩm */}
+                                <section className="detail-section">
+                                    <div className="table__cart" style={{ overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ textAlign: "left" }}>Sản phẩm</th>
+                                                    <th style={{ textAlign: "right" }}>Đơn giá</th>
+                                                    <th style={{ textAlign: "right" }}>SL</th>
+                                                    <th style={{ textAlign: "right" }}>Thành tiền</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(selectedOrder?.items || []).map((it, idx) => {
+                                                    const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
+                                                                {imgSrc && (
+                                                                    <img
+                                                                        src={imgSrc}
+                                                                        alt={it.name}
+                                                                        style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+                                                                    />
+                                                                )}
+                                                                <span style={{ whiteSpace: "nowrap" }}>{it.name}</span>
+                                                            </td>
+                                                            <td style={{ textAlign: "right" }}>{formatter(it.price)}</td>
+                                                            <td style={{ textAlign: "right" }}>{it.quantity}</td>
+                                                            <td style={{ textAlign: "right", fontWeight: 600 }}>
+                                                                {formatter(it.total ?? it.price * it.quantity)}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr>
+                                                    <td colSpan="2" />
+                                                    <td style={{ textAlign: "right" }}><b>Tạm tính:</b></td>
+                                                    <td style={{ textAlign: "right" }}>{formatter(selectedOrder?.amount?.subtotal ?? 0)}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td colSpan="2" />
+                                                    <td style={{ textAlign: "right" }}><b>Vận chuyển:</b></td>
+                                                    <td style={{ textAlign: "right" }}>{formatter(selectedOrder?.amount?.shipping ?? 0)}</td>
+                                                </tr>
+                                                {(selectedOrder?.amount?.discount ?? 0) > 0 && (
+                                                    <tr>
+                                                        <td colSpan="2" />
+                                                        <td style={{ textAlign: "right" }}><b>Giảm giá:</b></td>
+                                                        <td style={{ textAlign: "right", color: "#ef4444" }}>
+                                                            -{formatter(selectedOrder?.amount?.discount ?? 0)}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                                <tr className="total-row">
+                                                    <td colSpan="2" />
+                                                    <td style={{ textAlign: "right" }}><b>Tổng thanh toán:</b></td>
+                                                    <td style={{ textAlign: "right" }}><b>{formatter(total)}</b></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </section>
+
+                                {/* Trạng thái và hành động */}
+                                {selectedOrder.status === "pending" && meta.stillValid && (
+                                    <div className="order-status-alert alert-warning">
+                                        <div>
+                                            <h4>⏰ Thanh toán còn hạn</h4>
+                                            <p>
+                                                Đơn hàng sẽ tự động hủy nếu chưa thanh toán trong <strong>{meta.countdown}</strong> nữa.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="button-submit"
+                                            onClick={() => navigate(paymentPath)}
+                                        >
+                                            Tiếp tục thanh toán
+                                        </button>
+                                    </div>
+                                )}
+
+                                {selectedOrder.status !== "pending" && (
+                                    <div className="order-detail-actions">
+                                        <button
+                                            type="button"
+                                            className="btn-reorder"
+                                            onClick={() => handleRepeatOrder(selectedOrder)}
+                                            disabled={isReorderLoading}
+                                        >
+                                            {isReorderLoading ? "Đang chuẩn bị…" : "Đặt lại đơn"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Bảng danh sách đơn hàng */}
+                <table className="table table-striped orders-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: selectedOrderId ? "24px" : "0" }}>
                 <thead>
                     <tr>
                     <th style={{ textAlign: "left" }}>Mã đơn</th>
@@ -333,7 +533,6 @@ const OrdersPage = () => {
                     const id = String(o._id || o.id || "");
                     const total = o?.amount?.total ?? o?.amount ?? 0;
                     const createdAt = o?.createdAt || o?.updatedAt || "";
-                    const isOpen = openIds.has(id);
                     const meta = orderMeta.get(id) || {};
                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
 
@@ -361,11 +560,11 @@ const OrdersPage = () => {
                         <td style={{ width: 1, whiteSpace: "nowrap" }}>
                             <button
                             type="button"
-                            className="link-btn"
+                            className={`link-btn ${selectedOrderId === id ? 'active' : ''}`}
                             onClick={() => toggleOpen(id)}
-                            aria-expanded={isOpen}
+                            aria-expanded={selectedOrderId === id}
                             >
-                            {isOpen ? "Thu gọn" : "Xem chi tiết"}
+                            {selectedOrderId === id ? "Thu gọn" : "Xem chi tiết"}
                             </button>
                         </td>
                         </tr>
@@ -373,195 +572,6 @@ const OrdersPage = () => {
                     })}
                 </tbody>
                 </table>
-
-                {/* Vùng chi tiết từng đơn */}
-                {orders.map((o) => {
-                    const id = String(o._id || o.id || "");
-                    if (!openIds.has(id)) return null;
-                    const meta = orderMeta.get(id) || {};
-                    const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", id);
-                    const isReorderLoading = reorderLoading === id;
-                    const { methodLabel, channelLabel } = resolvePaymentLabels(o);
-                    const cancelMessage = resolveCancelMessage(o);
-                    return (
-                        <div key={`${id}-details`} className="order-details" style={{ margin: "12px 0 28px" }}>
-                            <div className="card" style={{ padding: 16, border: "1px solid #e5e7eb", borderRadius: 8 }}>
-                                <div style={{ marginBottom: 8 }}>
-                                    <b>Khách hàng: </b>
-                                    {o?.customer?.name} — {o?.customer?.phone} — {o?.customer?.email}
-                                    <br />
-                                    <b>Địa chỉ: </b>
-                                    {o?.customer?.address}
-                                    {o?.customer?.note ? (
-                                        <>
-                                            <br />
-                                            <b>Ghi chú: </b>
-                                            {o.customer.note}
-                                        </>
-                                    ) : null}
-                                </div>
-                                
-                                <div style={{ marginBottom: 12, lineHeight: 1.6 }}>
-                                    <b>Thanh toán: </b>
-                                    {methodLabel}
-                                    {channelLabel ? (
-                                        <span className="payment-channel-inline"> — {channelLabel}</span>
-                                    ) : null}
-                                    {o?.paymentCompletedAt ? (
-                                        <>
-                                            <br />
-                                            <span className="payment-timestamp">
-                                                Hoàn tất lúc: {formatDateTime(o.paymentCompletedAt)}
-                                            </span>
-                                        </>
-                                    ) : null}
-                                </div>
-
-                                <div className="table__cart" style={{ overflowX: "auto" }}>
-                                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                        <thead>
-                                            <tr>
-                                                <th style={{ textAlign: "left" }}>Sản phẩm</th>
-                                                <th style={{ textAlign: "right" }}>Đơn giá</th>
-                                                <th style={{ textAlign: "right" }}>Số lượng</th>
-                                                <th style={{ textAlign: "right" }}>Thành tiền</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(o?.items || []).map((it, idx) => {
-                                                // ảnh có thể là mảng hoặc string
-                                                const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
-                                                return (
-                                                    <tr key={idx} style={{ borderTop: "1px solid #f1f5f9" }}>
-                                                        <td style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
-                                                            {imgSrc ? (
-                                                                <img
-                                                                    src={imgSrc}
-                                                                    alt={it.name}
-                                                                    style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6 }}
-                                                                />
-                                                            ) : null}
-                                                            <span>{it.name}</span>
-                                                        </td>
-                                                        <td style={{ textAlign: "right" }}>{formatter(it.price)}</td>
-                                                        <td style={{ textAlign: "right" }}>{it.quantity}</td>
-                                                        <td style={{ textAlign: "right", fontWeight: 600 }}>
-                                                            {formatter(it.total ?? it.price * it.quantity)}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <td />
-                                                <td />
-                                                <td style={{ textAlign: "right" }}>
-                                                    <b>Tạm tính:</b>
-                                                </td>
-                                                <td style={{ textAlign: "right" }}>
-                                                    {formatter(o?.amount?.subtotal ?? 0)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td />
-                                                <td />
-                                                <td style={{ textAlign: "right" }}>
-                                                    <b>Phí vận chuyển:</b>
-                                                </td>
-                                                <td style={{ textAlign: "right" }}>
-                                                    {formatter(o?.amount?.shipping ?? 0)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td />
-                                                <td />
-                                                <td style={{ textAlign: "right" }}>
-                                                    <b>Giảm giá:</b>
-                                                </td>
-                                                <td style={{ textAlign: "right" }}>
-                                                    {formatter(o?.amount?.discount ?? 0)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td />
-                                                <td />
-                                                <td style={{ textAlign: "right" }}>
-                                                    <h4 style={{ margin: 0 }}>Tổng thanh toán:</h4>
-                                                </td>
-                                                <td style={{ textAlign: "right" }}>
-                                                    <h4 style={{ margin: 0 }}>
-                                                        {formatter(o?.amount?.total ?? o?.amount ?? 0)}
-                                                    </h4>
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                                {o.status === "pending" && meta.stillValid && (
-                                    <div className="order-payment-reminder">
-                                        <div className="order-payment-reminder__content">
-                                            <h4>Thanh toán còn hạn</h4>
-                                            <p>
-                                                Đơn hàng sẽ tự động hủy nếu chưa thanh toán trong <strong>{meta.countdown}</strong> nữa.
-                                            </p>
-                                        </div>
-                                        <div className="order-payment-reminder__actions">
-                                            <button
-                                                type="button"
-                                                className="button-submit"
-                                                onClick={() => navigate(paymentPath)}
-                                            >
-                                                Tiếp tục thanh toán
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                {o.status === "pending" && meta.expired && (
-                                    <div className="order-payment-expired">
-                                        <strong>Thanh toán đã quá hạn.</strong> Hệ thống sẽ sớm hủy đơn và hoàn lại tồn kho sản phẩm.
-                                    </div>
-                                )}
-                                {o.status === "cancelled" && cancelMessage && (
-                                    <div className="order-payment-cancelled">{cancelMessage}</div>
-                                )}
-                                <div className="order-actions">
-                                    <button
-                                        type="button"
-                                        className="btn-reorder"
-                                        onClick={() => handleRepeatOrder(o)}
-                                        disabled={isReorderLoading}
-                                    >
-                                        {isReorderLoading ? "Đang chuẩn bị…" : "Đặt lại đơn"}
-                                    </button>
-                                    {o.status === "pending" && (
-                                        <button
-                                            type="button"
-                                            className="btn-cancel"
-                                            onClick={async () => {
-                                                if (!window.confirm("Bạn có chắc chắn muốn hủy đơn này? (Mã giảm giá sẽ không được hoàn lại)")) return;
-                                                try {
-                                                    const res = await cancelOrder(o._id, user?.accessToken); // dùng o._id
-                                                    setOrders((prev) =>
-                                                        prev.map((ord) =>
-                                                            ord._id === o._id ? { ...ord, status: "cancelled" } : ord
-                                                        )
-                                                    );
-                                                    alert(res.message || "Đơn hàng đã được hủy.");
-                                                } catch (err) {
-                                                    alert(err.message || "Không thể hủy đơn.");
-                                                }
-                                            }}
-                                            disabled={isReorderLoading}
-                                        >
-                                            Hủy đơn
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
             </div>
             )}
         </div>

@@ -38,7 +38,7 @@ function genAccessToken(user) {
     return jwt.sign(
         { id: user._id, admin: !!(user.admin || user.isAdmin) },
         ACCESS_SECRET,
-        { expiresIn: "15m" }
+        { expiresIn: "1h" } // Tăng lên 1 giờ để user có thời gian thanh toán
     );
     }
 

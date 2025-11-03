@@ -46,14 +46,21 @@ const requireAdmin = async (req, res, next) => {
 const verifyToken = (req, res, next) => {
     try {
         const token = readBearer(req);
-        if (!token) return res.status(401).json({ message: "Thiếu token." });
-        if (!JWT_SECRET) return res.status(500).json({ message: "Thiếu JWT_ACCESS_KEY." });
+        if (!token) {
+            console.log('[AUTH] Missing token for:', req.method, req.originalUrl);
+            return res.status(401).json({ message: "Thiếu token." });
+        }
+        if (!JWT_SECRET) {
+            console.log('[AUTH] Missing JWT_SECRET');
+            return res.status(500).json({ message: "Thiếu JWT_ACCESS_KEY." });
+        }
 
         const payload = jwt.verify(token, JWT_SECRET);
         req.user = { id: payload?.id || payload?._id }; // gán userId vào req
         next();
     } catch (e) {
-        return res.status(401).json({ message: "Token không hợp lệ." });
+        console.log('[AUTH] Invalid token:', e.message);
+        return res.status(401).json({ message: "Token không hợp lệ.", error: e.message });
     }
 };
 

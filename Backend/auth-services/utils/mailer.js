@@ -103,6 +103,7 @@ async function sendOrderConfirmationMail(toEmail, toName, orderPayload, opts = {
         amount = {}, // { subtotal, shipping, discount, total, totalItems }
         couponCode = "",
         customer = {}, // { name, address, phone, email, note }
+        payment = {}, // { method, deadline, qrCode }
         } = orderPayload || {};
 
         const rows = items.map((it) => `
@@ -126,6 +127,14 @@ async function sendOrderConfirmationMail(toEmail, toName, orderPayload, opts = {
             <b>Thời gian:</b> ${new Date(createdAt || Date.now()).toLocaleString("vi-VN")}<br/>
             ${orderUrl ? `<b>Chi tiết đơn:</b> <a href="${orderUrl}">${orderUrl}</a><br/>` : ""}
             </p>
+
+            ${payment.qrCode ? `
+            <div style="background:#fff;padding:16px;border-radius:8px;margin:16px 0;text-align:center;border:2px solid #e5e7eb">
+                <h3 style="margin:0 0 12px;color:#111">Mã QR thanh toán</h3>
+                <img src="${payment.qrCode}" alt="QR Code" style="max-width:250px;border:2px solid #e5e7eb;border-radius:8px;padding:8px;background:#fff"/>
+                <p style="margin:12px 0 0;color:#666;font-size:14px">Quét mã QR để thanh toán đơn hàng</p>
+            </div>
+            ` : ""}
 
             <h3 style="margin:16px 0 8px">Thông tin nhận hàng</h3>
             <p style="margin:0">
@@ -191,4 +200,137 @@ async function sendOrderConfirmationMail(toEmail, toName, orderPayload, opts = {
     }
 }
 
-module.exports = { getTransporter,sendVerificationMail, sendResetMail,sendOrderConfirmationMail, };
+// ==== Gửi mail thông báo thanh toán thành công ====
+async function sendPaymentSuccessMail(toEmail, toName, orderPayload, opts = {}) {
+    try {
+        const t = getTransporter();
+        const from = process.env.MAIL_FROM || process.env.MAIL_USER;
+
+        const shopName = opts.shopName || process.env.SHOP_NAME || "FruitShop";
+        const supportEmail = opts.supportEmail || process.env.SHOP_SUPPORT_EMAIL || from;
+        const baseUrl = opts.baseUrl || process.env.APP_BASE_URL || "";
+
+        const {
+            id, // order._id
+            paymentCompletedAt,
+            items = [],
+            amount = {}, // { subtotal, shipping, discount, total }
+            couponCode = "",
+            customer = {}, // { name, address, phone, email }
+            payment = {}, // { gateway, accountNumber, sepayId }
+        } = orderPayload || {};
+
+        const rows = items.map((it) => `
+        <tr>
+            <td style="padding:8px;border-bottom:1px solid #eee">${it.name}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${it.quantity}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${formatVND(it.price)}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${formatVND(it.total)}</td>
+        </tr>
+        `).join("");
+
+        const orderUrl = baseUrl ? `${baseUrl}/orders/${id}` : null;
+        const subject = `[${shopName}] Thanh toán thành công đơn hàng #${shortId(id)}`;
+
+        const html = `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111">
+            <div style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                <h2 style="margin:0">✓ Thanh toán thành công!</h2>
+            </div>
+            <div style="padding:20px;background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+                <p>Xin chào <b>${toName || "bạn"}</b>,</p>
+                <p>Chúng tôi đã nhận được thanh toán của bạn cho đơn hàng <b>#${shortId(id)}</b>.</p>
+
+                <div style="background:#fff;padding:16px;border-radius:8px;margin:16px 0">
+                    <p style="margin:4px 0"><b>Mã đơn hàng:</b> #${shortId(id)}</p>
+                    <p style="margin:4px 0"><b>Thời gian thanh toán:</b> ${new Date(paymentCompletedAt || Date.now()).toLocaleString("vi-VN")}</p>
+                    ${payment.sepayId ? `<p style="margin:4px 0"><b>Mã giao dịch:</b> ${payment.sepayId}</p>` : ""}
+                    ${payment.gateway ? `<p style="margin:4px 0"><b>Ngân hàng:</b> ${payment.gateway}</p>` : ""}
+                    ${orderUrl ? `<p style="margin:4px 0"><b>Chi tiết đơn:</b> <a href="${orderUrl}" style="color:#0ea5e9">${orderUrl}</a></p>` : ""}
+                </div>
+
+                ${payment.qrCode ? `
+                <div style="background:#fff;padding:16px;border-radius:8px;margin:16px 0;text-align:center">
+                    <h3 style="margin:0 0 12px;color:#059669">Mã QR thanh toán đã sử dụng</h3>
+                    <img src="${payment.qrCode}" alt="QR Code" style="max-width:250px;border:2px solid #e5e7eb;border-radius:8px;padding:8px"/>
+                    <p style="margin:8px 0 0;font-size:13px;color:#6b7280">Đây là mã QR bạn đã quét để thanh toán</p>
+                </div>
+                ` : ""}
+
+                <h3 style="margin:16px 0 8px">Thông tin nhận hàng</h3>
+                <div style="background:#fff;padding:16px;border-radius:8px">
+                    <p style="margin:4px 0"><b>Người nhận:</b> ${customer?.name || toName || ""}</p>
+                    <p style="margin:4px 0"><b>Điện thoại:</b> ${customer?.phone || ""}</p>
+                    <p style="margin:4px 0"><b>Địa chỉ:</b> ${customer?.address || ""}</p>
+                </div>
+
+                <h3 style="margin:16px 0 8px">Chi tiết đơn hàng</h3>
+                <table style="width:100%;border-collapse:collapse;background:#fff">
+                    <thead>
+                        <tr style="background:#f3f4f6">
+                            <th style="padding:8px;text-align:left">Sản phẩm</th>
+                            <th style="padding:8px;text-align:center">SL</th>
+                            <th style="padding:8px;text-align:right">Đơn giá</th>
+                            <th style="padding:8px;text-align:right">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="padding:8px;text-align:right"><b>Tạm tính:</b></td>
+                            <td style="padding:8px;text-align:right">${formatVND(amount.subtotal)}</td>
+                        </tr>
+                        ${amount.discount ? `
+                        <tr>
+                            <td colspan="3" style="padding:8px;text-align:right">
+                                <b>Giảm giá${couponCode ? ` (${couponCode})` : ""}:</b>
+                            </td>
+                            <td style="padding:8px;text-align:right;color:#ef4444">- ${formatVND(amount.discount)}</td>
+                        </tr>` : ""}
+                        <tr>
+                            <td colspan="3" style="padding:8px;text-align:right"><b>Phí vận chuyển:</b></td>
+                            <td style="padding:8px;text-align:right">${formatVND(amount.shipping)}</td>
+                        </tr>
+                        <tr style="background:#f3f4f6">
+                            <td colspan="3" style="padding:12px;text-align:right;font-size:16px"><b>Tổng thanh toán:</b></td>
+                            <td style="padding:12px;text-align:right;font-size:16px;color:#059669"><b>${formatVND(amount.total)}</b></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:12px;margin:16px 0;border-radius:4px">
+                    <p style="margin:0"><b>✓ Đơn hàng của bạn đang được chuẩn bị</b></p>
+                    <p style="margin:8px 0 0">Chúng tôi sẽ thông báo cho bạn khi đơn hàng được giao đi.</p>
+                </div>
+
+                <p>Cảm ơn bạn đã mua sắm tại <b>${shopName}</b>!</p>
+                <p style="margin-top:16px">Nếu cần hỗ trợ, vui lòng liên hệ: <a href="mailto:${supportEmail}" style="color:#0ea5e9">${supportEmail}</a></p>
+                <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0"/>
+                <small style="color:#6b7280">Đây là email tự động, vui lòng không trả lời trực tiếp.</small>
+            </div>
+        </div>
+        `;
+
+        const info = await t.sendMail({
+            from,
+            to: toEmail,
+            subject,
+            html,
+        });
+        console.log("[mailer] payment success messageId:", info.messageId);
+        return true;
+    } catch (e) {
+        console.error("sendPaymentSuccessMail error:", e && e.message ? e.message : e);
+        return false;
+    }
+}
+
+module.exports = { 
+    getTransporter,
+    sendVerificationMail, 
+    sendResetMail,
+    sendOrderConfirmationMail,
+    sendPaymentSuccessMail,
+};

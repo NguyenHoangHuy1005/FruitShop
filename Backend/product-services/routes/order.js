@@ -15,7 +15,4 @@ router.get("/",    requireAdmin, orderCtrl.adminList);
 router.get("/:id", requireAdmin, orderCtrl.adminGetOne);
 router.patch("/:id", requireAdmin, orderCtrl.adminUpdate);
 
-// API update status
-router.patch("/:id/status", orderCtrl.updateOrderStatus);
-
 module.exports = router;

@@ -1,85 +1,125 @@
 // BE/server.js
-const express = require("express");
-const dotenv = require("dotenv");
-const cors = require("cors");
-const connectDB = require("./auth-services/config/db");
-const cookieParser = require("cookie-parser");
-const path = require("path");
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const path = require('path');
+const connectDB = require('./auth-services/config/db');
 
-dotenv.config();
+// Connect DB
 connectDB();
 
+// Create app
 const app = express();
 
-// Nếu sau này chạy sau reverse proxy (Nginx...), bật dòng này:
-app.set("trust proxy", 1);
+// === Global safety guards to avoid process exit during debugging ===
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION', err && err.stack ? err.stack : err);
+  // NOTE: do not exit here while debugging to avoid 502 from ngrok immediately
+});
+process.on('unhandledRejection', (reason, p) => {
+  console.error('UNHANDLED REJECTION', reason);
+});
 
-// ===== CORS (đồng nhất cho cả preflight & request thật) =====
+// === Raw body saver for webhooks (keeps original buffer) ===
+const rawBodySaver = (req, res, buf, encoding) => {
+  if (buf && buf.length) req.rawBody = Buffer.from(buf);
+};
+
+// === Body parsers (order matters) ===
+app.use(express.json({
+  limit: '15mb',
+  verify: rawBodySaver,
+  type: ['application/json', 'application/*+json']
+}));
+app.use(express.text({
+  limit: '15mb',
+  verify: rawBodySaver,
+  type: ['text/*']
+}));
+app.use(express.urlencoded({ extended: true, limit: '15mb', verify: rawBodySaver }));
+
+// Trust proxy (useful behind ngrok/nginx)
+app.set('trust proxy', 1);
+
+// ===== CORS configuration =====
 const allowlist = [
   /^http:\/\/localhost:\d+$/,
   /^http:\/\/127\.0\.0\.1:\d+$/,
-  /^http:\/\/\[::1\]:\d+$/,
+  /^http:\/\/\[::1\]:\d+$/
 ];
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);                   // Postman, curl, SSR...
+    if (!origin) return cb(null, true); // allow Postman / curl / server-to-server
     const ok = allowlist.some((re) => re.test(origin));
-    return cb(null, ok ? true : false);                   // phản chiếu origin khi hợp lệ
+    return cb(null, ok ? true : false);
   },
-  credentials: true,                                      // ✔️ cho phép cookie
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","token"],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'token'],
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));                       // ✔️ preflight dùng cùng cấu hình
+app.options('*', cors(corsOptions));
 
+// === Other middleware ===
 app.use(cookieParser());
-app.use(express.json());
 
-// Log gọn
-app.use((req, _res, next) => { console.log(`[${req.method}] ${req.originalUrl}`); next(); });
+// Simple request logger
+app.use((req, _res, next) => {
+  if (req.method !== 'GET' || req.originalUrl.includes('/webhook')) {
+    console.log(`[${req.method}] ${req.originalUrl}`);
+  }
+  next();
+});
 
 // ===== Mount routes =====
-const authRoute      = require("./auth-services/routes/auth");
-const userRoute      = require("./auth-services/routes/user");
+const authRoute = require('./auth-services/routes/auth');
+const userRoute = require('./auth-services/routes/user');
 // admin
-const productRoute   = require("./admin-services/routes/product");
-const uploadRoutes   = require("./admin-services/routes/image");
-const supplierRoutes = require("./admin-services/routes/supplier");
+const productRoute = require('./admin-services/routes/product');
+const uploadRoutes = require('./admin-services/routes/image');
+const supplierRoutes = require('./admin-services/routes/supplier');
 // product
-const cartRoutes     = require("./product-services/routes/cart");
-const orderRoutes    = require("./product-services/routes/order");
-const stockRoutes    = require("./product-services/routes/stock");
-const productRoutes  = require("./product-services/routes/product");
-const couponRoutes   = require("./product-services/routes/coupon");
-const paymentRoutes  = require("./payment-services/routes/payment");
+const cartRoutes = require('./product-services/routes/cart');
+const orderRoutes = require('./product-services/routes/order');
+const stockRoutes = require('./product-services/routes/stock');
+const productRoutes = require('./product-services/routes/product');
+const couponRoutes = require('./product-services/routes/coupon');
+const paymentRoutes = require('./payment-services/routes/payment');
 
-// Static file
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// ================== API ==================
+// Static file serving
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ---- Auth & User ----
-app.use("/api/auth",    authRoute);
-app.use("/api/user",    userRoute);
+app.use('/api/auth', authRoute);
+app.use('/api/user', userRoute);
 
 // ---- Admin ----
-app.use("/api",         uploadRoutes);       // upload ảnh
-app.use("/api/product", productRoute);       // CRUD sản phẩm (admin)
-app.use("/api/supplier", supplierRoutes);
-app.use("/api/stock",   stockRoutes);        // nhập/xem tồn kho
+app.use('/api', uploadRoutes);
+app.use('/api/product', productRoute); // admin CRUD
+app.use('/api/supplier', supplierRoutes);
+app.use('/api/stock', stockRoutes);
 
 // ---- Public/User ----
-app.use("/api/product", productRoutes);      // GET sản phẩm (user)
-app.use("/api/coupon",  couponRoutes);
-app.use("/api/cart",    cartRoutes);
-app.use("/api/order",   orderRoutes);
-app.use("/api/payment", paymentRoutes);
+app.use('/api/product', productRoutes); // user-facing product endpoints
+app.use('/api/coupon', couponRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/order', orderRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // 404 JSON
-app.use((req, res) => res.status(404).json({ message: "Not Found", path: req.originalUrl }));
+app.use((req, res) => res.status(404).json({ message: 'Not Found', path: req.originalUrl }));
 
-app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('GLOBAL ERROR HANDLER', err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ ok: false, msg: 'server_error' });
+});
+
+// Start server
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on port ${port}`));

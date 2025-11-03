@@ -21,8 +21,8 @@ const ShoppingCart = () => {
     const [discount, setDiscount] = useState(0);
 
     const FREE_SHIPPING_THRESHOLD = 199000;
-    const SHIPPING_FEE = 30000;
-    
+    //test thanh toán nên đưa về 0
+    const SHIPPING_FEE = 0; //30k
     // NEW: quản lý chọn sp
     const [selectedIds, setSelectedIds] = useState(new Set());
 

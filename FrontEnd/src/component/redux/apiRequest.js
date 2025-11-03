@@ -488,7 +488,12 @@ export const placeOrder = async (payload, accessToken, dispatch) => {
         const res = await API.post("/order", payload, {
             headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
-        alert(res?.data?.message || "Đặt hàng thành công!");
+        // Nếu đơn yêu cầu thanh toán online, không hiển thị thông báo "Đặt hàng thành công"
+        // vì khách hàng cần hoàn tất thanh toán trên trang thanh toán.
+        const msg = res?.data?.message || "Đặt hàng thành công!";
+        if (!res?.data?.requiresPayment) {
+            alert(msg);
+        }
         // BE thường clear cart sau khi tạo order → làm mới cart:
         await ensureCart(dispatch);
         return res.data;
@@ -588,6 +593,35 @@ export const cancelPaymentSession = async (orderId, token, dispatch) => {
 
     return res.data;
 };
+
+export const createSePayQr = async (orderId, token, dispatch) => {
+    let accessToken = await ensureAccessToken(token, dispatch);
+    if (!accessToken) throw buildAuthError();
+
+    let res = await API.post(`/payment/${orderId}/create-qr`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        validateStatus: () => true,
+    });
+
+    if (res.status === 401) {
+        accessToken = await ensureAccessToken(null, dispatch);
+        if (!accessToken) throw buildAuthError();
+        res = await API.post(`/payment/${orderId}/create-qr`, {}, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            validateStatus: () => true,
+        });
+    }
+
+    if (res.status !== 200) {
+        const message = res?.data?.message || `Không tạo được mã QR thanh toán (HTTP ${res.status}).`;
+        const err = new Error(message);
+        err.status = res.status;
+        throw err;
+    }
+
+    return res.data;
+};
+
 
 export const fetchMyOrders = async (accessToken) => {
     // B1: đảm bảo token (nếu FE bị mất sau reload, sẽ refresh tại đây)

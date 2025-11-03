@@ -26,8 +26,15 @@ const OrderSchema = new mongoose.Schema({
         discount: { type: Number, required: true, min: 0, default: 0 },
         total: { type: Number, required: true, min: 0 },
     },
-    status: { type: String, enum: ["pending", "paid", "shipped", "completed", "cancelled"], default: "pending" },
-    payment: { type: String, enum: ["COD", "BANK", "VNPAY"], default: "COD" },
+    status: { 
+        type: String, 
+        enum: ["pending", "paid", "shipped", "completed", "cancelled"], 
+        default: "pending" 
+    },
+    payment: { 
+        type: mongoose.Schema.Types.Mixed, 
+        default: "COD" 
+    },
     paymentDeadline: { type: Date, default: null },
     paymentCompletedAt: { type: Date, default: null },
     paymentMeta: { type: mongoose.Schema.Types.Mixed, default: {} },

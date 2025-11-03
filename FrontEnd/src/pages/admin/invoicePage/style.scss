@@ -5,7 +5,7 @@
 .invoices {
     background: #fff;
     border-radius: 16px;
-    padding: 24px;
+    padding: 0px 24px 24px 24px;
     box-shadow: 0 4px 20px rgba(0, 136, 116, 0.08);
     
     &__header {
@@ -27,7 +27,7 @@
         flex-wrap: wrap;
         align-items: flex-end;
         gap: 14px;
-        margin-bottom: 24px;
+        margin-bottom: 10px;
 
         &.toolbar-card {
             width: 100%;
@@ -109,11 +109,15 @@
         }
 
         .dash {
-            align-self: center;
-            padding: 0 6px 10px;
-            font-weight: 800;
-            font-size: 16px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 24px;
             color: #008874;
+            flex-shrink: 0;
+            padding: 0 8px;
         }
 
         .btn.ghost {

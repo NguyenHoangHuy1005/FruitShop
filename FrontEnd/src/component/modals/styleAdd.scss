@@ -98,6 +98,7 @@ $product-red: #c62828;
       }
 
       input[type="number"] {
+        font-variant-numeric: tabular-nums;
         text-align: right;
         appearance: textfield;
 
@@ -117,6 +118,53 @@ $product-red: #c62828;
         padding-right: 36px;
       }
     }
+  }
+
+  // 🆕 Nút upload ảnh mini
+  .upload-btn {
+    .button-mini {
+      display: inline-block;
+      padding: 8px 16px;
+      background: $product-main;
+      color: white;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      
+      &:hover {
+        background: darken($product-main, 8%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 136, 116, 0.25);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
+
+  // 🆕 Preview ảnh
+  .image-preview {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 2px dashed #cbd5e1;
+    
+    img {
+      border: 2px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  .muted {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
   }
 
   // Preview giá

@@ -1,7 +1,7 @@
 // src/pages/user/orders/index.jsx
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import { formatter } from "../../../utils/fomater";
 import {
@@ -81,6 +81,7 @@ const resolveCancelMessage = (order) => {
 const OrdersPage = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const location = useLocation();
     const user = useSelector((s) => s.auth?.login?.currentUser);
 
     const [orders, setOrders] = useState([]);
@@ -107,6 +108,19 @@ const OrdersPage = () => {
             delete API.defaults.headers.common.Authorization;
         }
     }, [user?.accessToken]);
+    
+    // Xử lý selectedOrderId từ navigation state
+    useEffect(() => {
+        if (location.state?.selectedOrderId) {
+            setSelectedOrderId(location.state.selectedOrderId);
+            // Clear state sau khi đã sử dụng
+            window.history.replaceState({}, document.title);
+            // Scroll lên đầu trang để xem chi tiết
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
+        }
+    }, [location.state]);
     
     useEffect(() => {
         if (!user?.accessToken) {

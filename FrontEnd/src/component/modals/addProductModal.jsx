@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
+import { API } from "../redux/apiRequest";
 import "./styleAdd.scss";
 
 const ProductForm = ({ initialData, onSubmit }) => {
@@ -11,6 +12,8 @@ const ProductForm = ({ initialData, onSubmit }) => {
   const [unit, setUnit] = useState(initialData?.unit || "kg");
   const [family, setFamily] = useState(initialData?.family || "");
   const [image, setImage] = useState(initialData?.image || "");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [discountPercent, setDiscountPercent] = useState(initialData?.discountPercent ?? 0);
 
   const handleSubmit = (e) => {
@@ -127,13 +130,66 @@ const ProductForm = ({ initialData, onSubmit }) => {
 
         <label className="full-width">
           <span className="label-text">Ảnh sản phẩm (URL)</span>
-          <input
-            type="url"
-            placeholder="https://example.com/image.jpg"
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-          />
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <input
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <label className="upload-btn" style={{ cursor: 'pointer' }}>
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!/^image\//.test(file.type)) return alert("Vui lòng chọn file ảnh");
+                  if (file.size > 5 * 1024 * 1024) return alert("Ảnh tối đa 5MB");
+                  try {
+                    setUploading(true);
+                    setUploadError("");
+                    const form = new FormData();
+                    form.append('images', file);
+                    const token = localStorage.getItem('accessToken') || '';
+                    const res = await API.post('/upload', form, {
+                      headers: {
+                        Authorization: token ? `Bearer ${token}` : undefined,
+                        'Content-Type': 'multipart/form-data',
+                      },
+                      validateStatus: () => true,
+                    });
+                    if (res.status !== 200 || !res.data?.urls?.[0]) {
+                      console.error('Upload error', res.data);
+                      setUploadError(res.data?.message || 'Upload thất bại');
+                      return;
+                    }
+                    setImage(res.data.urls[0]);
+                    alert('Upload ảnh thành công');
+                  } catch (err) {
+                    console.error(err);
+                    setUploadError(err?.message || 'Upload thất bại');
+                  } finally {
+                    setUploading(false);
+                    // reset input
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <span className="button-mini">Tải lên</span>
+            </label>
+          </div>
+          {uploading && <small className="muted">Đang tải ảnh...</small>}
+          {uploadError && <small style={{ color: 'red' }}>{uploadError}</small>}
         </label>
+
+        {image && (
+          <div className="image-preview full-width" style={{ marginTop: 8 }}>
+            <img src={Array.isArray(image) ? image[0] : image} alt="preview" style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 6 }} />
+          </div>
+        )}
 
         {/* Xem trước giá */}
         <div className="price-preview full-width">

@@ -700,9 +700,11 @@ const PaymentSuccessView = memo(() => {
                         <button 
                             type="button" 
                             className="btn-primary btn-view-orders" 
-                            onClick={() => navigate(ROUTERS.USER.ORDERS)}
+                            onClick={() => navigate(ROUTERS.USER.ORDERS, { 
+                                state: { selectedOrderId: String(state.order._id || state.order.id || id) }
+                            })}
                         >
-                            XEM ĐƠN HÀNG CỦA TÔI
+                            XEM LẠI ĐƠN HÀNG
                         </button>
                         <button 
                             type="button" 

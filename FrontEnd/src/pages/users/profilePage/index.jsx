@@ -42,11 +42,14 @@ const ProfilePage = () => {
         );
     }
 
-    const avatarUrl = user.avatar
-    ? (user.avatar.startsWith("http") ? user.avatar : `${API_BASE.replace("/api","")}${user.avatar}`)
-    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-        user.fullname || user.username || "User"
-        )}&background=%23e2e8f0`;
+    // Avatar URL - Chỉ dùng Cloudinary, không dùng local path nữa
+    const avatarUrl = user.avatar && user.avatar.startsWith("http")
+        ? user.avatar // URL từ Cloudinary
+        : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+            user.fullname || user.username || "User"
+          )}&background=%23e2e8f0`; // Avatar mặc định nếu chưa có
+
+    console.log("🖼️ Current avatar URL:", avatarUrl, "User avatar:", user.avatar);
 
 
     // ===== Avatar upload =====

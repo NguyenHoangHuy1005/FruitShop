@@ -1,10 +1,11 @@
 const router = require("express").Router();
 const userController = require("../controllers/userController");
 const { requireAdmin, verifyToken } = require("../middlewares/auth");
-// User
+
+// User routes
 router.get("/me", verifyToken, userController.getMe);
 router.put("/me", verifyToken, userController.updateMe);
-router.post("/me/avatar", verifyToken, userController.uploadAvatar);
+// Xóa endpoint /me/avatar vì giờ dùng Cloudinary qua /me
 
 // Admin
 router.get("/", requireAdmin, userController.getAllUsers);

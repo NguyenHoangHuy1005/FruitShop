@@ -77,14 +77,14 @@ const HeaderAd = ({ children, ...props }) => {
       key: 'stock',
       path: ROUTERS.ADMIN.STOCK,
       onClick: () => navigate(ROUTERS.ADMIN.STOCK),
-      label: 'Kho',
+      label: 'Kho hàng',
       icon: <Boxes size={18} />,
     },
     {
       key: 'invoices',
       path: ROUTERS.ADMIN.INVOICES,
       onClick: () => navigate(ROUTERS.ADMIN.INVOICES),
-      label: 'Hóa đơn',
+      label: 'Phiếu nhập',
       icon: <FaFileInvoice size={20} />,
     },
     {

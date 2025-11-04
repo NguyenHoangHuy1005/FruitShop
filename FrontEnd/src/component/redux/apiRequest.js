@@ -675,8 +675,12 @@ export const cancelOrder = async (orderId, token) => {
 // ===== Profile helpers (NEW) =====
 export const refreshCurrentUser = async (dispatch) => {
     const token = await ensureAccessToken(null);
-    if (!token) return null;
+    if (!token) {
+        console.warn("⚠️ No token available for refresh");
+        return null;
+    }
     const res = await API.get('/user/me', { headers: { Authorization: `Bearer ${token}` } });
+    console.log("📥 Fetched user data from /user/me:", res.data);
     dispatch(loginSuccess({ ...res.data, accessToken: token }));
     return res.data;
 };
@@ -690,17 +694,48 @@ export const updateProfile = async (payload, dispatch) => {
 
 export const uploadAvatar = async (file, dispatch) => {
     const token = await ensureAccessToken(null);
+    
+    // Bước 1: Upload ảnh lên Cloudinary
     const form = new FormData();
-    form.append("avatar", file);
-    const res = await API.post("/user/me/avatar", form, {
-        headers: { Authorization: `Bearer ${token}` },
+    form.append("images", file); // API endpoint /upload nhận field "images"
+    
+    const uploadRes = await API.post("/upload", form, {
+        headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+        },
         validateStatus: () => true,
     });
-    if (res.status !== 200) {
-        throw new Error(res.data?.message || `Upload fail (${res.status})`);
+    
+    if (uploadRes.status !== 200 || !uploadRes.data?.urls?.[0]) {
+        console.error("Upload to Cloudinary failed:", uploadRes.data);
+        throw new Error(uploadRes.data?.message || `Upload to Cloudinary failed (${uploadRes.status})`);
     }
-    await refreshCurrentUser(dispatch);
-    return res.data;
+    
+    const cloudinaryUrl = uploadRes.data.urls[0]; // Lấy URL đầu tiên từ mảng
+    console.log("✅ Uploaded to Cloudinary:", cloudinaryUrl);
+    
+    // Bước 2: Cập nhật avatar URL vào user profile
+    const updateRes = await API.put("/user/me", 
+        { avatar: cloudinaryUrl }, 
+        {
+            headers: { Authorization: `Bearer ${token}` },
+            validateStatus: () => true,
+        }
+    );
+    
+    if (updateRes.status !== 200) {
+        console.error("Update avatar failed:", updateRes.data);
+        throw new Error(updateRes.data?.message || `Update avatar failed (${updateRes.status})`);
+    }
+    
+    console.log("✅ Avatar updated in database. Response:", updateRes.data);
+    
+    // Bước 3: Refresh user data để cập nhật Redux store
+    const refreshedUser = await refreshCurrentUser(dispatch);
+    console.log("✅ User data refreshed. Avatar:", refreshedUser?.avatar);
+    
+    return { avatar: cloudinaryUrl, message: "Upload avatar thành công" };
 };
 
 

@@ -1,4 +1,5 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../style/pages/all";
 @use "../../style/pages/theme";
 
@@ -135,7 +136,7 @@ $product-red: #c62828;
       white-space: nowrap;
       
       &:hover {
-        background: darken($product-main, 8%);
+        background: color.scale($product-main, $lightness: -8%);
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 136, 116, 0.25);
       }

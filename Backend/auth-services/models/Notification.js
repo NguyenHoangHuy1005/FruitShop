@@ -21,6 +21,15 @@ const notificationSchema = new mongoose.Schema(
                 "article_pending",    // Bài viết chờ duyệt
                 "article_approved",   // Bài viết đã duyệt
                 "article_rejected",   // Bài viết bị từ chối
+                "new_comment",        // Comment mới vào bài viết
+                "new_review",         // Review mới vào sản phẩm
+                "comment_reply",      // Reply vào comment
+                "review_reply",       // Reply vào review
+                "comment_mention",    // Được mention trong comment reply
+                "review_mention",     // Được mention trong review reply
+                "comment_reaction",   // Reaction vào comment
+                "review_reaction",    // Reaction vào review
+                "reply_reaction",     // Reaction vào reply
             ],
         },
         title: {

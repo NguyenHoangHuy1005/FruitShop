@@ -4,6 +4,10 @@ import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { FaUser, FaClock, FaEye, FaEdit } from "react-icons/fa";
+import { BiLike, BiSolidLike, BiDislike, BiSolidDislike } from "react-icons/bi";
+import { MdOutlineEmojiEmotions } from "react-icons/md";
+import ReactionModal from "../../../component/reactionModal";
+import ReactionBar from "../../../component/reactionBar";
 import "./style.scss";
 
 const ArticleDetailPage = () => {
@@ -18,7 +22,14 @@ const ArticleDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyingToComment, setReplyingToComment] = useState(null); // Comment đang được reply (nested)
+  const [showReactionModal, setShowReactionModal] = useState(null); // Modal for emoji + text
   const [isEditing, setIsEditing] = useState(false);
+  const [sortBy, setSortBy] = useState("createdAt"); // Thêm state sắp xếp
+  // eslint-disable-next-line no-unused-vars
+  const [sortOrder, setSortOrder] = useState("desc"); // Thêm thứ tự sắp xếp
   const [editFormData, setEditFormData] = useState({
     title: "",
     content: "",
@@ -31,7 +42,7 @@ const ArticleDetailPage = () => {
     fetchArticleDetail();
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, sortBy, sortOrder]);
 
   const fetchArticleDetail = async () => {
     setLoading(true);
@@ -66,7 +77,7 @@ const ArticleDetailPage = () => {
   const fetchComments = async () => {
     try {
       const response = await axios.get(
-        `http://localhost:3000/api/comment/article/${id}`
+        `http://localhost:3000/api/comment/article/${id}?sortBy=${sortBy}&order=${sortOrder}`
       );
 
       if (response.data.success) {
@@ -114,6 +125,347 @@ const ArticleDetailPage = () => {
     } finally {
       setSubmittingComment(false);
     }
+  };
+
+  const handleSubmitReply = async (commentId) => {
+    if (!isLoggedIn) {
+      toast.error("Vui lòng đăng nhập để trả lời");
+      return;
+    }
+
+    if (!replyText.trim()) {
+      toast.error("Vui lòng nhập nội dung trả lời");
+      return;
+    }
+
+    try {
+      const payload = {
+        articleId: id,
+        content: replyText,
+        parentCommentId: commentId,
+      };
+
+      // Nếu đang reply vào một reply khác (nested)
+      if (replyingToComment) {
+        payload.mentionedUserId = replyingToComment.user._id;
+      }
+
+      const response = await axios.post(
+        "http://localhost:3000/api/comment",
+        payload,
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Đã trả lời bình luận");
+        setReplyText("");
+        setReplyingTo(null);
+        setReplyingToComment(null);
+        fetchComments();
+      }
+    } catch (error) {
+      console.error("Error replying to comment:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi trả lời");
+    }
+  };
+
+  const handleLikeComment = async (commentId) => {
+    if (!isLoggedIn) {
+      toast.error("Vui lòng đăng nhập để thích bình luận");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/comment/${commentId}/like`,
+        {},
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      fetchComments();
+    } catch (error) {
+      console.error("Error liking comment:", error);
+    }
+  };
+
+  const handleDislikeComment = async (commentId) => {
+    if (!isLoggedIn) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/comment/${commentId}/dislike`,
+        {},
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      fetchComments();
+    } catch (error) {
+      console.error("Error disliking comment:", error);
+    }
+  };
+
+  const handleAddReaction = async (commentId, reactionData) => {
+    if (!isLoggedIn) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/comment/${commentId}/reaction`,
+        reactionData,
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      setShowReactionModal(null);
+      fetchComments();
+      toast.success(`Đã phản ứng ${reactionData.icon}`);
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+    }
+  };
+
+  const handleDeleteReaction = async (commentId, targetUserId) => {
+    if (!isLoggedIn) return;
+
+    const isOwnReaction = targetUserId === currentUser._id;
+    const confirmMessage = isOwnReaction 
+      ? "Bạn có chắc muốn xóa reaction của mình?"
+      : "Bạn có chắc muốn xóa reaction này? (Quyền Admin)";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const url = currentUser.admin && targetUserId !== currentUser._id
+        ? `http://localhost:3000/api/comment/${commentId}/reaction?targetUserId=${targetUserId}`
+        : `http://localhost:3000/api/comment/${commentId}/reaction`;
+
+      await axios.delete(url, {
+        headers: { token: `Bearer ${currentUser.accessToken}` },
+      });
+
+      toast.success("Đã xóa reaction");
+      fetchComments();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!isLoggedIn) return;
+
+    if (!window.confirm("Bạn có chắc muốn xóa bình luận này?")) return;
+
+    try {
+      await axios.delete(
+        `http://localhost:3000/api/comment/${commentId}`,
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      toast.success("Đã xóa bình luận");
+      fetchComments();
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa");
+    }
+  };
+
+  const handleHideComment = async (commentId) => {
+    if (!isLoggedIn || !currentUser.admin) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:3000/api/comment/${commentId}/hide`,
+        {},
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      toast.success("Đã ẩn bình luận");
+      fetchComments();
+    } catch (error) {
+      console.error("Error hiding comment:", error);
+      toast.error("Lỗi khi ẩn bình luận");
+    }
+  };
+
+  const handleShowComment = async (commentId) => {
+    if (!isLoggedIn || !currentUser.admin) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:3000/api/comment/${commentId}/show`,
+        {},
+        {
+          headers: { token: `Bearer ${currentUser.accessToken}` },
+        }
+      );
+
+      toast.success("Đã hiển thị bình luận");
+      fetchComments();
+    } catch (error) {
+      console.error("Error showing comment:", error);
+      toast.error("Lỗi khi hiển thị bình luận");
+    }
+  };
+
+  const renderComment = (comment, allComments, depth = 0) => {
+    const replies = comment.replies || [];
+    const isNested = depth > 0;
+    const isLiked = comment.likes?.includes(userId);
+    const isDisliked = comment.dislikes?.includes(userId);
+    const currentUserReaction = comment.reactions?.find(r => 
+      r.user._id === userId || r.user === userId
+    );
+    const isHidden = comment.status === 'hidden';
+
+    return (
+      <div 
+        key={comment._id} 
+        className={`comment-item ${isNested ? 'nested-comment' : ''} ${isHidden ? 'hidden-comment' : ''}`}
+        style={{ marginLeft: isNested ? '32px' : '0' }}
+      >
+        <div className="comment-header">
+          <div className="comment-author">
+            <FaUser className={isNested ? "user-icon-small" : "user-icon"} />
+            <span className="author-name">
+              {comment.user?.username || "Người dùng"}
+            </span>
+          </div>
+          <span className="comment-date">
+            {new Date(comment.createdAt).toLocaleDateString("vi-VN")}
+          </span>
+          {isHidden && <span className="hidden-badge">Đã ẩn</span>}
+        </div>
+        <div className="comment-content">
+          {comment.mentionedUser && (
+            <span className="mention-tag">
+              @{comment.mentionedUser.username}{" "}
+            </span>
+          )}
+          {comment.content}
+        </div>
+        
+        <ReactionBar 
+          reactions={comment.reactions || []} 
+          currentUserId={userId}
+          isAdmin={currentUser?.role === 'admin' || currentUser?.admin}
+          onDeleteReaction={(targetUserId) => handleDeleteReaction(comment._id, targetUserId)}
+        />
+        
+        <div className="comment-actions">
+          <button
+            className={`btn-like-comment ${isLiked ? 'active' : ''}`}
+            onClick={() => handleLikeComment(comment._id)}
+          >
+            {isLiked ? <BiSolidLike /> : <BiLike />}
+            <span>{comment.likes?.length || 0}</span>
+          </button>
+
+          <button
+            className={`btn-dislike-comment ${isDisliked ? 'active' : ''}`}
+            onClick={() => handleDislikeComment(comment._id)}
+          >
+            {isDisliked ? <BiSolidDislike /> : <BiDislike />}
+            <span>{comment.dislikes?.length || 0}</span>
+          </button>
+
+          <div className="emoji-action">
+            <button
+              className={`btn-emoji ${currentUserReaction ? 'has-reaction' : ''}`}
+              onClick={() => setShowReactionModal(`comment-${comment._id}`)}
+            >
+              <div className="emoji-with-badge">
+                {currentUserReaction ? currentUserReaction.icon : <MdOutlineEmojiEmotions />}
+                {currentUserReaction?.comment && <span className="has-comment-dot"></span>}
+              </div>
+            </button>
+          </div>
+
+          {isLoggedIn && (
+            <button
+              className="btn-reply-comment"
+              onClick={() => {
+                if (depth === 0) {
+                  // Reply trực tiếp comment gốc - không mention
+                  setReplyingTo(comment._id);
+                  setReplyingToComment(null);
+                } else {
+                  // Reply vào reply - có mention
+                  // Tìm comment gốc để set replyingTo
+                  const rootComment = allComments.find(c => !c.parentComment);
+                  setReplyingTo(rootComment?._id || comment._id);
+                  setReplyingToComment(comment);
+                }
+                setReplyText("");
+              }}
+            >
+              💬 Trả lời
+            </button>
+          )}
+
+          {isLoggedIn && (comment.user?._id === userId || currentUser?.role === 'admin') && (
+            <button
+              className="btn-delete-comment"
+              onClick={() => handleDeleteComment(comment._id)}
+            >
+              🗑️ Xóa
+            </button>
+          )}
+
+          {isLoggedIn && currentUser?.admin && (
+            <>
+              {isHidden ? (
+                <button
+                  className="btn-admin-action btn-show"
+                  onClick={() => handleShowComment(comment._id)}
+                >
+                  👁️ Hiện
+                </button>
+              ) : (
+                <button
+                  className="btn-admin-action btn-hide"
+                  onClick={() => handleHideComment(comment._id)}
+                >
+                  🚫 Ẩn
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <ReactionModal
+          show={showReactionModal === `comment-${comment._id}`}
+          currentReaction={currentUserReaction}
+          onClose={() => setShowReactionModal(null)}
+          onSubmit={(data) => handleAddReaction(comment._id, data)}
+        />
+
+        {/* Render nested replies */}
+        {replies.length > 0 && (
+          <div className="nested-comments">
+            {replies.map(reply => 
+              renderComment(reply, [comment, ...replies], depth + 1)
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleEditArticle = async (e) => {
@@ -417,9 +769,19 @@ const ArticleDetailPage = () => {
 
         {/* Comments Section */}
         <div className="comments-section">
-          <h2 className="comments-title">
-            Bình luận ({comments.length})
-          </h2>
+          <div className="comments-header">
+            <h2 className="comments-title">
+              Bình luận ({comments.length})
+            </h2>
+            <select 
+              className="sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="createdAt">Mới nhất</option>
+              <option value="likes">Nhiều thích nhất</option>
+            </select>
+          </div>
 
           {/* Comment Form */}
           {isLoggedIn ? (
@@ -459,19 +821,37 @@ const ArticleDetailPage = () => {
               </p>
             ) : (
               comments.map((comment) => (
-                <div key={comment._id} className="comment-item">
-                  <div className="comment-header">
-                    <div className="comment-author">
-                      <FaUser className="user-icon" />
-                      <span className="author-name">
-                        {comment.user?.username || "Người dùng"}
-                      </span>
+                <div key={comment._id}>
+                  {renderComment(comment, comments, 0)}
+                  
+                  {/* Reply form cho comment này */}
+                  {replyingTo === comment._id && (
+                    <div className="reply-form">
+                      {replyingToComment && (
+                        <div className="replying-to-info">
+                          Đang trả lời <strong>@{replyingToComment.user?.username}</strong>
+                          <button 
+                            className="btn-clear-mention"
+                            onClick={() => setReplyingToComment(null)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder={replyingToComment ? `Trả lời @${replyingToComment.user?.username}...` : "Nhập câu trả lời của bạn..."}
+                        rows="3"
+                      />
+                      <button
+                        className="btn-submit-reply"
+                        onClick={() => handleSubmitReply(comment._id)}
+                      >
+                        Gửi
+                      </button>
                     </div>
-                    <span className="comment-date">
-                      {new Date(comment.createdAt).toLocaleDateString("vi-VN")}
-                    </span>
-                  </div>
-                  <div className="comment-content">{comment.content}</div>
+                  )}
                 </div>
               ))
             )}

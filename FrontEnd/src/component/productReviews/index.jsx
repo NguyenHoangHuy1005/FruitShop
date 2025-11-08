@@ -3,7 +3,10 @@ import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { AiFillStar, AiOutlineStar } from "react-icons/ai";
-import { BiLike, BiSolidLike } from "react-icons/bi";
+import { BiLike, BiSolidLike, BiDislike, BiSolidDislike } from "react-icons/bi";
+import { MdOutlineEmojiEmotions } from "react-icons/md";
+import ReactionModal from "../reactionModal";
+import ReactionBar from "../reactionBar";
 import "./style.scss";
 
 const ProductReviews = ({ productId }) => {
@@ -15,6 +18,11 @@ const ProductReviews = ({ productId }) => {
   const [canReview, setCanReview] = useState(false);
   const [userOrders, setUserOrders] = useState([]);
   const [editingReview, setEditingReview] = useState(null); // Review đang chỉnh sửa
+  const [replyingTo, setReplyingTo] = useState(null); // Review đang trả lời
+  const [replyText, setReplyText] = useState(""); // Nội dung trả lời
+  const [replyingToReply, setReplyingToReply] = useState(null); // Reply đang được trả lời (nested)
+  const [showReactionModal, setShowReactionModal] = useState(null); // {type: 'review'|'reply', id: string}
+  const [sortBy, setSortBy] = useState("createdAt"); // Sắp xếp
   const [reviewForm, setReviewForm] = useState({
     orderId: "",
     rating: 5,
@@ -27,13 +35,13 @@ const ProductReviews = ({ productId }) => {
     if (user?.accessToken) {
       checkCanReview();
     }
-  }, [productId, user?.accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [productId, user?.accessToken, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchReviews = async () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:3000/api/review/product/${productId}`
+        `http://localhost:3000/api/review/product/${productId}?sortBy=${sortBy}&order=desc`
       );
 
       console.log("📊 Review Response:", response.data);
@@ -190,6 +198,273 @@ const ProductReviews = ({ productId }) => {
     }
   };
 
+  const handleDislikeReview = async (reviewId) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/dislike`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      fetchReviews();
+    } catch (error) {
+      console.error("Error disliking review:", error);
+    }
+  };
+
+  const handleAddReaction = async (reviewId, reactionData) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/reaction`,
+        reactionData,
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      setShowReactionModal(null);
+      fetchReviews();
+      toast.success(`Đã phản ứng ${reactionData.icon}`);
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+    }
+  };
+
+  const handleDeleteReaction = async (reviewId, targetUserId) => {
+    if (!user?.accessToken) return;
+
+    const isOwnReaction = targetUserId === user._id;
+    const confirmMessage = isOwnReaction 
+      ? "Bạn có chắc muốn xóa reaction của mình?"
+      : "Bạn có chắc muốn xóa reaction này? (Quyền Admin)";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const url = user.admin && targetUserId !== user._id
+        ? `http://localhost:3000/api/review/${reviewId}/reaction?targetUserId=${targetUserId}`
+        : `http://localhost:3000/api/review/${reviewId}/reaction`;
+
+      await axios.delete(url, {
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      });
+
+      toast.success("Đã xóa reaction");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleDeleteReactionFromReply = async (reviewId, replyId, targetUserId) => {
+    if (!user?.accessToken) return;
+
+    const isOwnReaction = targetUserId === user._id;
+    const confirmMessage = isOwnReaction 
+      ? "Bạn có chắc muốn xóa reaction của mình?"
+      : "Bạn có chắc muốn xóa reaction này? (Quyền Admin)";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const url = user.admin && targetUserId !== user._id
+        ? `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/reaction?targetUserId=${targetUserId}`
+        : `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/reaction`;
+
+      await axios.delete(url, {
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      });
+
+      toast.success("Đã xóa reaction");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleReplySubmit = async (reviewId) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập để trả lời");
+      return;
+    }
+
+    if (!replyText.trim()) {
+      toast.error("Vui lòng nhập nội dung trả lời");
+      return;
+    }
+
+    try {
+      const payload = { comment: replyText };
+      
+      // Nếu đang reply vào một reply khác (nested reply)
+      if (replyingToReply) {
+        payload.parentReplyId = replyingToReply._id;
+        payload.mentionedUserId = replyingToReply.user._id;
+      }
+
+      const response = await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/reply`,
+        payload,
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Đã trả lời đánh giá");
+        setReplyingTo(null);
+        setReplyingToReply(null);
+        setReplyText("");
+        fetchReviews();
+      }
+    } catch (error) {
+      console.error("Error replying:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi trả lời");
+    }
+  };
+
+  const handleLikeReply = async (reviewId, replyId) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập để thích");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/like`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      fetchReviews();
+    } catch (error) {
+      console.error("Error liking reply:", error);
+    }
+  };
+
+  const handleDislikeReply = async (reviewId, replyId) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/dislike`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      fetchReviews();
+    } catch (error) {
+      console.error("Error disliking reply:", error);
+    }
+  };
+
+  const handleAddReactionToReply = async (reviewId, replyId, reactionData) => {
+    if (!user?.accessToken) {
+      toast.error("Vui lòng đăng nhập");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/reaction`,
+        reactionData,
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      setShowReactionModal(null);
+      fetchReviews();
+      toast.success(`Đã phản ứng ${reactionData.icon}`);
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+    }
+  };
+
+  const handleHideReply = async (reviewId, replyId) => {
+    if (!user?.accessToken || !user.admin) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/hide`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      toast.success("Đã ẩn câu trả lời");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error hiding reply:", error);
+      toast.error("Lỗi khi ẩn câu trả lời");
+    }
+  };
+
+  const handleShowReply = async (reviewId, replyId) => {
+    if (!user?.accessToken || !user.admin) return;
+
+    try {
+      await axios.patch(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/show`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      toast.success("Đã hiển thị câu trả lời");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error showing reply:", error);
+      toast.error("Lỗi khi hiển thị câu trả lời");
+    }
+  };
+
+  const handleDeleteReply = async (reviewId, replyId) => {
+    if (!user?.accessToken) return;
+
+    if (!window.confirm("Bạn có chắc muốn xóa câu trả lời này?")) return;
+
+    try {
+      const response = await axios.delete(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}`,
+        {
+          headers: { Authorization: `Bearer ${user.accessToken}` },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Đã xóa câu trả lời");
+        fetchReviews();
+      }
+    } catch (error) {
+      console.error("Error deleting reply:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa");
+    }
+  };
+
   const renderStars = (rating, interactive = false, onSelect = null) => {
     return (
       <div className={`stars ${interactive ? "interactive" : ""}`}>
@@ -206,6 +481,142 @@ const ProductReviews = ({ productId }) => {
             )}
           </span>
         ))}
+      </div>
+    );
+  };
+
+  const renderReply = (reply, reviewId, allReplies, depth = 0) => {
+    const nestedReplies = allReplies.filter(r => r.parentReply === reply._id);
+    const isNested = depth > 0;
+    const isLiked = reply.likes?.includes(user?._id);
+    const isDisliked = reply.dislikes?.includes(user?._id);
+    const currentUserReaction = reply.reactions?.find(r => 
+      r.user._id === user?._id || r.user === user?._id
+    );
+    const isHidden = reply.status === 'hidden';
+
+    return (
+      <div 
+        key={reply._id} 
+        className={`reply-item ${isNested ? 'nested-reply' : ''} ${isHidden ? 'hidden-reply' : ''}`}
+        style={{ marginLeft: isNested ? '32px' : '0' }}
+      >
+        <div className="reply-header">
+          <strong>{reply.user?.username || "Người dùng"}</strong>
+          <span className="reply-date">
+            {new Date(reply.createdAt).toLocaleDateString("vi-VN")}
+          </span>
+          {isHidden && <span className="hidden-badge">Đã ẩn</span>}
+          {depth === 0 && (
+            <span className="replying-to-badge">
+              💬 Đang trả lời đánh giá
+            </span>
+          )}
+        </div>
+        <p className="reply-content">
+          {reply.mentionedUser && (
+            <span className="mention-tag">
+              @{reply.mentionedUser.username}{" "}
+            </span>
+          )}
+          {reply.comment}
+        </p>
+        
+        <ReactionBar 
+          reactions={reply.reactions || []} 
+          currentUserId={user?._id}
+          isAdmin={user?.admin}
+          onDeleteReaction={(targetUserId) => handleDeleteReactionFromReply(reviewId, reply._id, targetUserId)}
+        />
+        
+        <div className="reply-actions">
+          <button
+            className={`btn-like-reply ${isLiked ? 'active' : ''}`}
+            onClick={() => handleLikeReply(reviewId, reply._id)}
+          >
+            {isLiked ? <BiSolidLike /> : <BiLike />}
+            <span>{reply.likes?.length || 0}</span>
+          </button>
+
+          <button
+            className={`btn-dislike-reply ${isDisliked ? 'active' : ''}`}
+            onClick={() => handleDislikeReply(reviewId, reply._id)}
+          >
+            {isDisliked ? <BiSolidDislike /> : <BiDislike />}
+            <span>{reply.dislikes?.length || 0}</span>
+          </button>
+
+          <div className="emoji-action">
+            <button
+              className={`btn-emoji ${currentUserReaction ? 'has-reaction' : ''}`}
+              onClick={() => setShowReactionModal(`reply-${reply._id}`)}
+            >
+              <div className="emoji-with-badge">
+                {currentUserReaction ? currentUserReaction.icon : <MdOutlineEmojiEmotions />}
+                {currentUserReaction?.comment && <span className="has-comment-dot"></span>}
+              </div>
+            </button>
+          </div>
+
+          {user && (
+            <button
+              className="btn-reply-to-reply"
+              onClick={() => {
+                setReplyingTo(reviewId);
+                setReplyingToReply(reply);
+                setReplyText("");
+              }}
+            >
+              💬 Trả lời
+            </button>
+          )}
+
+          {user && (reply.user?._id === user._id || user?.admin) && (
+            <button
+              className="btn-delete-reply"
+              onClick={() => handleDeleteReply(reviewId, reply._id)}
+            >
+              🗑️ Xóa
+            </button>
+          )}
+
+          {user?.admin && (
+            <>
+              {isHidden ? (
+                <button
+                  className="btn-admin-action btn-show"
+                  onClick={() => handleShowReply(reviewId, reply._id)}
+                >
+                  👁️ Hiện
+                </button>
+              ) : (
+                <button
+                  className="btn-admin-action btn-hide"
+                  onClick={() => handleHideReply(reviewId, reply._id)}
+                >
+                  🚫 Ẩn
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Render nested replies recursively */}
+        {nestedReplies.length > 0 && (
+          <div className="nested-replies">
+            {nestedReplies.map(nestedReply => 
+              renderReply(nestedReply, reviewId, allReplies, depth + 1)
+            )}
+          </div>
+        )}
+
+        {/* Reaction Modal for this reply */}
+        <ReactionModal
+          show={showReactionModal === `reply-${reply._id}`}
+          currentReaction={currentUserReaction}
+          onClose={() => setShowReactionModal(null)}
+          onSubmit={(data) => handleAddReactionToReply(reviewId, reply._id, data)}
+        />
       </div>
     );
   };
@@ -314,15 +725,36 @@ const ProductReviews = ({ productId }) => {
       )}
 
       <div className="reviews-list">
+        <div className="reviews-header">
+          <h3>Tất cả đánh giá ({reviews.length})</h3>
+          <select 
+            className="sort-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="createdAt">Mới nhất</option>
+            <option value="rating">Đánh giá cao nhất</option>
+            <option value="likes">Nhiều thích nhất</option>
+          </select>
+        </div>
+
         {loading ? (
           <div className="loading">Đang tải...</div>
         ) : reviews.length === 0 ? (
           <div className="empty-state">Chưa có đánh giá nào</div>
         ) : (
-          reviews.map((review) => (
+          reviews.map((review, reviewIndex) => {
+            const isLiked = review.likes?.includes(user?._id);
+            const isDisliked = review.dislikes?.includes(user?._id);
+            const currentUserReaction = review.reactions?.find(r => 
+              r.user._id === user?._id || r.user === user?._id
+            );
+
+            return (
             <div key={review._id} className="review-item">
               <div className="review-header">
                 <div className="user-info">
+                  <span className="review-number">#{reviewIndex + 1}</span>
                   <strong>{review.user?.username || "Khách hàng"}</strong>
                   <div className="review-meta">
                     {renderStars(review.rating)}
@@ -345,18 +777,41 @@ const ProductReviews = ({ productId }) => {
                 )}
               </div>
 
+              <ReactionBar 
+                reactions={review.reactions || []} 
+                currentUserId={user?._id}
+                isAdmin={user?.admin}
+                onDeleteReaction={(targetUserId) => handleDeleteReaction(review._id, targetUserId)}
+              />
+
               <div className="review-actions">
                 <button
-                  className="btn-like"
+                  className={`btn-like ${isLiked ? 'active' : ''}`}
                   onClick={() => handleLikeReview(review._id)}
                 >
-                  {review.likes?.length > 0 ? (
-                    <BiSolidLike />
-                  ) : (
-                    <BiLike />
-                  )}
+                  {isLiked ? <BiSolidLike /> : <BiLike />}
                   <span>{review.likes?.length || 0}</span>
                 </button>
+
+                <button
+                  className={`btn-dislike ${isDisliked ? 'active' : ''}`}
+                  onClick={() => handleDislikeReview(review._id)}
+                >
+                  {isDisliked ? <BiSolidDislike /> : <BiDislike />}
+                  <span>{review.dislikes?.length || 0}</span>
+                </button>
+
+                <div className="emoji-action">
+                  <button
+                    className={`btn-emoji ${currentUserReaction ? 'has-reaction' : ''}`}
+                    onClick={() => setShowReactionModal(`review-${review._id}`)}
+                  >
+                    <div className="emoji-with-badge">
+                      {currentUserReaction ? currentUserReaction.icon : <MdOutlineEmojiEmotions />}
+                      {currentUserReaction?.comment && <span className="has-comment-dot"></span>}
+                    </div>
+                  </button>
+                </div>
                 
                 {user && review.user?._id === user._id && (
                   <button
@@ -366,9 +821,75 @@ const ProductReviews = ({ productId }) => {
                     ✏️ Chỉnh sửa
                   </button>
                 )}
+
+                {user && (
+                  <button
+                    className="btn-reply"
+                    onClick={() => {
+                      if (replyingTo === review._id) {
+                        setReplyingTo(null);
+                        setReplyText("");
+                      } else {
+                        setReplyingTo(review._id);
+                        setReplyingToReply(null);
+                      }
+                    }}
+                  >
+                    💬 {replyingTo === review._id ? "Hủy" : "Trả lời"}
+                  </button>
+                )}
               </div>
+
+              {replyingTo === review._id && (
+                <div className="reply-form">
+                  {replyingToReply && (
+                    <div className="replying-to-info">
+                      Đang trả lời <strong>@{replyingToReply.user?.username}</strong>
+                      <button 
+                        className="btn-clear-mention"
+                        onClick={() => setReplyingToReply(null)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={replyingToReply ? `Trả lời @${replyingToReply.user?.username}...` : "Nhập câu trả lời của bạn..."}
+                    rows="3"
+                  />
+                  <button
+                    className="btn-submit-reply"
+                    onClick={() => handleReplySubmit(review._id)}
+                  >
+                    Gửi
+                  </button>
+                </div>
+              )}
+
+              {review.replies && review.replies.length > 0 && (
+                <div className="replies-section">
+                  <h4>Câu trả lời ({review.replies.length})</h4>
+                  {review.replies
+                    .filter(reply => !reply.parentReply) // Chỉ hiển thị replies gốc
+                    .map((reply) => (
+                      <div key={reply._id}>
+                        {renderReply(reply, review._id, review.replies, 0)}
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              <ReactionModal
+                show={showReactionModal === `review-${review._id}`}
+                currentReaction={currentUserReaction}
+                onClose={() => setShowReactionModal(null)}
+                onSubmit={(data) => handleAddReaction(review._id, data)}
+              />
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

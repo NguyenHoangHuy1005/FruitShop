@@ -17,5 +17,9 @@ router.get("/article/:articleId", commentController.getArticleComments);
 router.post("/", verifyToken, commentController.createComment);
 router.put("/:id", verifyToken, commentController.updateComment);
 router.delete("/:id", verifyToken, commentController.deleteComment);
+router.post("/:id/like", verifyToken, commentController.toggleLikeComment);
+router.post("/:id/dislike", verifyToken, commentController.toggleDislikeComment);
+router.post("/:id/reaction", verifyToken, commentController.addReactionToComment);
+router.delete("/:id/reaction", verifyToken, commentController.removeReactionFromComment);
 
 module.exports = router;

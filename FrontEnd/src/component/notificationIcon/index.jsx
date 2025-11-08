@@ -114,9 +114,30 @@ const NotificationIcon = () => {
     };
 
     const getNotificationIcon = (type) => {
-        if (type?.startsWith("order_")) return "🛒";
-        if (type?.startsWith("article_")) return "📝";
-        return "🔔";
+        const icons = {
+            // Order notifications
+            order_created: "🛒",
+            order_paid: "💳",
+            order_processing: "📦",
+            order_shipping: "🚚",
+            order_completed: "✅",
+            order_cancelled: "❌",
+            // Article notifications
+            article_pending: "⏳",
+            article_approved: "✅",
+            article_rejected: "❌",
+            // Content notifications
+            new_comment: "💬",
+            new_review: "⭐",
+            comment_reply: "↩️",
+            review_reply: "↩️",
+            comment_mention: "@",
+            review_mention: "@",
+            comment_reaction: "❤️",
+            review_reaction: "❤️",
+            reply_reaction: "👍",
+        };
+        return icons[type] || "🔔";
     };
 
     const formatTime = (dateString) => {
@@ -135,6 +156,19 @@ const NotificationIcon = () => {
         if (diffDays < 7) return `${diffDays} ngày trước`;
 
         return date.toLocaleDateString("vi-VN");
+    };
+
+    const handleViewAllClick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        console.log('Button clicked - closing dropdown');
+        setIsOpen(false);
+        
+        console.log('Navigating to /notifications');
+        // Navigate ngay lập tức
+        navigate("/notifications");
     };
 
     if (!user) return null;
@@ -199,11 +233,21 @@ const NotificationIcon = () => {
                         <div className="notification-footer">
                             <button
                                 type="button"
+                                className="view-all-btn"
+                                onClick={handleViewAllClick}
+                            >
+                                Xem tất cả thông báo
+                            </button>
+                            <button
+                                type="button"
                                 className="delete-read-btn"
-                                onClick={handleDeleteRead}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteRead();
+                                }}
                                 disabled={loading}
                             >
-                                Xóa thông báo đã đọc
+                                Xóa đã đọc
                             </button>
                         </div>
                     )}

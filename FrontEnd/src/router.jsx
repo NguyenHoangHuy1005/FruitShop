@@ -15,6 +15,7 @@ import ContactPage from "./pages/users/contactPage";
 import PaymentPage from "./pages/users/paymentPage";
 import ArticlesPage from "./pages/users/articlesPage";
 import ArticleDetailPage from "./pages/users/articleDetailPage";
+import NotificationsPage from "./pages/users/notificationsPage";
 
 // Admin auth routes
 import LoginPage from "./pages/admin/loginPage";
@@ -70,6 +71,7 @@ const renderUserRouter = () => {
     { path: ROUTERS.USER.CONTACT,      element: <ContactPage /> },
     { path: ROUTERS.USER.PAYMENT,      element: <PaymentPage /> },
     { path: ROUTERS.USER.PAYMENT_SUCCESS, element: <PaymentPage /> },
+    { path: ROUTERS.USER.NOTIFICATIONS, element: <NotificationsPage /> },
   ];
   return (
     <MasterLayout>

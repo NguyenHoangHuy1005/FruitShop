@@ -27,6 +27,39 @@ const commentSchema = new mongoose.Schema(
       ref: "Comment",
       default: null,
     },
+    mentionedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    likes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
+    dislikes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
+    reactions: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    icon: {
+      type: String,
+      required: true,
+    },
+    comment: {
+      type: String,
+      default: "",
+      maxLength: 200,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
     status: {
       type: String,
       enum: ["active", "hidden"],

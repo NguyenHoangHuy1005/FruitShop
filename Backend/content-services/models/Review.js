@@ -36,6 +36,89 @@ const reviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     }],
+    dislikes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }],
+    reactions: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      icon: {
+        type: String,
+        required: true,
+      },
+      comment: {
+        type: String,
+        default: "",
+        maxLength: 200,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+    replies: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      parentReply: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
+      mentionedUser: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      comment: {
+        type: String,
+        required: true,
+        trim: true,
+        maxLength: 500,
+      },
+      likes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      }],
+      dislikes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      }],
+      reactions: [{
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        icon: {
+          type: String,
+          required: true,
+        },
+        comment: {
+          type: String,
+          default: "",
+          maxLength: 200,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      }],
+      status: {
+        type: String,
+        enum: ["active", "hidden"],
+        default: "active",
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
     status: {
       type: String,
       enum: ["active", "hidden"],

@@ -14,6 +14,7 @@ export const ROUTERS = {
     CONTACT: "/contact",
     PAYMENT: "/payment/:id",
     PAYMENT_SUCCESS: "/payment/:id/success",
+    NOTIFICATIONS: "/notifications",
   },
   ADMIN: {
     DASHBOARD: `${ADMIN_PATH}/dashboard`,

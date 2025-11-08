@@ -78,7 +78,6 @@ app.use((req, _res, next) => {
 // ===== Mount routes =====
 const authRoute = require('./auth-services/routes/auth');
 const userRoute = require('./auth-services/routes/user');
-const notificationRoute = require('./auth-services/routes/notification');
 // admin
 const productRoute = require('./admin-services/routes/product');
 const uploadRoutes = require('./admin-services/routes/image');
@@ -94,6 +93,8 @@ const paymentRoutes = require('./payment-services/routes/payment');
 const articleRoutes = require('./content-services/routes/article');
 const reviewRoutes = require('./content-services/routes/review');
 const commentRoutes = require('./content-services/routes/comment');
+// auth-services
+const notificationRoutes = require('./auth-services/routes/notification');
 
 // Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -101,7 +102,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ---- Auth & User ----
 app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
-app.use('/api/notification', notificationRoute);
+app.use('/api/notification', notificationRoutes);
 
 // ---- Admin ----
 app.use('/api', uploadRoutes);

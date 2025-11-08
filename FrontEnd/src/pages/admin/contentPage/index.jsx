@@ -11,6 +11,7 @@ import {
   FaStar,
   FaPlus
 } from "react-icons/fa";
+import ReactionBar from "../../../component/reactionBar";
 import "./style.scss";
 
 const ContentManagementPage = () => {
@@ -25,6 +26,8 @@ const ContentManagementPage = () => {
   const [articleFilter, setArticleFilter] = useState("all");
   const [commentFilter, setCommentFilter] = useState("all");
   const [reviewFilter, setReviewFilter] = useState("all");
+  const [reviewSortBy, setReviewSortBy] = useState("createdAt");
+  const [reviewSortOrder, setReviewSortOrder] = useState("desc");
 
   // Get admin user from Redux
   const currentUser = useSelector((state) => state.auth?.login?.currentUser);
@@ -50,7 +53,7 @@ const ContentManagementPage = () => {
     else if (activeTab === "comments") fetchComments();
     else if (activeTab === "reviews") fetchReviews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, articleFilter, commentFilter, reviewFilter]);
+  }, [activeTab, articleFilter, commentFilter, reviewFilter, reviewSortBy, reviewSortOrder]);
 
   const getAuthHeaders = () => {
     console.log("🔑 Admin Token:", accessToken ? "Token exists" : "No token");
@@ -217,6 +220,36 @@ const ContentManagementPage = () => {
     }
   };
 
+  const handleDeleteReactionFromComment = async (commentId, targetUserId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa reaction này?")) return;
+
+    try {
+      const url = `http://localhost:3000/api/comment/${commentId}/reaction?targetUserId=${targetUserId}`;
+      await axios.delete(url, getAuthHeaders());
+      toast.success("Đã xóa reaction");
+      fetchComments();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error("Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleDeleteCommentReply = async (parentCommentId, replyId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa phản hồi này?")) return;
+
+    try {
+      await axios.delete(
+        `http://localhost:3000/api/comment/${replyId}`,
+        getAuthHeaders()
+      );
+      toast.success("Đã xóa phản hồi");
+      fetchComments();
+    } catch (error) {
+      console.error("Error deleting reply:", error);
+      toast.error("Lỗi khi xóa phản hồi");
+    }
+  };
+
   // ====== REVIEWS ======
   const fetchReviews = async () => {
     setLoading(true);
@@ -229,10 +262,12 @@ const ContentManagementPage = () => {
 
       const params = new URLSearchParams();
       if (reviewFilter !== "all") params.append("status", reviewFilter);
+      params.append("sortBy", reviewSortBy);
+      params.append("order", reviewSortOrder);
 
       const url = `http://localhost:3000/api/review/admin/all?${params.toString()}`;
       console.log("🔍 Fetching reviews from:", url);
-      console.log("🔍 Filter:", reviewFilter);
+      console.log("🔍 Filter:", reviewFilter, "Sort:", reviewSortBy, reviewSortOrder);
 
       const response = await axios.get(url, headers);
 
@@ -307,6 +342,50 @@ const ContentManagementPage = () => {
     } catch (error) {
       console.error("Error deleting review:", error);
       toast.error("Lỗi khi xóa đánh giá");
+    }
+  };
+
+  const handleDeleteReactionFromReview = async (reviewId, targetUserId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa reaction này?")) return;
+
+    try {
+      const url = `http://localhost:3000/api/review/${reviewId}/reaction?targetUserId=${targetUserId}`;
+      await axios.delete(url, getAuthHeaders());
+      toast.success("Đã xóa reaction");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error("Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleDeleteReactionFromReply = async (reviewId, replyId, targetUserId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa reaction này?")) return;
+
+    try {
+      const url = `http://localhost:3000/api/review/${reviewId}/reply/${replyId}/reaction?targetUserId=${targetUserId}`;
+      await axios.delete(url, getAuthHeaders());
+      toast.success("Đã xóa reaction");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting reaction:", error);
+      toast.error("Lỗi khi xóa reaction");
+    }
+  };
+
+  const handleDeleteReply = async (reviewId, replyId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa phản hồi này?")) return;
+
+    try {
+      await axios.delete(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}`,
+        getAuthHeaders()
+      );
+      toast.success("Đã xóa phản hồi");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting reply:", error);
+      toast.error("Lỗi khi xóa phản hồi");
     }
   };
 
@@ -601,6 +680,8 @@ const ContentManagementPage = () => {
                     <span>
                       Ngày: {new Date(comment.createdAt).toLocaleDateString("vi-VN")}
                     </span>
+                    <span>👍 {comment.likes?.length || 0}</span>
+                    <span>👎 {comment.dislikes?.length || 0}</span>
                   </div>
 
                   <p className="content-text">{comment.content}</p>
@@ -608,6 +689,53 @@ const ContentManagementPage = () => {
                   {comment.adminNote && (
                     <div className="admin-note">
                       <strong>Ghi chú:</strong> {comment.adminNote}
+                    </div>
+                  )}
+
+                  {/* Reactions */}
+                  {comment.reactions && comment.reactions.length > 0 && (
+                    <ReactionBar
+                      reactions={comment.reactions}
+                      currentUserId={currentUser._id}
+                      isAdmin={true}
+                      onDeleteReaction={(targetUserId) =>
+                        handleDeleteReactionFromComment(comment._id, targetUserId)
+                      }
+                    />
+                  )}
+
+                  {/* Replies */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="replies-section">
+                      <h4>Phản hồi ({comment.replies.length})</h4>
+                      {comment.replies.map((reply) => (
+                        <div key={reply._id} className={`reply-item ${reply.status === 'hidden' ? 'hidden-item' : ''}`}>
+                          <div className="reply-header">
+                            <strong>{reply.user?.username || "Người dùng"}</strong>
+                            <span>{new Date(reply.createdAt).toLocaleDateString("vi-VN")}</span>
+                            {reply.status === 'hidden' && <span className="hidden-badge">Đã ẩn</span>}
+                          </div>
+                          <p className="reply-text">{reply.content}</p>
+                          
+                          {reply.reactions && reply.reactions.length > 0 && (
+                            <ReactionBar
+                              reactions={reply.reactions}
+                              currentUserId={currentUser._id}
+                              isAdmin={true}
+                              onDeleteReaction={(targetUserId) =>
+                                handleDeleteReactionFromComment(reply._id, targetUserId)
+                              }
+                            />
+                          )}
+                          
+                          <button 
+                            className="btn-delete-small"
+                            onClick={() => handleDeleteCommentReply(comment._id, reply._id)}
+                          >
+                            <FaTrash /> Xóa phản hồi
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -653,6 +781,31 @@ const ContentManagementPage = () => {
               <option value="active">Hiển thị</option>
               <option value="hidden">Đã ẩn</option>
             </select>
+
+            <select
+              value={reviewSortBy}
+              onChange={(e) => setReviewSortBy(e.target.value)}
+              className="sort-select"
+            >
+              <option value="createdAt">Mới nhất</option>
+              <option value="rating">Đánh giá</option>
+              <option value="likes">Nhiều thích nhất</option>
+            </select>
+
+            {reviewSortBy !== "createdAt" && (
+              <select
+                value={reviewSortOrder}
+                onChange={(e) => setReviewSortOrder(e.target.value)}
+                className="order-select"
+              >
+                <option value="desc">
+                  {reviewSortBy === "rating" ? "Cao nhất" : "Nhiều nhất"}
+                </option>
+                <option value="asc">
+                  {reviewSortBy === "rating" ? "Thấp nhất" : "Ít nhất"}
+                </option>
+              </select>
+            )}
           </div>
 
           {loading ? (
@@ -686,6 +839,55 @@ const ContentManagementPage = () => {
                     <div className="review-images">
                       {review.images.map((img, idx) => (
                         <img key={idx} src={img} alt={`Review ${idx + 1}`} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Reactions */}
+                  {review.reactions && review.reactions.length > 0 && (
+                    <ReactionBar
+                      reactions={review.reactions}
+                      currentUserId={currentUser._id}
+                      isAdmin={true}
+                      onDeleteReaction={(targetUserId) =>
+                        handleDeleteReactionFromReview(review._id, targetUserId)
+                      }
+                    />
+                  )}
+
+                  {/* Replies */}
+                  {review.replies && review.replies.length > 0 && (
+                    <div className="replies-section">
+                      <h4>Phản hồi ({review.replies.length})</h4>
+                      {review.replies.map((reply) => (
+                        <div key={reply._id} className={`reply-item ${reply.status === 'hidden' ? 'hidden-item' : ''}`}>
+                          <div className="reply-header">
+                            <strong>{reply.user?.username || "Người dùng"}</strong>
+                            <span>{new Date(reply.createdAt).toLocaleDateString("vi-VN")}</span>
+                            {reply.status === 'hidden' && <span className="hidden-badge">Đã ẩn</span>}
+                          </div>
+                          <p className="reply-text">{reply.comment}</p>
+                          
+                          {reply.reactions && reply.reactions.length > 0 && (
+                            <ReactionBar
+                              reactions={reply.reactions}
+                              currentUserId={currentUser._id}
+                              isAdmin={true}
+                              onDeleteReaction={(targetUserId) =>
+                                handleDeleteReactionFromReply(review._id, reply._id, targetUserId)
+                              }
+                            />
+                          )}
+
+                          <div className="reply-actions">
+                            <button
+                              className="btn-delete-small"
+                              onClick={() => handleDeleteReply(review._id, reply._id)}
+                            >
+                              <FaTrash /> Xóa phản hồi
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}

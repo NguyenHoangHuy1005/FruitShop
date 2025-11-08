@@ -13,6 +13,7 @@ import { formatter } from "../../../utils/fomater";
 import { ProductCard } from "../../../component/productCard";
 import Quantity from "../../../component/quantity";
 import { addToCart } from "../../../component/redux/apiRequest";
+import ProductReviews from "../../../component/productReviews";
 import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
 const ProductDetail = () => {
@@ -184,6 +185,11 @@ const ProductDetail = () => {
                             </li>
                         </ul>
                     </div>
+                </div>
+
+                {/* Product Reviews Section */}
+                <div className="product-reviews-section">
+                    <ProductReviews productId={id} />
                 </div>
 
                 {/* Sản phẩm tương tự */}

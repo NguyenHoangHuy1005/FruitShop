@@ -14,6 +14,7 @@ import CheckoutPage from "./pages/users/checkoutPage";
 import ContactPage from "./pages/users/contactPage";
 import PaymentPage from "./pages/users/paymentPage";
 import ArticlesPage from "./pages/users/articlesPage";
+import ArticleDetailPage from "./pages/users/articleDetailPage";
 
 // Admin auth routes
 import LoginPage from "./pages/admin/loginPage";
@@ -30,6 +31,7 @@ import UserManagerPage from "./pages/admin/usermanagerPage";
 import MasterAdLayout from "./pages/admin/theme/masterAdLayout";
 import StockManagerPage from "./pages/admin/stockPage";
 import InvoicePage from "./pages/admin/invoicePage";
+import ContentManagementPage from "./pages/admin/contentPage";
 
 //  Trang báo lỗi 403
 const ForbiddenPage = () => (
@@ -64,6 +66,7 @@ const renderUserRouter = () => {
     { path: ROUTERS.USER.SHOPPINGCART, element: <ShoppingCart /> },
     { path: ROUTERS.USER.CHECKOUT,     element: <CheckoutPage /> },
     { path: ROUTERS.USER.ARTICLES,     element: <ArticlesPage /> },
+    { path: ROUTERS.USER.ARTICLE_DETAIL, element: <ArticleDetailPage /> },
     { path: ROUTERS.USER.CONTACT,      element: <ContactPage /> },
     { path: ROUTERS.USER.PAYMENT,      element: <PaymentPage /> },
     { path: ROUTERS.USER.PAYMENT_SUCCESS, element: <PaymentPage /> },
@@ -106,6 +109,7 @@ const renderAdminAppRouter = () => {
     { path: ROUTERS.ADMIN.ORDERS,      element: <OrderAdminPage /> },
     { path: ROUTERS.ADMIN.STOCK,       element: <StockManagerPage /> },
     { path: ROUTERS.ADMIN.INVOICES, element: <InvoicePage /> },
+    { path: ROUTERS.ADMIN.CONTENT, element: <ContentManagementPage /> },
   ];
   return (
     <Routes>
@@ -144,7 +148,8 @@ const RouterCustom = () => {
     pathname.startsWith(ROUTERS.ADMIN.USERMANAGER)||
     pathname.startsWith(ROUTERS.ADMIN.ORDERS) ||
     pathname.startsWith(ROUTERS.ADMIN.STOCK) ||
-    pathname.startsWith(ROUTERS.ADMIN.INVOICES);
+    pathname.startsWith(ROUTERS.ADMIN.INVOICES) ||
+    pathname.startsWith(ROUTERS.ADMIN.CONTENT);
 
   if (isAdminAuth) return renderAdminAuthRouter();
   if (isAdminApp)  return renderAdminAppRouter();

@@ -8,6 +8,7 @@ const ProductSchema = new mongoose.Schema(
         category: { type: String, required: true },
         subcategories: { type: String, default: "" },
         rating: { type: Number, default: 0 },
+        reviewCount: { type: Number, default: 0 },
         image: { type: [String], default: [] },
         imagethum: { type: [String], default: [] },
         // NEW: snapshot số lượng tồn (được cập nhật tự động từ Stock)

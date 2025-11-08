@@ -56,7 +56,12 @@ const verifyToken = (req, res, next) => {
         }
 
         const payload = jwt.verify(token, JWT_SECRET);
-        req.user = { id: payload?.id || payload?._id }; // gán userId vào req
+        req.user = { 
+            id: payload?.id || payload?._id,
+            username: payload?.username,
+            email: payload?.email,
+            admin: payload?.admin || payload?.isAdmin || false
+        }; // gán userId và thông tin user vào req
         next();
     } catch (e) {
         console.log('[AUTH] Invalid token:', e.message);
@@ -64,4 +69,34 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-module.exports = { requireAdmin, readBearer, verifyToken };
+const optionalAuth = (req, res, next) => {
+    try {
+        const token = readBearer(req);
+        if (!token) {
+            // Không có token, nhưng vẫn cho phép tiếp tục
+            req.user = null;
+            return next();
+        }
+        if (!JWT_SECRET) {
+            console.log('[AUTH] Missing JWT_SECRET');
+            req.user = null;
+            return next();
+        }
+
+        const payload = jwt.verify(token, JWT_SECRET);
+        req.user = {
+            id: payload?.id || payload?._id,
+            username: payload?.username,
+            email: payload?.email,
+            admin: payload?.admin || payload?.isAdmin || false
+        };
+        next();
+    } catch (e) {
+        // Token không hợp lệ, nhưng vẫn cho phép tiếp tục
+        console.log('[AUTH] Invalid token (optional):', e.message);
+        req.user = null;
+        next();
+    }
+};
+
+module.exports = { requireAdmin, readBearer, verifyToken, optionalAuth };

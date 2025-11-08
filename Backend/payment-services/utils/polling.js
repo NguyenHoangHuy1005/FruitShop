@@ -4,7 +4,8 @@
  */
 
 const axios = require('axios');
-const Order = require('../product-services/models/Order');
+const Order = require('../../product-services/models/Order');
+const { createNotification } = require('../../auth-services/controllers/notificationController');
 
 // Giả sử bạn có API để check giao dịch ngân hàng
 // (SEPAY, Casso, hoặc bank API)
@@ -67,6 +68,21 @@ async function checkBankTransactions() {
             await order.save();
             
             console.log(`[POLLING] ✓ Order ${order._id} marked as PAID`);
+            
+            // Gửi thông báo cho user
+            if (order.user) {
+              const orderIdShort = String(order._id).slice(-8).toUpperCase();
+              const totalAmount = (order.amount?.total || 0).toLocaleString('vi-VN');
+              
+              createNotification(
+                order.user,
+                "order_paid",
+                "Thanh toán thành công",
+                `Đơn hàng #${orderIdShort} đã được thanh toán thành công. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
+                order._id,
+                "/orders"
+              ).catch(err => console.error("[notification] Failed to create order_paid notification:", err));
+            }
             
             // TODO: Gửi email thông báo
           } else {

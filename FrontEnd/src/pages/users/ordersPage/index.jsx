@@ -7,7 +7,6 @@ import { formatter } from "../../../utils/fomater";
 import {
     API,
     addToCart,
-    cancelOrder,
 } from "../../../component/redux/apiRequest"; // dùng axios instance sẵn có
 import { ROUTERS } from "../../../utils/router";
 import "./style.scss"; // nếu cần style dùng chung
@@ -67,15 +66,6 @@ const resolvePaymentLabels = (order) => {
         ? PAYMENT_CHANNEL_LABELS[channelCode]
         : "";
     return { methodLabel, channelLabel };
-};
-
-const resolveCancelMessage = (order) => {
-    if (!order || order.status !== "cancelled") return "";
-    const reason = order?.paymentMeta?.cancelReason;
-    if (reason && PAYMENT_CANCEL_REASON_LABELS[reason]) {
-        return PAYMENT_CANCEL_REASON_LABELS[reason];
-    }
-    return "Đơn hàng đã được hủy.";
 };
 
 const OrdersPage = () => {
@@ -348,7 +338,6 @@ const OrdersPage = () => {
                     const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", id);
                     const isReorderLoading = reorderLoading === id;
                     const { methodLabel, channelLabel } = resolvePaymentLabels(selectedOrder);
-                    const cancelMessage = resolveCancelMessage(selectedOrder);
                     const total = selectedOrder?.amount?.total ?? selectedOrder?.amount ?? 0;
                     
                     return (
@@ -438,10 +427,14 @@ const OrdersPage = () => {
                                                     <th style={{ textAlign: "right" }}>Đơn giá</th>
                                                     <th style={{ textAlign: "right" }}>SL</th>
                                                     <th style={{ textAlign: "right" }}>Thành tiền</th>
+                                                    {selectedOrder.status === "paid" && (
+                                                        <th style={{ textAlign: "center" }}>Đánh giá</th>
+                                                    )}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {(selectedOrder?.items || []).map((it, idx) => {
+                                                    const productId = it?.product?._id || it?.product?.id || it?.product || it?.id || "";
                                                     const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
                                                     return (
                                                         <tr key={idx}>
@@ -460,6 +453,17 @@ const OrdersPage = () => {
                                                             <td style={{ textAlign: "right", fontWeight: 600 }}>
                                                                 {formatter(it.total ?? it.price * it.quantity)}
                                                             </td>
+                                                            {selectedOrder.status === "paid" && (
+                                                                <td style={{ textAlign: "center" }}>
+                                                                    <button
+                                                                        className="btn-review-product"
+                                                                        onClick={() => navigate(`/product/detail/${productId}`)}
+                                                                        title="Đánh giá sản phẩm"
+                                                                    >
+                                                                        ⭐ Đánh giá
+                                                                    </button>
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}

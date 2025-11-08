@@ -8,6 +8,7 @@ const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer"
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
+const { createNotification } = require("../../auth-services/controllers/notificationController");
 
 // Helper function to generate VietQR code
 const generateVietQR = (order) => {
@@ -408,6 +409,18 @@ exports.createOrder = async (req, res) => {
         .then((ok) => !ok && console.warn("[mailer] sendOrderConfirmationMail returned false"))
         .catch((err) => console.error("[mailer] sendOrderConfirmationMail failed:", err?.message || err));
 
+        // Tạo thông báo cho user
+        if (userId) {
+            createNotification(
+                userId,
+                "order_created",
+                "Đặt hàng thành công",
+                `Đơn hàng #${String(order._id).slice(-8).toUpperCase()} đã được tạo thành công. Tổng tiền: ${amount.total.toLocaleString('vi-VN')}đ`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_created notification:", err));
+        }
+
         return res.status(201).json({
             ok: true,
             message: "Đặt hàng thành công!",
@@ -472,6 +485,18 @@ exports.cancelOrder = async (req, res) => {
             order.markModified("paymentMeta");
         } catch (_) { }
         await order.save();
+
+        // Tạo thông báo hủy đơn
+        if (userId) {
+            createNotification(
+                userId,
+                "order_cancelled",
+                "Đơn hàng đã bị hủy",
+                `Đơn hàng #${String(order._id).slice(-8).toUpperCase()} đã được hủy thành công. Kho hàng đã được hoàn lại.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_cancelled notification:", err));
+        }
 
         return res.json({ ok: true, message: "Đơn hàng đã được hủy.", order });
     } catch (err) {
@@ -560,12 +585,62 @@ exports.adminUpdate = async (req, res) => {
     if (!Object.keys(update).length) {
         return res.status(400).json({ message: "Không có trường nào để cập nhật." });
     }
+    
+    // Lấy đơn hàng trước khi update để so sánh status
+    const oldOrder = await Order.findById(req.params.id).lean();
+    
     const doc = await Order.findByIdAndUpdate(
         req.params.id,
         { $set: update },
         { new: true, runValidators: true }
     ).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    
+    // Tạo thông báo khi status thay đổi
+    if (oldOrder && doc.user && status && status !== oldOrder.status) {
+        const orderId = String(doc._id).slice(-8).toUpperCase();
+        let notifType, notifTitle, notifMessage;
+        
+        switch (status) {
+            case "paid":
+                notifType = "order_paid";
+                notifTitle = "Đơn hàng đã thanh toán";
+                notifMessage = `Đơn hàng #${orderId} đã được thanh toán thành công.`;
+                break;
+            case "processing":
+                notifType = "order_processing";
+                notifTitle = "Đơn hàng đang xử lý";
+                notifMessage = `Đơn hàng #${orderId} đang được chuẩn bị.`;
+                break;
+            case "shipping":
+                notifType = "order_shipping";
+                notifTitle = "Đơn hàng đang giao";
+                notifMessage = `Đơn hàng #${orderId} đang trên đường giao đến bạn.`;
+                break;
+            case "completed":
+                notifType = "order_completed";
+                notifTitle = "Đơn hàng hoàn tất";
+                notifMessage = `Đơn hàng #${orderId} đã được giao thành công. Cảm ơn bạn đã mua hàng!`;
+                break;
+            case "cancelled":
+                notifType = "order_cancelled";
+                notifTitle = "Đơn hàng đã bị hủy";
+                notifMessage = `Đơn hàng #${orderId} đã bị hủy bởi quản trị viên.`;
+                break;
+        }
+        
+        if (notifType) {
+            createNotification(
+                doc.user,
+                notifType,
+                notifTitle,
+                notifMessage,
+                doc._id,
+                "/orders"
+            ).catch(err => console.error(`[notification] Failed to create ${notifType} notification:`, err));
+        }
+    }
+    
     return res.json({ ok: true, data: doc });
 };
 

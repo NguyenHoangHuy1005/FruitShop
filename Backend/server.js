@@ -78,6 +78,7 @@ app.use((req, _res, next) => {
 // ===== Mount routes =====
 const authRoute = require('./auth-services/routes/auth');
 const userRoute = require('./auth-services/routes/user');
+const notificationRoute = require('./auth-services/routes/notification');
 // admin
 const productRoute = require('./admin-services/routes/product');
 const uploadRoutes = require('./admin-services/routes/image');
@@ -89,6 +90,10 @@ const stockRoutes = require('./product-services/routes/stock');
 const productRoutes = require('./product-services/routes/product');
 const couponRoutes = require('./product-services/routes/coupon');
 const paymentRoutes = require('./payment-services/routes/payment');
+// content-services
+const articleRoutes = require('./content-services/routes/article');
+const reviewRoutes = require('./content-services/routes/review');
+const commentRoutes = require('./content-services/routes/comment');
 
 // Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -96,6 +101,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ---- Auth & User ----
 app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
+app.use('/api/notification', notificationRoute);
 
 // ---- Admin ----
 app.use('/api', uploadRoutes);
@@ -109,6 +115,9 @@ app.use('/api/coupon', couponRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/article', articleRoutes);
+app.use('/api/review', reviewRoutes);
+app.use('/api/comment', commentRoutes);
 
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: 'Not Found', path: req.originalUrl }));

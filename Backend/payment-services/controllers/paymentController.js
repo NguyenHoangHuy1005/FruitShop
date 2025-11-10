@@ -4,6 +4,7 @@ const Order = require("../../product-services/models/Order");
 const Stock = require("../../product-services/models/Stock");
 const Product = require("../../admin-services/models/Product");
 const { sendPaymentSuccessMail } = require("../../auth-services/utils/mailer");
+const { _updateProductStatus } = require("../../product-services/controllers/stockController");
 
 const SEPAY_API_KEY = process.env.SEPAY_API_KEY;
 const SEPAY_BASE_URL = 'https://my.sepay.vn/userapi';
@@ -35,10 +36,9 @@ const restoreInventory = async (orderDoc) => {
 
     const stock = await Stock.findOne({ product: it.product }).lean();
     const newQty = Math.max(0, Number(stock?.onHand) || 0);
-    await Product.findByIdAndUpdate(
-      it.product,
-      { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
-    );
+    
+    // Sử dụng hàm cập nhật trạng thái mới với logic hết hạn
+    await _updateProductStatus(it.product, newQty);
   }
 };
 
@@ -174,11 +174,22 @@ exports.createPaymentQr = async (req, res) => {
   }
 };
 
-// ---------- Webhook: SePay gọi tới đây ----------
-/**
- * POST /webhook/sepay
- * Header: Authorization: Apikey <SEPAY_WEBHOOK_APIKEY>
- */
+/*---------- Webhook: SePay gọi tới đây ----------
+//Quy trình thanh toán bằng QR Sepay + Ngrok:
+Khách nhấn Thanh toán → Frontend gọi API tạo đơn.
+Backend tạo đơn hàng với trạng thái pending, trừ tồn kho, tạo mã thanh
+ toán kiểu DHxxxxxxx, sau đó sinh QR code theo số tiền và mã này.
+Frontend hiển thị QR để khách hàng quét và chuyển khoản.
+Đồng thời gửi kèm email xác nhận đơn hàng(Thông tin đơn hàng và QR code).
+Khi ngân hàng nhận tiền, SePay tự phát hiện giao dịch, đọc nội dung
+ chuyển khoản chứa mã DHxxxxxxx, và gửi webhook về server của mình.
+Backend nhận webhook, tìm đơn theo mã DHxxxxxxx, kiểm tra:
+Đơn còn pending không? Tiền chuyển vào hay chuyển ra?
+Số tiền có đúng với đơn không?
+Nếu hợp lệ → Cập nhật đơn thành Paid, lưu thông tin giao dịch, và gửi 
+email xác nhận thanh toán thành công cho khách.
+Backend trả lại SePay 200 OK để báo xử lý thành công.
+*/
 exports.handleSePayWebhook = async (req, res) => {
   try {
     console.log('[SEPAY WEBHOOK] Received webhook request');

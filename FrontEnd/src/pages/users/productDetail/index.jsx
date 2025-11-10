@@ -13,6 +13,7 @@ import { formatter } from "../../../utils/fomater";
 import { ProductCard } from "../../../component/productCard";
 import Quantity from "../../../component/quantity";
 import { addToCart } from "../../../component/redux/apiRequest";
+import PriceDisplay from "../../../component/PriceDisplay";
 import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
 const ProductDetail = () => {
@@ -51,8 +52,11 @@ const ProductDetail = () => {
         ? product.image[0]
         : product.image;
 
-    // ✅ trạng thái hết hàng
+    // ✅ trạng thái hết hàng và hết hạn
     const isOut = Number(product.onHand || 0) <= 0;
+    const isExpired = product.status === "Hết hạn";
+    const isExpiring = product.status === "Sắp hết hạn";
+    const cannotBuy = isOut || isExpired;
 
     const relatedProducts = products
         .filter((p) => p.category === product.category && p._id !== product._id)
@@ -72,7 +76,9 @@ const ProductDetail = () => {
                     <div className="col-lg-6 product__detail__pic">
                         <div className="main">
                             {pct > 0 && <span className="discount-badge">-{pct}%</span>}
-                            {isOut && <span className="soldout-badge">SOLD OUT</span>}
+                            {isExpired && <span className="expired-badge">HẾT HẠN</span>}
+                            {!isExpired && isExpiring && <span className="expiring-badge">SẮP HẾT HẠN</span>}
+                            {!isExpired && !isExpiring && isOut && <span className="soldout-badge">SOLD OUT</span>}
                             <img
                                 src={mainImg || "/assets/images/placeholder-product.png"}
                                 alt={product.name}
@@ -96,15 +102,8 @@ const ProductDetail = () => {
 
                         <h2 className="product__name">{product.name}</h2>
 
-                        {/* Giá */}
-                        {pct > 0 ? (
-                            <div className="price-wrap">
-                                <del className="price-old">{formatter(product.price)}</del>
-                                <div className="price-new">{formatter(finalPrice)}</div>
-                            </div>
-                        ) : (
-                            <h3>{formatter(product.price)}</h3>
-                        )}
+                        {/* Giá từ lô hàng */}
+                        <PriceDisplay productId={id} className="product-detail-price" />
 
                         {/* ✅ Đơn vị tính */}
                         <div className="product-unit">
@@ -113,13 +112,12 @@ const ProductDetail = () => {
 
                         {/* ✅ Chọn số lượng + thêm vào giỏ */}
                         <Quantity
-                            hasAddToCart
-                            disabled={isOut}
-                            onAdd={(q) => {
-                                if (isOut) {
-                                    alert("Sản phẩm đã hết hàng.");
+                            onAddToCart={async (q) => {
+                                if (cannotBuy) {
+                                    alert(isExpired ? "Sản phẩm đã hết hạn." : "Sản phẩm đã hết hàng.");
                                     return;
                                 }
+
                                 const qty = Math.max(1, Number(q) || 1);
                                 if (qty > Number(product.onHand)) {
                                     alert("Số lượng sản phẩm không đủ. Vui lòng giảm số lượng!");
@@ -130,8 +128,8 @@ const ProductDetail = () => {
                                 addToCart(product._id, qty, dispatch);
                             }}
                             onBuyNow={async (q) => {
-                                if (isOut) {
-                                    alert("Sản phẩm đã hết hàng.");
+                                if (cannotBuy) {
+                                    alert(isExpired ? "Sản phẩm đã hết hạn." : "Sản phẩm đã hết hàng.");
                                     return;
                                 }
 
@@ -151,8 +149,14 @@ const ProductDetail = () => {
                         <ul>
                             <li>
                                 <b>Tình trạng:</b>{" "}
-                                <span className={isOut ? "out-stock" : "in-stock"}>
-                                    {isOut ? "Hết hàng" : "Còn hàng"}
+                                <span className={`status ${
+                                    isExpired ? "expired" :
+                                    isExpiring ? "expiring" :
+                                    isOut ? "out-stock" : "in-stock"
+                                }`}>
+                                    {isExpired ? "Hết hạn" :
+                                     isExpiring ? "Sắp hết hạn" :
+                                     isOut ? "Hết hàng" : "Còn hạn"}
                                 </span>
                                 {!isOut && (
                                     <span

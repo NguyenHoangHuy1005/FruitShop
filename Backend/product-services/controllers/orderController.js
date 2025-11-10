@@ -8,6 +8,8 @@ const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer"
 const { getOrCreateCart } = require("./cartController");
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
+const User = require("../../auth-services/models/User");
+const { _updateProductStatus } = require("./stockController");
 
 // Helper function to generate VietQR code
 const generateVietQR = (order) => {
@@ -114,10 +116,9 @@ const restoreInventory = async (orderDoc) => {
 
         const stock = await Stock.findOne({ product: it.product }).lean();
         const newQty = Math.max(0, Number(stock?.onHand) || 0);
-        await Product.findByIdAndUpdate(
-            it.product,
-            { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
-        );
+        
+        // Sử dụng hàm cập nhật trạng thái mới với logic hết hạn
+        await _updateProductStatus(it.product, newQty);
     }
 };
 
@@ -235,14 +236,10 @@ exports.createOrder = async (req, res) => {
 
             decremented.push({ product: line.product, qty });
 
-            // cập nhật trạng thái sản phẩm theo onHand mới
+            // cập nhật trạng thái sản phẩm theo onHand mới với logic hết hạn
             try {
                 const newQty = Math.max(0, Number(updated.onHand) || 0);
-                await Product.findByIdAndUpdate(
-                    line.product,
-                    { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } },
-                    { new: false }
-                );
+                await _updateProductStatus(line.product, newQty);
             } catch (_) { }
         }
 
@@ -423,13 +420,10 @@ exports.createOrder = async (req, res) => {
         try {
             for (const d of decremented) {
             await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
-            // cập nhật lại Product.onHand + status sau khi hoàn kho
+            // cập nhật lại Product.onHand + status sau khi hoàn kho với logic hết hạn
             const stock = await Stock.findOne({ product: d.product }).lean();
             const newQty = Math.max(0, Number(stock?.onHand) || 0);
-            await Product.findByIdAndUpdate(
-                d.product,
-                { $set: { onHand: newQty, status: newQty > 0 ? "Còn hàng" : "Hết hàng" } }
-            );
+            await _updateProductStatus(d.product, newQty);
             }
             // nếu đã tạo order nhưng lỗi về sau → xoá order rác
             if (createdOrder?._id) {
@@ -641,6 +635,33 @@ exports.adminStats = async (req, res) => {
                 .slice(0, 5);
         });
 
+        // ✅ Lấy sản phẩm sắp hết kho (onHand < 20)
+        const lowStockProducts = await Stock.find({ onHand: { $lt: 20 } })
+            .populate('product', 'name images price')
+            .sort({ onHand: 1 })
+            .limit(10)
+            .lean();
+
+        const lowStockFormatted = lowStockProducts.map(s => ({
+            productId: s.product?._id,
+            name: s.product?.name || 'N/A',
+            image: s.product?.images?.[0] || '',
+            price: s.product?.price || 0,
+            onHand: s.onHand,
+        }));
+
+        // ✅ Tổng lượng truy cập website (tổng loginCount của tất cả users)
+        const usersStats = await User.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalLogins: { $sum: "$loginCount" },
+                    userCount: { $sum: 1 }
+                }
+            }
+        ]);
+        const websiteVisits = usersStats.length > 0 ? usersStats[0].totalLogins : 0;
+
         return res.json({
         totalRevenue,
         countOrders,
@@ -649,6 +670,8 @@ exports.adminStats = async (req, res) => {
         revenueByMonth,
         topProducts,
         topProductsByMonth,
+        lowStockProducts: lowStockFormatted,
+        websiteVisits,
         });
     } catch (err) {
         console.error("adminStats error:", err);

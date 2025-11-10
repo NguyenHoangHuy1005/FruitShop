@@ -264,14 +264,20 @@ const InvoicePage = () => {
                             <p><b>Ghi chú:</b> {detail.note || "-"}</p>
 
                             <h4>Danh sách sản phẩm:</h4>
-                            <ul>
+                            <div className="product-list">
                                 {detail.items?.map((it, idx) => (
-                                <li key={idx}>
-                                    {it.product?.name} — SL: {it.quantity} × {it.unitPrice.toLocaleString()} VND  
-                                    = <b>{it.total.toLocaleString()} VND</b>
-                                </li>
+                                <div key={idx} className="product-item">
+                                    <div className="product-main">
+                                        <strong>{it.product?.name}</strong>
+                                        <span>SL: {it.quantity} × {it.unitPrice.toLocaleString()} VND = <b>{it.total.toLocaleString()} VND</b></span>
+                                    </div>
+                                    <div className="product-dates">
+                                        <span>📅 Ngày nhập: {it.importDate ? formatDateTime(it.importDate) : 'Không có'}</span>
+                                        <span>⏰ Hạn sử dụng: {it.expiryDate ? formatDateTime(it.expiryDate) : 'Không có'}</span>
+                                    </div>
+                                </div>
                                 ))}
-                            </ul>
+                            </div>
 
                             <p><b>Tổng cộng:</b> {detail.totalAmount?.toLocaleString()} VND</p>
 

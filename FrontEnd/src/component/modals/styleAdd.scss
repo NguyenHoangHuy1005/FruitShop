@@ -1,4 +1,5 @@
 @use "sass:map";
+@use "sass:color";
 @use "../../style/pages/all";
 @use "../../style/pages/theme";
 
@@ -8,6 +9,8 @@ $product-red: #c62828;
 /* Form sản phẩm */
 .product-form {
   padding: 0;
+  width: 100%;
+  max-width: none; // Loại bỏ giới hạn width
   
   h2 {
     margin: 0 0 24px;
@@ -34,11 +37,12 @@ $product-red: #c62828;
   .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 20px; // Tăng gap từ 16px lên 20px
+    margin-bottom: 24px; // Tăng margin từ 20px lên 24px
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       grid-template-columns: 1fr;
+      gap: 16px;
     }
 
     label {
@@ -135,7 +139,7 @@ $product-red: #c62828;
       white-space: nowrap;
       
       &:hover {
-        background: darken($product-main, 8%);
+        background: color.adjust($product-main, $lightness: -8%);
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 136, 116, 0.25);
       }
@@ -167,60 +171,12 @@ $product-red: #c62828;
     margin-top: 4px;
   }
 
-  // Preview giá
-  .price-preview {
-    background: linear-gradient(135deg, rgba(0, 136, 116, 0.08), rgba(0, 184, 155, 0.05));
-    padding: 16px;
-    border-radius: 12px;
-    border: 2px solid #e2e8f0;
-    margin-top: 8px;
 
-    .preview-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #64748b;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .preview-content {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-
-      .original-price {
-        font-size: 16px;
-        color: #94a3b8;
-        text-decoration: line-through;
-        font-weight: 600;
-      }
-
-      .discount-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        color: white;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
-      }
-
-      .final-price {
-        font-size: 24px;
-        font-weight: 800;
-        color: $product-main;
-        letter-spacing: 0.5px;
-      }
-    }
-  }
 
   // Form actions
   .form-actions {
-    padding-top: 20px;
+    padding-top: 24px; // Tăng từ 20px lên 24px
+    margin-top: 8px; // Thêm margin-top
     border-top: 1px solid #e2e8f0;
 
     .button-submit {

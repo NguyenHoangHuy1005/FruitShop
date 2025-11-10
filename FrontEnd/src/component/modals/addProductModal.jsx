@@ -7,33 +7,27 @@ const ProductForm = ({ initialData, onSubmit }) => {
   const isFetching = useSelector((s) => s.product?.create?.isFetching);
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
-  const [price, setPrice] = useState(initialData?.price || "");
   const [category, setCategory] = useState(initialData?.category || "");
   const [unit, setUnit] = useState(initialData?.unit || "kg");
   const [family, setFamily] = useState(initialData?.family || "");
   const [image, setImage] = useState(initialData?.image || "");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const [discountPercent, setDiscountPercent] = useState(initialData?.discountPercent ?? 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const pct = Math.max(0, Math.min(100, Number(discountPercent) || 0));
     const payload = {
       name: name.trim(),
       description,
-      price: Number(price) || 0,
+      price: 0, // Giá sẽ được quản lý qua lô hàng
       category,
       unit,
       family: family.trim(),
       image,             // BE sẽ tự wrap string -> [string]
-      discountPercent: pct,
+      discountPercent: 0,
     };
     onSubmit(payload);
   };
-  const pct = Math.max(0, Math.min(100, Number(discountPercent) || 0));
-  const originalPrice = Number(price) || 0;
-  const discountedPrice = Math.max(0, Math.round(originalPrice * (100 - pct) / 100));
   
   return (
     <form className="product-form" onSubmit={handleSubmit}>
@@ -58,31 +52,6 @@ const ProductForm = ({ initialData, onSubmit }) => {
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             placeholder="Mô tả chi tiết về sản phẩm..."
-          />
-        </label>
-
-        <label>
-          <span className="label-text">Giá gốc (VNĐ) <span className="required">*</span></span>
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="0"
-            required
-          />
-        </label>
-
-        <label>
-          <span className="label-text">Giảm giá (%)</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={discountPercent}
-            onChange={(e) => setDiscountPercent(e.target.value)}
-            placeholder="0"
           />
         </label>
 
@@ -191,21 +160,7 @@ const ProductForm = ({ initialData, onSubmit }) => {
           </div>
         )}
 
-        {/* Xem trước giá */}
-        <div className="price-preview full-width">
-          <div className="preview-label">💰 Giá bán:</div>
-          <div className="preview-content">
-            {pct > 0 ? (
-              <>
-                <span className="original-price">{originalPrice.toLocaleString()} ₫</span>
-                <span className="discount-badge">-{pct}%</span>
-                <span className="final-price">{discountedPrice.toLocaleString()} ₫</span>
-              </>
-            ) : (
-              <span className="final-price">{originalPrice.toLocaleString()} ₫</span>
-            )}
-          </div>
-        </div>
+
       </div>
 
       <div className="form-actions">

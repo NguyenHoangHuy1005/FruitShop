@@ -68,7 +68,7 @@ $product-main: map.get(theme.$theme-colors, "main");
                 color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                line-height: 1;
+                line-height: 1.3;
                 margin: 0;
             }
         }
@@ -1507,4 +1507,421 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
 }
 
+/* Bulk Discount Functionality Styles */
+// Button giảm giá hàng loạt
+.btn-bulk-discount {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
 
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
+    background: linear-gradient(135deg, #f57c00, #ff9800);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+// Modal giảm giá hàng loạt
+.bulk-discount-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+
+  .bulk-discount-content {
+    background: white;
+    padding: 32px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease;
+    position: relative;
+
+    .bulk-discount-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f0f0;
+
+      h3 {
+        margin: 0;
+        color: #333;
+        font-size: 24px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .close-btn {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #999;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+
+        &:hover {
+          background: #f5f5f5;
+          color: #666;
+          transform: rotate(90deg);
+        }
+      }
+    }
+
+    .bulk-discount-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+
+      .form-section {
+        h4 {
+          margin-bottom: 16px;
+          color: #444;
+          font-size: 18px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          svg {
+            color: #ff9800;
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        .form-group {
+          margin-bottom: 20px;
+
+          label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+          }
+
+          input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            background: #fafafa;
+
+            &:focus {
+              outline: none;
+              border-color: #ff9800;
+              box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+              background: white;
+            }
+          }
+
+          .date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+        }
+      }
+
+      .products-section {
+        grid-column: 1 / -1;
+
+        .products-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 16px;
+          max-height: 400px;
+          overflow-y: auto;
+          padding: 16px;
+          border: 2px solid #f0f0f0;
+          border-radius: 12px;
+          background: #fafafa;
+
+          .product-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+
+            &:hover {
+              border-color: #ff9800;
+              box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
+              transform: translateY(-2px);
+            }
+
+            &.selected {
+              border-color: #ff9800;
+              background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+              box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2);
+
+              &::after {
+                content: '✓';
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background: #ff9800;
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+              }
+            }
+
+            input[type="checkbox"] {
+              margin-right: 12px;
+              width: 18px;
+              height: 18px;
+              accent-color: #ff9800;
+            }
+
+            .product-info {
+              flex: 1;
+
+              .product-name {
+                font-weight: 600;
+                color: #333;
+                font-size: 14px;
+                margin-bottom: 4px;
+                line-height: 1.3;
+              }
+
+              .product-price {
+                color: #ff9800;
+                font-size: 13px;
+                font-weight: 600;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .bulk-discount-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 2px solid #f0f0f0;
+
+      button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+
+        &.cancel {
+          background: #f5f5f5;
+          color: #666;
+
+          &:hover {
+            background: #e0e0e0;
+            color: #444;
+          }
+        }
+
+        &.confirm {
+          background: linear-gradient(135deg, #ff9800, #f57c00);
+          color: white;
+          box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
+          }
+
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+          }
+        }
+
+        &:active:not(:disabled) {
+          transform: translateY(0);
+        }
+      }
+
+
+    }
+
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// CSS cho ô hiển thị số lượng
+.quantity-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  .stock-amount {
+    color: #28a745;
+    font-size: 14px;
+  }
+
+  .sold-info {
+    color: #6c757d;
+    font-size: 10px;
+    font-style: italic;
+  }
+}
+
+// CSS cho loading overlay
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+
+  .loading-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+
+    p {
+      margin: 15px 0 0 0;
+      color: #495057;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid $product-main;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* CSS cho nút "Áp dụng giảm giá" với độ ưu tiên cao nhất */
+.bulk-discount-modal .bulk-discount-actions .btn-apply,
+.bulk-discount-modal .actions .btn-apply {
+  padding: 12px 24px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  background: linear-gradient(135deg, #2c3e50, #008874) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  min-width: 120px !important;
+}
+
+.bulk-discount-modal .bulk-discount-actions .btn-apply:hover,
+.bulk-discount-modal .actions .btn-apply:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 16px rgba(40, 167, 69, 0.4) !important;
+  background: linear-gradient(135deg, #20c997, #28a745) !important;
+}
+
+.bulk-discount-modal .bulk-discount-actions .btn-apply:disabled,
+.bulk-discount-modal .actions .btn-apply:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.bulk-discount-modal .bulk-discount-actions .btn-apply:active:not(:disabled),
+.bulk-discount-modal .actions .btn-apply:active:not(:disabled) {
+  transform: translateY(0) !important;
+}

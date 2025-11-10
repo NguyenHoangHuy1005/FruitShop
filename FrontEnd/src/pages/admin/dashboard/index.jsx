@@ -2,9 +2,10 @@ import React, { memo, useEffect, useState } from "react";
 import "./style.scss";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend
+  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList
 } from "recharts";
 import { getOrderStats } from "../../../component/redux/apiRequest";
+import ExpiryAlert from "../../../component/ExpiryAlert";
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -48,6 +49,52 @@ const Dashboard = () => {
     );
   })();
 
+  // 🔥 Tính tỉ lệ đơn hàng thành công vs thất bại THEO THÁNG ĐÃ CHỌN
+  const calculateOrderRates = () => {
+    let successOrders = 0;
+    let failedOrders = 0;
+    let totalOrders = 0;
+
+    if (!selectedMonth) {
+      // Tất cả thời gian
+      successOrders = (stats.orderByStatus?.completed || 0) + 
+                      (stats.orderByStatus?.shipped || 0) + 
+                      (stats.orderByStatus?.paid || 0);
+      failedOrders = stats.orderByStatus?.cancelled || 0;
+      totalOrders = stats.countOrders;
+    } else {
+      // Theo tháng cụ thể
+      const monthData = stats.orderByStatusAndMonth?.[selectedMonth] || {};
+      successOrders = (monthData.completed || 0) + 
+                      (monthData.shipped || 0) + 
+                      (monthData.paid || 0);
+      failedOrders = monthData.cancelled || 0;
+      totalOrders = Object.values(monthData).reduce((sum, val) => sum + val, 0);
+    }
+
+    const successRate = totalOrders > 0 
+      ? ((successOrders / totalOrders) * 100).toFixed(1) 
+      : 0;
+    const failedRate = totalOrders > 0 
+      ? ((failedOrders / totalOrders) * 100).toFixed(1) 
+      : 0;
+
+    return {
+      successOrders,
+      failedOrders,
+      successRate,
+      failedRate,
+      totalOrders,
+    };
+  };
+
+  const orderRates = calculateOrderRates();
+
+  const orderSuccessData = [
+    { name: "Thành công", value: orderRates.successOrders, percent: orderRates.successRate },
+    { name: "Thất bại", value: orderRates.failedOrders, percent: orderRates.failedRate },
+  ];
+
   // 🔥 Lọc topProducts theo tháng
   const productData = (() => {
     if (!selectedMonth) {
@@ -58,13 +105,9 @@ const Dashboard = () => {
     return stats.topProductsByMonth?.[selectedMonth] || [];
   })();
 
-  // (Traffic demo)
-  const trafficData = [
-    { source: "Google", visits: 400 },
-    { source: "Facebook", visits: 300 },
-    { source: "Direct", visits: 200 },
-    { source: "Other", visits: 100 },
-  ];
+  // Sản phẩm sắp hết kho
+  const lowStockData = stats.lowStockProducts || [];
+  const criticalStockCount = lowStockData.filter(p => p.onHand < 10).length;
 
   // 🎨 màu cố định theo trạng thái
   const statusColors = {
@@ -118,30 +161,32 @@ const Dashboard = () => {
 
       {/* Top Stats */}
       <div className="stats">
-        <div className="card highlight blue">
-          <h3>Doanh Thu</h3>
+        <div className="card highlight green">
+          <h3>💰 Doanh Thu</h3>
           <p className="value">{stats.totalRevenue.toLocaleString()} VNĐ</p>
           <span className="trend up">Tổng doanh thu</span>
         </div>
 
-        <div className="card highlight green">
-          <h3>Đơn Hàng</h3>
-          <p className="value">{stats.countOrders}</p>
-          <span className="trend up">Tổng số đơn</span>
+        <div className="card highlight blue">
+          <h3>📦 Đơn Hàng</h3>
+          <p className="value">{selectedMonth ? orderRates.totalOrders : stats.countOrders}</p>
+          <span className="trend up">
+            Thành công: {orderRates.successRate}% | Thất bại: {orderRates.failedRate}%
+          </span>
         </div>
 
         <div className="card highlight purple">
-          <h3>Top SP</h3>
-          <p className="value">
-            {productData[0] ? productData[0].name : "N/A"}
-          </p>
-          <span className="trend up">Bán chạy nhất</span>
+          <h3>👥 Lượng Truy Cập</h3>
+          <p className="value">{(stats.websiteVisits || 0).toLocaleString()}</p>
+          <span className="trend up">Tổng lượt đăng nhập</span>
         </div>
 
         <div className="card highlight orange">
-          <h3>Trạng Thái</h3>
-          <p className="value">{orderData.length}</p>
-          <span className="trend warning">Số loại trạng thái đơn</span>
+          <h3>⚠️ Sắp Hết Kho</h3>
+          <p className="value">{lowStockData.length}</p>
+          <span className="trend warning">
+            {criticalStockCount} sản phẩm dưới 10
+          </span>
         </div>
       </div>
 
@@ -164,57 +209,65 @@ const Dashboard = () => {
               <Line
                 type="monotone"
                 dataKey="revenue"
-                stroke="#3F51B5"
+                stroke="#10b981"
                 strokeWidth={3}
-                dot={{ r: 4 }}
+                dot={{ r: 4, fill: "#10b981" }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Đơn hàng theo trạng thái */}
+        {/* Tỉ lệ đơn hàng thành công vs thất bại */}
         <div className="chart">
-          <h3>📊 Trạng Thái Đơn Hàng</h3>
+          <h3>📊 Tỉ Lệ Đơn Hàng (Thành công / Thất bại)</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={orderData}
+                data={orderSuccessData}
                 dataKey="value"
-                nameKey="status"
-                innerRadius={60}
+                nameKey="name"
+                cx="50%"
+                cy="50%"
                 outerRadius={100}
-                label={({ name, value, percent }) =>
-                  `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
-                }
+                label={({ name, percent }) => `${name}: ${percent}%`}
               >
-                {orderData.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={statusColors[entry.status] || "#999"}
-                  />
-                ))}
+                <Cell fill="#3b82f6" />
+                <Cell fill="#ef4444" />
               </Pie>
               <Tooltip formatter={(v) => `${v} đơn`} />
-              <Legend
-                formatter={(value) => (
-                  <span className={`legend-item legend-item-${value.toLowerCase()}`}>
-                    {value}
-                  </span>
-                )}
-              />
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Traffic Website */}
+        {/* Sản phẩm sắp hết kho */}
         <div className="chart">
-          <h3>📊 Lượng Truy Cập Website</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={trafficData}>
-              <XAxis dataKey="source" />
+          <h3>⚠️ Sản Phẩm Sắp Hết Kho (Dưới 20)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={lowStockData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <XAxis 
+                dataKey="name" 
+                angle={-15}
+                textAnchor="end"
+                height={80}
+                tick={{ fontSize: 11 }}
+              />
               <YAxis />
-              <Tooltip />
-              <Bar dataKey="visits" fill="#00BCD4" />
+              <Tooltip 
+                formatter={(value, name) => {
+                  if (name === 'onHand') return [`Còn: ${value}`, 'Số lượng'];
+                  return [value, name];
+                }}
+              />
+              <Bar dataKey="onHand" radius={[8, 8, 0, 0]}>
+                {lowStockData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.onHand < 10 ? '#ef4444' : '#f59e0b'} 
+                  />
+                ))}
+                <LabelList dataKey="onHand" position="top" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -222,16 +275,27 @@ const Dashboard = () => {
         {/* Top sản phẩm */}
         <div className="chart">
           <h3>📊 Top Sản Phẩm Bán Chạy</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={productData}>
-              <XAxis dataKey="name" />
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <XAxis 
+                dataKey="name" 
+                angle={-15}
+                textAnchor="end"
+                height={80}
+                tick={{ fontSize: 11 }}
+              />
               <YAxis />
-              <Tooltip />
-              <Bar dataKey="sales" fill="#9C27B0" />
+              <Tooltip formatter={(v) => `${v} đã bán`} />
+              <Bar dataKey="sales" fill="#9C27B0" radius={[8, 8, 0, 0]}>
+                <LabelList dataKey="sales" position="top" />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
+      
+      {/* Expiry Alert Component */}
+      <ExpiryAlert />
     </div>
   );
 };

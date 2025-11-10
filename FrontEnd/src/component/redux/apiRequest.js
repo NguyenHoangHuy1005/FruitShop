@@ -942,3 +942,35 @@ export const validateCoupon = async (code, subtotal, cartItems = []) => {
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data; // { ok:true, discount, applicableProductCount, message }
 };
+
+/* ======================= BATCH STOCK DETAILS ======================= */
+// Lấy thông tin chi tiết từng lô hàng
+export const getBatchDetails = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/stock/batch-details", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Lấy thông tin giá và số lượng từ lô hàng mới nhất
+export const getLatestBatchInfo = async (productId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get(`/stock/latest-batch/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Lấy range giá từ tất cả lô hàng của sản phẩm (public API)
+export const getPriceRange = async (productId) => {
+    const res = await API.get(`/stock/price-range/${productId}`, {
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};

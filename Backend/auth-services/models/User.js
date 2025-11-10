@@ -41,6 +41,9 @@ const UserSchema = new mongoose.Schema(
         // hồ sơ người dùng
         fullname: { type: String, default: "" },
         avatar:   { type: String, default: "" },
+        
+        // ============ TRACKING LƯỢNG TRUY CẬP ============
+        loginCount: { type: Number, default: 0 },
 
         // ============ XÁC MINH EMAIL ============
         isVerified: { type: Boolean, default: false },

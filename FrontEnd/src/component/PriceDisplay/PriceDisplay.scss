@@ -1,0 +1,40 @@
+.price-display {
+  &.loading {
+    .loading-text {
+      color: #94a3b8;
+      font-style: italic;
+      font-size: 14px;
+    }
+  }
+
+  &.out-of-stock {
+    .out-of-stock-text {
+      color: #f59e0b;
+      font-weight: 600;
+      font-style: italic;
+    }
+  }
+
+  &.range {
+    .price-range {
+      font-size: 20px;
+      font-weight: 700;
+      color: #059669;
+      margin-bottom: 4px;
+    }
+
+    .price-note {
+      font-size: 12px;
+      color: #64748b;
+      font-style: italic;
+    }
+  }
+
+  &.single {
+    .price-single {
+      font-size: 20px;
+      font-weight: 700;
+      color: #059669;
+    }
+  }
+}

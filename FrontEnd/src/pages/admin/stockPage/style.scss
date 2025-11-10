@@ -12,6 +12,143 @@ $main: map.get(theme.$theme-colors, "main");
     padding: 28px;
     box-shadow: 0 4px 20px rgba(0, 136, 116, 0.08);
 
+    /* ------- Batch Statistics ------- */
+    .batch-statistics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+        padding: 20px 0;
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.25s ease;
+            border: 2px solid transparent;
+
+            &:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+            }
+
+            .stat-icon {
+                font-size: 32px;
+                margin-right: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 56px;
+                height: 56px;
+                border-radius: 12px;
+            }
+
+            .stat-content {
+                flex: 1;
+
+                .stat-number {
+                    font-size: 28px;
+                    font-weight: 800;
+                    line-height: 1;
+                    margin-bottom: 4px;
+                }
+
+                .stat-label {
+                    font-size: 14px;
+                    font-weight: 600;
+                    opacity: 0.8;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+            }
+
+            &.total {
+                background: linear-gradient(135deg, #e0f2fe, #b3e5fc);
+                border-color: #29b6f6;
+                
+                .stat-icon {
+                    background: rgba(41, 182, 246, 0.2);
+                }
+                
+                .stat-number, .stat-label {
+                    color: #0277bd;
+                }
+            }
+
+            &.valid {
+                background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+                border-color: #22c55e;
+                
+                .stat-icon {
+                    background: rgba(34, 197, 94, 0.2);
+                }
+                
+                .stat-number, .stat-label {
+                    color: #065f46;
+                }
+            }
+
+            &.expiring {
+                background: linear-gradient(135deg, #fef3c7, #fde68a);
+                border-color: #f59e0b;
+                
+                .stat-icon {
+                    background: rgba(245, 158, 11, 0.2);
+                }
+                
+                .stat-number, .stat-label {
+                    color: #92400e;
+                }
+            }
+
+            &.expired {
+                background: linear-gradient(135deg, #fee2e2, #fecaca);
+                border-color: #ef4444;
+                
+                .stat-icon {
+                    background: rgba(239, 68, 68, 0.2);
+                }
+                
+                .stat-number, .stat-label {
+                    color: #991b1b;
+                }
+            }
+        }
+
+        // Responsive
+        @media (max-width: 768px) {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            
+            .stat-card {
+                padding: 16px;
+                
+                .stat-icon {
+                    font-size: 24px;
+                    width: 40px;
+                    height: 40px;
+                    margin-right: 12px;
+                }
+                
+                .stat-content {
+                    .stat-number {
+                        font-size: 20px;
+                    }
+                    
+                    .stat-label {
+                        font-size: 12px;
+                    }
+                }
+            }
+        }
+
+        @media (max-width: 480px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
     h2 {
         text-align: center;
         font-weight: 800;
@@ -23,6 +160,84 @@ $main: map.get(theme.$theme-colors, "main");
         font-size: 25px;
         position: relative;
         padding-bottom: 5px;
+    }
+
+    /* ------- View Mode Toggle ------- */
+    .view-mode-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        gap: 20px;
+
+        .toggle-buttons {
+            display: flex;
+            width: fit-content;
+            gap: 15px;
+            background: #f1f5f9;
+            border-radius: 12px;
+        }
+      
+        
+        .toggle-btn {
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+           border: 1px solid #ccd1d8;
+            transition: all 0.25s ease;
+            background: transparent;
+            color: #64748b;
+            
+            &.active {
+                background: linear-gradient(135deg, $main, #00b89b);
+                color: white;
+                box-shadow: 0 2px 6px rgba(0, 136, 116, 0.25);
+                transform: translateY(-1px);
+            }
+            
+            &:hover:not(.active) {
+                background: rgba(0, 136, 116, 0.1);
+                color: $main;
+            }
+        }
+
+        .sort-filters {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            label {
+                font-weight: 600;
+                color: #475569;
+                font-size: 14px;
+                white-space: nowrap;
+            }
+
+            .sort-select {
+                padding: 8px 12px;
+                border: 2px solid #e2e8f0;
+                border-radius: 8px;
+                background: #ffffff;
+                font-size: 14px;
+                font-weight: 500;
+                color: #334155;
+                min-width: 120px;
+                transition: all 0.25s ease;
+                cursor: pointer;
+
+                &:hover {
+                    border-color: #cbd5e0;
+                }
+
+                &:focus {
+                    outline: none;
+                    border-color: $main;
+                    box-shadow: 0 0 0 3px rgba(0, 136, 116, 0.1);
+                }
+            }
+        }
     }
 
     /* ------- Toolbar ------- */
@@ -109,7 +324,8 @@ $main: map.get(theme.$theme-colors, "main");
     }
 
     /* ------- Table ------- */
-    .stock-table {
+    .stock-table,
+    .batch-table {
         width: 100%;
         border-collapse: separate;
         border-spacing: 0;
@@ -146,6 +362,18 @@ $main: map.get(theme.$theme-colors, "main");
             border-bottom: 1px solid #f1f5f9;
             color: #334155;
             font-weight: 500;
+            
+            // Cột số lô
+            &:nth-child(4) { 
+                text-align: center;
+                min-width: 80px;
+            }
+            
+            // Đảm bảo cột trạng thái có đủ width cho "Sắp Hết Hạn"
+            &:nth-child(5) { // Cột trạng thái
+                min-width: 120px;
+                white-space: nowrap;
+            }
         }
 
         tbody tr {
@@ -187,6 +415,50 @@ $main: map.get(theme.$theme-colors, "main");
             }
         }
     }
+    
+    /* ------- Batch Table Specific Styles ------- */
+    .batch-table {
+        font-size: 13px;
+        
+        th {
+            font-size: 11px;
+            padding: 12px 10px;
+        }
+        
+        td {
+            padding: 12px 10px;
+            font-size: 13px;
+        }
+        
+        .batch-row {
+            &.expired {
+                background: rgba(239, 68, 68, 0.05);
+                border-left: 4px solid #ef4444;
+                
+                td {
+                    color: #b91c1c;
+                }
+            }
+            
+            &.low-stock {
+                background: rgba(245, 158, 11, 0.05);
+                border-left: 4px solid #f59e0b;
+            }
+            
+            &.out-stock {
+                background: rgba(107, 114, 128, 0.05);
+                border-left: 4px solid #6b7280;
+                
+                td {
+                    color: #6b7280;
+                }
+            }
+            
+            &.in-stock {
+                border-left: 4px solid #10b981;
+            }
+        }
+    }
 
     /* ------- Status ------- */
     .status {
@@ -197,6 +469,7 @@ $main: map.get(theme.$theme-colors, "main");
         letter-spacing: 0.3px;
         text-transform: uppercase;
         display: inline-block;
+        white-space: nowrap;
 
         &.in-stock {
             background: linear-gradient(135deg, #d1fae5, #a7f3d0);
@@ -208,6 +481,51 @@ $main: map.get(theme.$theme-colors, "main");
             background: linear-gradient(135deg, #fee2e2, #fecaca);
             color: #991b1b;
             border: 1px solid #fca5a5;
+        }
+        
+        &.low-stock {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+        
+        &.expired {
+            background: linear-gradient(135deg, #fee2e2, #fca5a5);
+            color: #991b1b;
+            border: 1px solid #ef4444;
+            font-weight: 700;
+            animation: pulse-status 2s infinite;
+        }
+        
+        &.expiring {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            border: 1px solid #f59e0b;
+            font-weight: 700;
+            animation: blink-status 1.5s infinite;
+        }
+        
+        &.valid {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+    }
+
+    /* ------- Batch Count ------- */
+    .batch-count {
+        display: inline-block;
+        padding: 4px 10px;
+        background: linear-gradient(135deg, #e0f2fe, #b3e5fc);
+        color: #0277bd;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid #81d4fa;
+        
+        &:empty::before {
+            content: '0 lô';
+            color: #64748b;
         }
     }
 
@@ -397,6 +715,22 @@ $main: map.get(theme.$theme-colors, "main");
             outline: none;
             transform: translateY(-1px);
         }
+
+        // Đặc biệt cho input type="date"
+        &[type="date"] {
+            color: #334155;
+            background: linear-gradient(135deg, #fafafa, #ffffff);
+            
+            &::-webkit-calendar-picker-indicator {
+                background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="%23008874"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>') no-repeat;
+                cursor: pointer;
+                opacity: 0.8;
+            }
+            
+            &:hover::-webkit-calendar-picker-indicator {
+                opacity: 1;
+            }
+        }
     }
 
     textarea {
@@ -442,6 +776,13 @@ $main: map.get(theme.$theme-colors, "main");
 .modal.modal-lg {
     width: 860px;
     max-width: 96%;
+}
+
+/* ===== Modal nhập kho ===== */
+.modal.modal-import {
+    width: 650px;
+    max-width: 95%;
+    padding: 0; // ImportForm tự quản lý padding
 }
 
 .modal-header {
@@ -558,6 +899,27 @@ $main: map.get(theme.$theme-colors, "main");
     }
 }
 
+/* 🔥 Animations for expiry status */
+@keyframes pulse-status {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes blink-status {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
 .error {
     padding: 12px 16px;
     border: 1px solid #fca5a5;
@@ -571,4 +933,32 @@ $main: map.get(theme.$theme-colors, "main");
 
 .mt-8 { 
     margin-top: 16px; 
+}
+
+// Responsive cho sort filters
+@media (max-width: 768px) {
+    .stock-manager .view-mode-toggle {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        
+        .toggle-buttons {
+            align-self: center;
+        }
+        
+        .sort-filters {
+            justify-content: center;
+            flex-wrap: wrap;
+            
+            label {
+                font-size: 13px;
+            }
+            
+            .sort-select {
+                min-width: 100px;
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+        }
+    }
 }

@@ -116,7 +116,7 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                 color: #000;
                 font-weight: 600;
                 font-size: 18px;
-                line-height: 1;
+                line-height: 1.4;
                 position: relative;
                 top: -2px;
                 max-width: 200px;
@@ -645,7 +645,7 @@ li::marker {
     color: map.get(theme.$theme-colors, "normal-text");
     font-size: 15px;
     font-weight: 600;
-    line-height: 1;
+    line-height: 1.4;
     cursor: pointer;
     text-decoration: none;
     -webkit-appearance: none;

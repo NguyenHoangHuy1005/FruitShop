@@ -41,6 +41,22 @@
                 right: 12px;
                 background: #6b7280; // xám
             }
+
+            // 🔥 Hết hạn - màu đỏ đậm
+            &--expired {
+                left: auto;
+                right: 12px;
+                background: #dc2626; // đỏ đậm
+                animation: pulse 2s infinite;
+            }
+
+            // 🔥 Sắp hết hạn - màu cam
+            &--expiring {
+                left: auto;
+                right: 12px;
+                background: #f59e0b; // cam
+                animation: blink 1.5s infinite;
+            }
         }
 
 
@@ -157,5 +173,55 @@
             }
         }
 
+    }
+
+    // 🔥 Trạng thái sản phẩm hết hạn
+    &.is-expired {
+        opacity: 0.7;
+        filter: grayscale(0.3);
+        
+        .featured__item__pic::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(220, 38, 38, 0.15);
+            z-index: 1;
+        }
+    }
+
+    // 🔥 Trạng thái sản phẩm sắp hết hạn
+    &.is-expiring {
+        .featured__item__pic::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(245, 158, 11, 0.1);
+            z-index: 1;
+        }
+    }
+}
+
+// 🔥 Animations
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
     }
 }

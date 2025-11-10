@@ -22,6 +22,11 @@ router.get("/", auth.requireAdmin, stock.list);
 router.get("/receipts", auth.requireAdmin, stock.listReceipts);
 router.get("/receipt/:id", auth.requireAdmin, stock.getReceiptOne);
 router.get("/invoice/:id", auth.requireAdmin, stock.downloadInvoice);
+router.get("/expiring-items", auth.requireAdmin, stock.getExpiringItems);
+router.get("/batch-details", auth.requireAdmin, stock.getBatchDetails);
+router.get("/batches/:productId", auth.requireAdmin, stock.getBatchesByProduct);
+router.get("/latest-batch/:productId", auth.requireAdmin, stock.getLatestBatchInfo);
+router.get("/price-range/:productId", stock.getPriceRange); // Public API cho người dùng
 
 // route theo productId để cuối cùng
 router.get("/:productId", auth.requireAdmin, stock.getOne);
@@ -30,6 +35,12 @@ router.get("/:productId", auth.requireAdmin, stock.getOne);
 router.post("/in", auth.requireAdmin, stock.stockIn);
 router.post("/set", auth.requireAdmin, stock.setQuantity);
 router.post("/in-with-invoice", auth.requireAdmin, stock.stockInWithInvoice);
+
+// cập nhật giá bán cho lô hàng
+router.put("/batch/:batchId/selling-price", auth.requireAdmin, stock.updateBatchSellingPrice);
+
+// đồng bộ số lượng tồn kho từ lô hàng
+router.post("/sync-inventory", auth.requireAdmin, stock.syncAllInventoryFromBatches);
 
 
 

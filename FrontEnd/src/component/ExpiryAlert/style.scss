@@ -1,0 +1,235 @@
+@use "sass:map";
+@use "../../style/pages/theme";
+
+$main: map.get(theme.$theme-colors, "main");
+
+.expiry-alert-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    animation: slideInRight 0.5s ease;
+}
+
+.expiry-alert {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    max-width: 420px;
+    border-left: 6px solid #f59e0b;
+    overflow: hidden;
+    
+    .alert-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px 12px;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-bottom: 1px solid #f3f4f6;
+        
+        h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: #92400e;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            color: #92400e;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            
+            &:hover {
+                background: rgba(146, 64, 14, 0.1);
+            }
+        }
+    }
+    
+    .alert-content {
+        padding: 16px 20px;
+        
+        .alert-summary {
+            margin: 0 0 16px;
+            color: #374151;
+            font-size: 14px;
+            
+            strong {
+                color: #dc2626;
+                font-weight: 700;
+            }
+        }
+    }
+    
+    .expiring-items {
+        .expiry-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+            
+            &.expired {
+                background: linear-gradient(135deg, #fef2f2, #fee2e2);
+                border-left-color: #dc2626;
+                
+                .days-left {
+                    color: #dc2626;
+                    font-weight: 700;
+                }
+            }
+            
+            &.critical {
+                background: linear-gradient(135deg, #fff7ed, #fed7aa);
+                border-left-color: #ea580c;
+                
+                .days-left {
+                    color: #ea580c;
+                    font-weight: 700;
+                }
+            }
+            
+            &.warning {
+                background: linear-gradient(135deg, #fffbeb, #fef3c7);
+                border-left-color: #f59e0b;
+                
+                .days-left {
+                    color: #d97706;
+                    font-weight: 600;
+                }
+            }
+            
+            &.info {
+                background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+                border-left-color: #0ea5e9;
+                
+                .days-left {
+                    color: #0284c7;
+                    font-weight: 600;
+                }
+            }
+            
+            .item-info {
+                flex: 1;
+                
+                strong {
+                    display: block;
+                    color: #111827;
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-bottom: 4px;
+                }
+                
+                .supplier {
+                    font-size: 12px;
+                    color: #6b7280;
+                }
+            }
+            
+            .expiry-info {
+                text-align: right;
+                
+                .expiry-date {
+                    display: block;
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-bottom: 4px;
+                }
+                
+                .days-left {
+                    font-size: 12px;
+                    font-weight: 600;
+                    padding: 2px 8px;
+                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.8);
+                }
+            }
+        }
+        
+        .more-items {
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            font-style: italic;
+            padding: 8px 0;
+        }
+    }
+    
+    .alert-actions {
+        padding: 12px 20px 16px;
+        display: flex;
+        gap: 12px;
+        border-top: 1px solid #f3f4f6;
+        
+        .btn {
+            flex: 1;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            &.primary {
+                background: linear-gradient(135deg, $main, #00b89b);
+                color: white;
+                
+                &:hover {
+                    background: linear-gradient(135deg, #006b5e, $main);
+                    transform: translateY(-1px);
+                }
+            }
+            
+            &.secondary {
+                background: #f9fafb;
+                color: #6b7280;
+                border: 1px solid #e5e7eb;
+                
+                &:hover {
+                    background: #f3f4f6;
+                }
+            }
+        }
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+// Responsive
+@media (max-width: 640px) {
+    .expiry-alert-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        
+        .expiry-alert {
+            max-width: none;
+        }
+    }
+}

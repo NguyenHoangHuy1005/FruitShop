@@ -5,7 +5,10 @@ const ImportItemSchema = new mongoose.Schema({
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
     quantity: { type: Number, required: true },
     unitPrice: { type: Number, required: true },
+    sellingPrice: { type: Number }, // Giá bán của lô hàng này (nếu không set thì bằng unitPrice)
     total: { type: Number, required: true },
+    importDate: { type: Date, default: Date.now }, // Ngày nhập hàng
+    expiryDate: { type: Date }, // Hạn sử dụng (optional)
 }, { timestamps: true });
 
 module.exports = mongoose.model("ImportItem", ImportItemSchema);

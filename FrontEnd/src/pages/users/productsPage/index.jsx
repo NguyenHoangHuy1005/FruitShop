@@ -15,7 +15,7 @@ const ProductsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
-    const [sortType, setSortType] = useState("Mới nhất");
+    const [sortType, setSortType] = useState("Trạng thái ưu tiên");
     const [selectedFamily, setSelectedFamily] = useState(""); // ✅ Lọc theo họ
 
     // Lấy sản phẩm từ Redux
@@ -74,6 +74,26 @@ const ProductsPage = () => {
         const priceB = getFinalPrice(b);
 
         switch (sortType) {
+            case "Trạng thái ưu tiên":
+                // Sắp xếp theo trạng thái ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
+                const statusPriority = {
+                    'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
+                    'Sắp hết hạn': 1,  // Cao
+                    'Còn hạn': 2,      // Trung bình
+                    'Còn hàng': 3,     // Thấp (legacy)
+                    'Hết hàng': 4      // Thấp nhất
+                };
+                
+                const aPriority = statusPriority[a.status] ?? 5;
+                const bPriority = statusPriority[b.status] ?? 5;
+                
+                if (aPriority !== bPriority) {
+                    return aPriority - bPriority;
+                }
+                
+                // Nếu cùng trạng thái, sắp xếp theo tên
+                return (a.name || "").localeCompare(b.name || "");
+                
             case "Mới nhất":
                 return new Date(b.createdAt) - new Date(a.createdAt);
             case "Giá thấp đến cao":
@@ -81,7 +101,7 @@ const ProductsPage = () => {
             case "Giá cao đến thấp":
                 return priceB - priceA;
             case "Bán chạy nhất":
-                return (b.purchaseCount || 0) - (a.purchaseCount || 0); // Sắp xếp theo lượt mua đã fix nè
+                return (b.purchaseCount || 0) - (a.purchaseCount || 0);
             case "Đang giảm giá":
                 return (Number(b.discountPercent) || 0) - (Number(a.discountPercent) || 0);
             default:
@@ -90,7 +110,8 @@ const ProductsPage = () => {
     });
 
     const sorts = [
-        "Mới nhất",
+        "Trạng thái ưu tiên",
+        "Mới nhất", 
         "Giá thấp đến cao",
         "Giá cao đến thấp",
         "Bán chạy nhất",

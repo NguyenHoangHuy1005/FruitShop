@@ -2,11 +2,13 @@ import { memo, useState, useEffect, useMemo } from "react";
 import "./style.scss";
 import { useSelector, useDispatch } from "react-redux";
 import ProductForm from "../../../component/modals/addProductModal";
+import BatchInfoModal from "../../../component/modals/BatchInfoModal";
 import {
     getAllProduct,
     createProduct,
     updateProduct,
     deleteProduct,
+    getLatestBatchInfo,
 } from "../../../component/redux/apiRequest";
 
 const ProductManagerPage = () => {
@@ -15,21 +17,132 @@ const ProductManagerPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [editingProduct, setEditingProduct] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [productBatches, setProductBatches] = useState({});
+    const [latestBatchInfo, setLatestBatchInfo] = useState({}); // Thông tin lô mới nhất cho từng sản phẩm
+    const [batchModal, setBatchModal] = useState({ show: false, productId: null, productName: '' });
+    const [isLoading, setIsLoading] = useState(true);
 
-    // 🔥 NEW: State cho giảm giá hàng loạt
-    const [bulkDiscountModal, setBulkDiscountModal] = useState({
-        open: false,
-        selectedProducts: [],
-        discountPercent: 0,
-        discountStartDate: "",
-        discountEndDate: "",
-        submitting: false,
-        searchTerm: "",
-    });
+
 
     useEffect(() => {
-        getAllProduct(dispatch);
+        const initializePage = async () => {
+            try {
+                setIsLoading(true);
+                
+                // Đồng bộ tồn kho trước khi load dữ liệu
+                console.log('Đang đồng bộ tồn kho từ các lô hàng...');
+                await syncInventoryFromBatches();
+                
+                // Sau đó load dữ liệu sản phẩm và lô hàng
+                await getAllProduct(dispatch);
+                await fetchAllProductBatches();
+                
+                console.log('Tải dữ liệu hoàn tất');
+            } catch (error) {
+                console.error('Error initializing product manager page:', error);
+                // Vẫn load dữ liệu dù sync thất bại
+                getAllProduct(dispatch);
+                fetchAllProductBatches();
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initializePage();
     }, [dispatch]);
+
+    // Fetch thông tin lô mới nhất khi products đã được load
+    useEffect(() => {
+        if (products.length > 0) {
+            fetchAllLatestBatchInfo();
+        }
+    }, [products]);
+
+    const fetchAllProductBatches = async () => {
+        try {
+            const response = await fetch("http://localhost:3000/api/stock/batch-details", {
+                headers: {
+                    "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Không thể lấy thông tin lô hàng');
+            }
+
+            const allBatches = await response.json();
+            // Nhóm các lô theo productId và tính tổng hợp
+            const batchesByProduct = {};
+            allBatches.forEach(batch => {
+                if (!batchesByProduct[batch.productId]) {
+                    batchesByProduct[batch.productId] = {
+                        batches: [],
+                        totalInStock: 0,
+                        totalSold: 0,
+                        statusCount: { expired: 0, expiring: 0, valid: 0 }
+                    };
+                }
+                
+                batchesByProduct[batch.productId].batches.push(batch);
+                batchesByProduct[batch.productId].totalInStock += batch.remainingQuantity || 0;
+                batchesByProduct[batch.productId].totalSold += batch.soldQuantity || 0;
+                
+                // Tính trạng thái lô
+                const now = new Date();
+                let status = 'valid';
+                if (batch.expiryDate) {
+                    const expiryDate = new Date(batch.expiryDate);
+                    const daysLeft = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+                    
+                    if (daysLeft <= 0) {
+                        status = 'expired';
+                    } else if (daysLeft <= 7) {
+                        status = 'expiring';
+                    }
+                }
+                
+                batchesByProduct[batch.productId].statusCount[status]++;
+            });
+            setProductBatches(batchesByProduct);
+            
+            return batchesByProduct;
+        } catch (error) {
+            console.error('Error fetching batches:', error);
+            throw error;
+        }
+    };
+
+    // Fetch thông tin lô mới nhất cho tất cả sản phẩm
+    const fetchAllLatestBatchInfo = async () => {
+        try {
+            const latestBatchData = {};
+            
+            // Lấy thông tin lô mới nhất cho từng sản phẩm
+            const fetchPromises = products.map(async (product) => {
+                try {
+                    const data = await getLatestBatchInfo(product._id);
+                    latestBatchData[product._id] = data;
+                } catch (error) {
+                    console.error(`Error fetching latest batch for product ${product._id}:`, error);
+                    // Nếu không có lô hàng, sử dụng thông tin từ product
+                    latestBatchData[product._id] = {
+                        latestBatch: null,
+                        summary: {
+                            totalInStock: product.onHand || 0,
+                            totalSold: 0,
+                            totalBatches: 0
+                        }
+                    };
+                }
+            });
+
+            await Promise.all(fetchPromises);
+            setLatestBatchInfo(latestBatchData);
+            
+        } catch (error) {
+            console.error('Error fetching latest batch info:', error);
+        }
+    };
     // ===== PRODUCT LIST =====
     const handleSearch = (e) => setSearchTerm(e.target.value);
     const handleCloseModal = () => setShowModal(false);
@@ -43,84 +156,117 @@ const ProductManagerPage = () => {
         }
     };
 
-    const filteredProducts = useMemo(() => {
-        const key = (searchTerm || "").trim().toLowerCase();
-        if (!key) return products;
-        return products.filter((p) => (p?.name || "").toLowerCase().includes(key));
-    }, [products, searchTerm]);
+    // ===== BATCH FUNCTIONS =====
+    const getBatchStatusSummary = (productId) => {
+        const productBatch = productBatches[productId];
+        if (!productBatch) return null;
 
-    // 🔥 NEW: Hàm xử lý giảm giá hàng loạt
-    const handleBulkDiscount = async () => {
-        const { selectedProducts, discountPercent, discountStartDate, discountEndDate } = bulkDiscountModal;
-        
-        if (selectedProducts.length === 0) {
-            alert("Vui lòng chọn ít nhất 1 sản phẩm!");
+        return {
+            total: productBatch.batches.length,
+            expired: productBatch.statusCount.expired,
+            expiring: productBatch.statusCount.expiring,
+            valid: productBatch.statusCount.valid,
+            totalInStock: productBatch.totalInStock,
+            totalSold: productBatch.totalSold
+        };
+    };
+
+    const handleShowBatches = (productId, productName) => {
+        const productBatch = productBatches[productId];
+        if (!productBatch || productBatch.batches.length === 0) {
+            alert('Sản phẩm này chưa có lô hàng nào.');
             return;
         }
+        setBatchModal({
+            show: true,
+            productId,
+            productName
+        });
+    };
 
-        if (discountPercent < 0 || discountPercent > 100) {
-            alert("% giảm giá phải từ 0 đến 100!");
-            return;
-        }
+    const handleCloseBatchModal = () => {
+        setBatchModal({
+            show: false,
+            productId: null,
+            productName: ''
+        });
+    };
 
+    const syncInventoryFromBatches = async () => {
         try {
-            setBulkDiscountModal((s) => ({ ...s, submitting: true }));
-            
-            const payload = { 
-                productIds: selectedProducts, 
-                discountPercent: Number(discountPercent),
-            };
-
-            // Thêm ngày nếu có
-            if (discountStartDate) {
-                payload.discountStartDate = discountStartDate;
-            }
-            if (discountEndDate) {
-                payload.discountEndDate = discountEndDate;
-            }
-
-            console.log("🔥 Payload gửi đi:", payload);
-            console.log("🔑 Token:", localStorage.getItem("accessToken"));
-
-            const response = await fetch("http://localhost:3000/api/product/bulk-discount", {
+            const response = await fetch("http://localhost:3000/api/stock/sync-inventory", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
                 },
-                body: JSON.stringify(payload),
             });
 
-            const data = await response.json();
-            
-            console.log("📦 Response:", { status: response.status, data });
-            
             if (!response.ok) {
-                throw new Error(data.message || "Giảm giá thất bại!");
+                throw new Error('Không thể đồng bộ tồn kho');
             }
 
-            alert(data.message || "Giảm giá thành công!");
-            await getAllProduct(dispatch);
-            setBulkDiscountModal({ 
-                open: false, 
-                selectedProducts: [], 
-                discountPercent: 0,
-                discountStartDate: "",
-                discountEndDate: "",
-                submitting: false, 
-                searchTerm: "" 
-            });
-        } catch (e) {
-            console.error("❌ Lỗi:", e);
-            alert(e.message || "Có lỗi xảy ra!");
-            setBulkDiscountModal((s) => ({ ...s, submitting: false }));
+            const data = await response.json();
+            console.log(`Đồng bộ tồn kho thành công: ${data.successCount} sản phẩm được cập nhật, ${data.errorCount} lỗi`);
+            
+            return data;
+        } catch (error) {
+            console.error('Error syncing inventory:', error);
+            throw error;
         }
     };
+
+    const getBatchCount = (productId) => {
+        const productBatch = productBatches[productId];
+        return productBatch ? productBatch.batches.length : 0;
+    };
+
+    const filteredProducts = useMemo(() => {
+        const key = (searchTerm || "").trim().toLowerCase();
+        let result = key ? products.filter((p) => (p?.name || "").toLowerCase().includes(key)) : [...products];
+        
+        // Tạo bản sao mới của mảng để có thể sắp xếp (tránh lỗi read-only)
+        result = [...result];
+        
+        // Sắp xếp theo mức độ ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
+        result.sort((a, b) => {
+            // Định nghĩa thứ tự ưu tiên
+            const statusPriority = {
+                'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
+                'Sắp hết hạn': 1,  // Cao
+                'Còn hạn': 2,      // Trung bình
+                'Còn hàng': 3,     // Thấp (legacy)
+                'Hết hàng': 4      // Thấp nhất
+            };
+            
+            const aPriority = statusPriority[a.status] ?? 5;
+            const bPriority = statusPriority[b.status] ?? 5;
+            
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority;
+            }
+            
+            // Nếu cùng trạng thái, sắp xếp theo tên
+            return (a.name || "").localeCompare(b.name || "");
+        });
+        
+        return result;
+    }, [products, searchTerm]);
+
+
 
     return (
         <div className="container">
             <h2>QUẢN LÝ SẢN PHẨM</h2>
 
+            {/* Loading indicator */}
+            {isLoading && (
+                <div className="loading-overlay">
+                    <div className="loading-content">
+                        <div className="spinner"></div>
+                        <p>Đang đồng bộ tồn kho và tải dữ liệu...</p>
+                    </div>
+                </div>
+            )}
             {/* ===== Toolbar sản phẩm ===== */}
             <div className="toolbar">
                 <button
@@ -132,12 +278,7 @@ const ProductManagerPage = () => {
                 >
                 + Thêm sản phẩm
                 </button>
-                <button
-                    className="btn-bulk-discount"
-                    onClick={() => setBulkDiscountModal((s) => ({ ...s, open: true }))}
-                >
-                    ⚡ Giảm giá hàng loạt
-                </button>
+
                 <input
                 type="text"
                 placeholder="Tìm kiếm sản phẩm..."
@@ -158,6 +299,7 @@ const ProductManagerPage = () => {
                     <th>Đơn vị</th>
                     <th>Họ</th>
                     <th>Danh mục</th>
+                    <th>Lô hàng</th>
                     <th>Trạng thái</th>
                     <th>Hành động</th>
                 </tr>
@@ -169,6 +311,9 @@ const ProductManagerPage = () => {
                         ? product.image[0] || "/placeholder.png"
                         : product.image || "/placeholder.png";
 
+                    const batchSummary = getBatchStatusSummary(product._id);
+                    const latestBatch = latestBatchInfo[product._id];
+
                     return (
                         <tr key={product._id}>
                         <td>{product.name || "—"}</td>
@@ -179,17 +324,52 @@ const ProductManagerPage = () => {
                             style={{ width: "60px", height: "60px", objectFit: "cover" }}
                             />
                         </td>
-                        <td>{(Number(product.price) || 0).toLocaleString()} VND</td>
+                        <td>
+                            <b>{latestBatch?.latestBatch ? 
+                                (Number(latestBatch.latestBatch.sellingPrice) || 0).toLocaleString() + ' VND' : 
+                                <span style={{color: '#94a3b8', fontStyle: 'italic'}}>Đang tải giá...</span>
+                            }</b>
+                        </td>
                         <td>{Number(product.discountPercent || 0)}%</td>
-                        <td><b>{Number(product.onHand || 0)}</b></td>
+                        <td>
+                            <b>{latestBatch?.summary?.totalInStock || (Number(product.onHand || 0))}</b>
+                        </td>
                         <td><b>{product.unit || "kg"}</b></td>
                         <td>{product.family || "—"}</td>
                         <td>{product.category || "Chưa phân loại"}</td>
                         <td>
+                            {batchSummary ? (
+                            <div 
+                                className="batch-info-cell"
+                                onClick={() => handleShowBatches(product._id, product.name)}
+                            >
+                                <div className="batch-count">
+                                <span className="total-batches">{batchSummary.total} lô</span>
+                                </div>
+                                <div className="batch-status">
+                                {batchSummary.expired > 0 && (
+                                    <span className="expired-count">{batchSummary.expired} hết hạn</span>
+                                )}
+                                {batchSummary.expiring > 0 && (
+                                    <span className="expiring-count">{batchSummary.expiring} sắp hết hạn</span>
+                                )}
+                                {batchSummary.valid > 0 && (
+                                    <span className="valid-count">{batchSummary.valid} còn hạn</span>
+                                )}
+                                </div>
+                            </div>
+                            ) : (
+                            <span className="no-batches">Chưa có lô</span>
+                            )}
+                        </td>
+                        <td>
                             <span
-                            className={
-                                product.status === "Còn hàng" ? "status in-stock" : "status out-stock"
-                            }
+                            className={`status ${
+                                product.status === "Hết hạn" ? "expired" :
+                                product.status === "Sắp hết hạn" ? "expiring" :
+                                product.status === "Còn hạn" ? "valid" :
+                                product.status === "Còn hàng" ? "in-stock" : "out-stock"
+                            }`}
                             >
                             {product.status}
                             </span>
@@ -203,7 +383,7 @@ const ProductManagerPage = () => {
                     })
                 ) : (
                     <tr>
-                    <td colSpan="10" className="no-data">Không tìm thấy sản phẩm</td>
+                    <td colSpan="11" className="no-data">Không tìm thấy sản phẩm</td>
                     </tr>
                 )}
                 </tbody>
@@ -228,140 +408,16 @@ const ProductManagerPage = () => {
                 </div>
             )}
 
-            {/* 🔥 NEW: Modal giảm giá hàng loạt */}
-            {bulkDiscountModal.open && (
-                <div className="modal-overlay" onClick={() => setBulkDiscountModal({ open: false, selectedProducts: [], discountPercent: 0, discountStartDate: "", discountEndDate: "", submitting: false, searchTerm: "" })}>
-                    <div className="modal-content bulk-discount-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>⚡ Giảm giá hàng loạt</h3>
 
-                        <div className="discount-input-group">
-                            <label>% Giảm giá (0-100)</label>
-                            <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={bulkDiscountModal.discountPercent}
-                                onChange={(e) => {
-                                    let val = Number(e.target.value);
-                                    if (val < 0) val = 0;
-                                    if (val > 100) val = 100;
-                                    setBulkDiscountModal((s) => ({ ...s, discountPercent: val }));
-                                }}
-                            />
-                        </div>
 
-                        <div className="date-range-group">
-                            <div className="date-field">
-                                <label>Ngày bắt đầu giảm giá</label>
-                                <input
-                                    type="date"
-                                    value={bulkDiscountModal.discountStartDate}
-                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, discountStartDate: e.target.value }))}
-                                />
-                                <small>Để trống = áp dụng ngay</small>
-                            </div>
-                            <div className="date-field">
-                                <label>Ngày kết thúc giảm giá</label>
-                                <input
-                                    type="date"
-                                    value={bulkDiscountModal.discountEndDate}
-                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, discountEndDate: e.target.value }))}
-                                />
-                                <small>Để trống = vô thời hạn</small>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="selection-toolbar">
-                                <label>Chọn sản phẩm áp dụng</label>
-                                <div className="toolbar-buttons">
-                                    <button
-                                        type="button"
-                                        className="btn-select-all"
-                                        onClick={() => {
-                                            const allIds = products.map(p => p._id);
-                                            setBulkDiscountModal((s) => ({ ...s, selectedProducts: allIds }));
-                                        }}
-                                    >
-                                        Chọn tất cả
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn-deselect-all"
-                                        onClick={() => setBulkDiscountModal((s) => ({ ...s, selectedProducts: [] }))}
-                                    >
-                                        Bỏ chọn
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            {/* 🔍 Ô tìm kiếm sản phẩm */}
-                            <div className="search-box">
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Tìm kiếm sản phẩm..."
-                                    value={bulkDiscountModal.searchTerm}
-                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, searchTerm: e.target.value }))}
-                                />
-                            </div>
-                            
-                            <div className="products-list">
-                                {products.length > 0 ? (
-                                    products
-                                        .filter((p) => {
-                                            const searchKey = (bulkDiscountModal.searchTerm || "").trim().toLowerCase();
-                                            if (!searchKey) return true;
-                                            return (p?.name || "").toLowerCase().includes(searchKey);
-                                        })
-                                        .map((p) => (
-                                        <label 
-                                            key={p._id}
-                                            className={`product-item ${bulkDiscountModal.selectedProducts.includes(p._id) ? 'selected' : ''}`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={bulkDiscountModal.selectedProducts.includes(p._id)}
-                                                onChange={(e) => {
-                                                    const selected = e.target.checked
-                                                        ? [...bulkDiscountModal.selectedProducts, p._id]
-                                                        : bulkDiscountModal.selectedProducts.filter(id => id !== p._id);
-                                                    setBulkDiscountModal((s) => ({ ...s, selectedProducts: selected }));
-                                                }}
-                                            />
-                                            <span className="name">{p.name}</span>
-                                            <span className="family">{p.family || "—"}</span>
-                                            <span className="price">{Number(p.price || 0).toLocaleString()}₫</span>
-                                            <span className={`discount ${p.discountPercent > 0 ? 'has-discount' : ''}`}>
-                                                {p.discountPercent || 0}%
-                                            </span>
-                                        </label>
-                                    ))
-                                ) : (
-                                    <p className="no-products">Không có sản phẩm</p>
-                                )}
-                            </div>
-                            <small className="selection-count">
-                                Đang chọn: <b>{bulkDiscountModal.selectedProducts.length}</b> / {products.length} sản phẩm
-                            </small>
-                        </div>
-
-                        <div className="actions">
-                            <button 
-                                className="btn-cancel"
-                                onClick={() => setBulkDiscountModal({ open: false, selectedProducts: [], discountPercent: 0, discountStartDate: "", discountEndDate: "", submitting: false, searchTerm: "" })}
-                            >
-                                Hủy
-                            </button>
-                            <button 
-                                className="btn-apply"
-                                onClick={handleBulkDiscount}
-                                disabled={bulkDiscountModal.submitting}
-                            >
-                                {bulkDiscountModal.submitting ? "Đang áp dụng..." : "Áp dụng giảm giá"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {/* Modal hiển thị thông tin lô hàng */}
+            {batchModal.show && (
+                <BatchInfoModal
+                    productId={batchModal.productId}
+                    productName={batchModal.productName}
+                    onClose={handleCloseBatchModal}
+                    onPriceUpdate={fetchAllLatestBatchInfo}
+                />
             )}
         </div>
     );

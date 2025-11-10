@@ -32,8 +32,13 @@ export const ProductCard = ({
         return Math.max(0, Math.round((Number(price) || 0) * (100 - pct) / 100));
     }, [price, discountPercent]);
 
-    // ✅ Chuẩn hóa trạng thái hết hàng
+    // ✅ Chuẩn hóa trạng thái hết hàng và hết hạn
     const isOut = Number(onHand || 0) <= 0;
+    const isExpired = status === "Hết hạn";
+    const isExpiring = status === "Sắp hết hạn";
+    
+    // Không thể mua nếu hết hàng hoặc hết hạn
+    const cannotBuy = isOut || isExpired;
 
 
 
@@ -42,7 +47,7 @@ export const ProductCard = ({
     const handleAddToCart = useCallback(
         async (e) => {
         e?.preventDefault?.();
-        if (!id || busy || isOut) return;
+        if (!id || busy || cannotBuy) return;
         try {
             setBusy(true);
             await addToCart(id, 1, dispatch);
@@ -50,11 +55,11 @@ export const ProductCard = ({
             setBusy(false);
         }
         },
-        [id, busy, isOut, dispatch]
+        [id, busy, cannotBuy, dispatch]
     );
 
     return (
-        <div className={`featured__item ${isOut ? "is-out" : ""}`}>
+        <div className={`featured__item ${cannotBuy ? "is-out" : ""} ${isExpired ? "is-expired" : ""} ${isExpiring ? "is-expiring" : ""}`}>
             <div className="featured__item__pic">
                 <img
                 src={imgUrl}
@@ -70,8 +75,10 @@ export const ProductCard = ({
                 <span className="badge badge--discount">-{Math.floor(discountPercent)}%</span>
                 )}
 
-                {/* Huy hiệu hết hàng */}
-                {isOut && <span className="badge badge--soldout">Hết hàng</span>}
+                {/* Huy hiệu trạng thái */}
+                {isExpired && <span className="badge badge--expired">Hết hạn</span>}
+                {!isExpired && isExpiring && <span className="badge badge--expiring">Sắp hết hạn</span>}
+                {!isExpired && !isExpiring && isOut && <span className="badge badge--soldout">Hết hàng</span>}
 
                 <ul className="featured__item__pic__hover">
                 <li>
@@ -89,11 +96,19 @@ export const ProductCard = ({
                     <button
                     type="button"
                     className="icon-btn"
-                    aria-label={isOut ? "Sản phẩm đã hết hàng" : "Thêm vào giỏ hàng"}
-                    title={isOut ? "Sản phẩm đã hết hàng" : "Thêm vào giỏ hàng"}
+                    aria-label={
+                        isExpired ? "Sản phẩm đã hết hạn" :
+                        isOut ? "Sản phẩm đã hết hàng" : 
+                        "Thêm vào giỏ hàng"
+                    }
+                    title={
+                        isExpired ? "Sản phẩm đã hết hạn" :
+                        isOut ? "Sản phẩm đã hết hàng" : 
+                        "Thêm vào giỏ hàng"
+                    }
                     onClick={handleAddToCart}
-                    disabled={busy || isOut}
-                    aria-disabled={busy || isOut}
+                    disabled={busy || cannotBuy}
+                    aria-disabled={busy || cannotBuy}
                     >
                     <AiOutlineShoppingCart />
                     </button>

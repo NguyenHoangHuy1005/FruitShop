@@ -617,6 +617,71 @@
     outline-offset: 2px;
 }
 
+/* Product list in modal */
+.product-list {
+    margin: 16px 0;
+    
+    .product-item {
+        background: linear-gradient(135deg, #f8fafc, #ffffff);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        transition: all 0.25s ease;
+        
+        &:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 2px 8px rgba(0, 136, 116, 0.08);
+        }
+        
+        .product-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            
+            strong {
+                color: #1e293b;
+                font-weight: 600;
+                flex: 1;
+            }
+            
+            span {
+                color: #475569;
+                font-size: 14px;
+                text-align: right;
+                
+                b {
+                    color: #008874;
+                    font-weight: 700;
+                }
+            }
+        }
+        
+        .product-dates {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #64748b;
+            
+            span {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                background: rgba(0, 136, 116, 0.08);
+                border-radius: 6px;
+                font-weight: 500;
+            }
+            
+            @media (max-width: 640px) {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    }
+}
+
 /* Smooth scroll behavior */
 html {
     scroll-behavior: smooth;

@@ -317,3 +317,47 @@ $product-subtle: rgba(15, 23, 42, 0.56);
     display: flex; // 2 khối nằm ngang
     align-items: stretch;
 }
+
+// Styles for PriceDisplay component in product detail
+.product-detail .product-detail-price {
+    margin: 16px 0;
+
+    &.range {
+        .price-range {
+            font-size: 28px;
+            font-weight: 800;
+            color: #059669;
+            margin-bottom: 6px;
+        }
+
+        .price-note {
+            font-size: 14px;
+            color: #64748b;
+            font-style: italic;
+        }
+    }
+
+    &.single {
+        .price-single {
+            font-size: 28px;
+            font-weight: 800;
+            color: #059669;
+        }
+    }
+
+    &.loading {
+        .loading-text {
+            font-size: 18px;
+            color: #94a3b8;
+        }
+    }
+
+    &.out-of-stock {
+        .out-of-stock-text {
+            font-size: 20px;
+            color: #f59e0b;
+            font-weight: 600;
+            font-style: italic;
+        }
+    }
+}

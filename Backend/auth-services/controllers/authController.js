@@ -159,6 +159,10 @@ const authController = {
             });
         }
 
+        // ✅ Tăng loginCount mỗi lần đăng nhập thành công
+        user.loginCount = (user.loginCount || 0) + 1;
+        await user.save();
+
         // === NEW: Remember me (chỉ áp dụng cho USER) ===
         const remember = !!req.body.remember;
         const isAdmin = !!(user.admin || user.isAdmin);

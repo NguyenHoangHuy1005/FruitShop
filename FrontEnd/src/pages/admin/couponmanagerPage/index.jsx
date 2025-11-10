@@ -6,9 +6,12 @@ import {
     deleteCoupon,
     toggleCoupon,
     extendCoupon,
+    getAllProduct,
 } from "../../../component/redux/apiRequest";
+import { useDispatch } from "react-redux";
 
 const CouponManagerPage = () => {
+    const dispatch = useDispatch();
 
     // ===== Helpers =====
     const fmtDateInput = (d) => {
@@ -70,6 +73,17 @@ const CouponManagerPage = () => {
         open: false,
         coupon: null,
         selectedProducts: [],
+        submitting: false,
+        searchTerm: "",
+    });
+
+    // 🔥 NEW: Modal giảm giá hàng loạt
+    const [bulkDiscountModal, setBulkDiscountModal] = useState({
+        open: false,
+        selectedProducts: [],
+        discountPercent: 0,
+        discountStartDate: "",
+        discountEndDate: "",
         submitting: false,
         searchTerm: "",
     });
@@ -263,6 +277,72 @@ const CouponManagerPage = () => {
         setExtendModal((s) => ({ ...s, submitting: false }));
         }
     };
+
+    // 🔥 NEW: Hàm xử lý giảm giá hàng loạt
+    const handleBulkDiscount = async () => {
+        const { selectedProducts, discountPercent, discountStartDate, discountEndDate } = bulkDiscountModal;
+        
+        if (selectedProducts.length === 0) {
+            alert("Vui lòng chọn ít nhất 1 sản phẩm!");
+            return;
+        }
+
+        if (discountPercent < 0 || discountPercent > 100) {
+            alert("% giảm giá phải từ 0 đến 100!");
+            return;
+        }
+
+        try {
+            setBulkDiscountModal((s) => ({ ...s, submitting: true }));
+            
+            const payload = { 
+                productIds: selectedProducts, 
+                discountPercent: Number(discountPercent),
+            };
+
+            // Thêm ngày nếu có
+            if (discountStartDate) {
+                payload.discountStartDate = discountStartDate;
+            }
+            if (discountEndDate) {
+                payload.discountEndDate = discountEndDate;
+            }
+
+            console.log("🔥 Payload gửi đi:", payload);
+
+            const response = await fetch("http://localhost:3000/api/product/bulk-discount", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("accessToken")}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || "Giảm giá thất bại!");
+            }
+
+            alert(data.message || "Giảm giá thành công!");
+            await getAllProduct(dispatch);
+            setBulkDiscountModal({ 
+                open: false, 
+                selectedProducts: [], 
+                discountPercent: 0,
+                discountStartDate: "",
+                discountEndDate: "",
+                submitting: false, 
+                searchTerm: "" 
+            });
+        } catch (e) {
+            console.error("❌ Lỗi:", e);
+            alert(e.message || "Có lỗi xảy ra!");
+            setBulkDiscountModal((s) => ({ ...s, submitting: false }));
+        }
+    };
+
     // ===== FILTER COUPONS (theo mã + ngày hết hạn) =====
     const filteredCoupons = useMemo(() => {
         const codeKey = (couponFilter.code || "").trim().toLowerCase();
@@ -345,6 +425,13 @@ const CouponManagerPage = () => {
                         onClick={() => setCreateModal((s) => ({ ...s, open: true }))}
                     >
                         + THÊM COUPON
+                    </button>
+
+                    <button
+                        className="btn-bulk-discount"
+                        onClick={() => setBulkDiscountModal((s) => ({ ...s, open: true }))}
+                    >
+                        ⚡ GIẢM GIÁ HÀNG LOẠT
                     </button>
                 </div>
 
@@ -953,6 +1040,142 @@ const CouponManagerPage = () => {
                                 disabled={editProductsModal.submitting}
                             >
                                 {editProductsModal.submitting ? "Đang lưu..." : "Lưu thay đổi"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 🔥 NEW: Modal giảm giá hàng loạt */}
+            {bulkDiscountModal.open && (
+                <div className="modal-overlay" onClick={() => setBulkDiscountModal({ open: false, selectedProducts: [], discountPercent: 0, discountStartDate: "", discountEndDate: "", submitting: false, searchTerm: "" })}>
+                    <div className="modal-content bulk-discount-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>⚡ Giảm giá hàng loạt</h3>
+
+                        <div className="discount-input-group">
+                            <label>% Giảm giá (0-100)</label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={bulkDiscountModal.discountPercent}
+                                onChange={(e) => {
+                                    let val = Number(e.target.value);
+                                    if (val < 0) val = 0;
+                                    if (val > 100) val = 100;
+                                    setBulkDiscountModal((s) => ({ ...s, discountPercent: val }));
+                                }}
+                            />
+                        </div>
+
+                        <div className="date-range-group">
+                            <div className="date-field">
+                                <label>Ngày bắt đầu giảm giá</label>
+                                <input
+                                    type="date"
+                                    value={bulkDiscountModal.discountStartDate}
+                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, discountStartDate: e.target.value }))}
+                                />
+                                <small>Để trống = áp dụng ngay</small>
+                            </div>
+                            <div className="date-field">
+                                <label>Ngày kết thúc giảm giá</label>
+                                <input
+                                    type="date"
+                                    value={bulkDiscountModal.discountEndDate}
+                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, discountEndDate: e.target.value }))}
+                                />
+                                <small>Để trống = vô thời hạn</small>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="selection-toolbar">
+                                <label>Chọn sản phẩm áp dụng</label>
+                                <div className="toolbar-buttons">
+                                    <button
+                                        type="button"
+                                        className="btn-select-all"
+                                        onClick={() => {
+                                            const allIds = allProducts.map(p => p._id);
+                                            setBulkDiscountModal((s) => ({ ...s, selectedProducts: allIds }));
+                                        }}
+                                    >
+                                        Chọn tất cả
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-deselect-all"
+                                        onClick={() => setBulkDiscountModal((s) => ({ ...s, selectedProducts: [] }))}
+                                    >
+                                        Bỏ chọn
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* 🔍 Ô tìm kiếm sản phẩm */}
+                            <div className="search-box">
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Tìm kiếm sản phẩm..."
+                                    value={bulkDiscountModal.searchTerm}
+                                    onChange={(e) => setBulkDiscountModal((s) => ({ ...s, searchTerm: e.target.value }))}
+                                />
+                            </div>
+                            
+                            <div className="products-list">
+                                {allProducts.length > 0 ? (
+                                    allProducts
+                                        .filter((p) => {
+                                            const searchKey = (bulkDiscountModal.searchTerm || "").trim().toLowerCase();
+                                            if (!searchKey) return true;
+                                            return (p?.name || "").toLowerCase().includes(searchKey);
+                                        })
+                                        .map((p) => (
+                                        <label 
+                                            key={p._id}
+                                            className={`product-item ${bulkDiscountModal.selectedProducts.includes(p._id) ? 'selected' : ''}`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={bulkDiscountModal.selectedProducts.includes(p._id)}
+                                                onChange={(e) => {
+                                                    const selected = e.target.checked
+                                                        ? [...bulkDiscountModal.selectedProducts, p._id]
+                                                        : bulkDiscountModal.selectedProducts.filter(id => id !== p._id);
+                                                    setBulkDiscountModal((s) => ({ ...s, selectedProducts: selected }));
+                                                }}
+                                            />
+                                            <span className="name">{p.name}</span>
+                                            <span className="family">{p.family || "—"}</span>
+                                            <span className="price">{Number(p.price || 0).toLocaleString()}₫</span>
+                                            <span className={`discount ${p.discountPercent > 0 ? 'has-discount' : ''}`}>
+                                                {p.discountPercent || 0}%
+                                            </span>
+                                        </label>
+                                    ))
+                                ) : (
+                                    <p className="no-products">Không có sản phẩm</p>
+                                )}
+                            </div>
+                            <small className="selection-count">
+                                Đang chọn: <b>{bulkDiscountModal.selectedProducts.length}</b> / {allProducts.length} sản phẩm
+                            </small>
+                        </div>
+
+                        <div className="actions">
+                            <button 
+                                className="btn-cancel"
+                                onClick={() => setBulkDiscountModal({ open: false, selectedProducts: [], discountPercent: 0, discountStartDate: "", discountEndDate: "", submitting: false, searchTerm: "" })}
+                            >
+                                Hủy
+                            </button>
+                            <button 
+                                className="btn-apply"
+                                onClick={handleBulkDiscount}
+                                disabled={bulkDiscountModal.submitting}
+                            >
+                                {bulkDiscountModal.submitting ? "Đang áp dụng..." : "Áp dụng giảm giá"}
                             </button>
                         </div>
                     </div>

@@ -55,7 +55,7 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
   }
 
-  .btn-add {
+  .btn-add, .btn-sync-inventory {
     background: linear-gradient(135deg, #2c3e50, #008874);
     color: white;
     border: none;
@@ -191,6 +191,27 @@ $product-main: map.get(theme.$theme-colors, "main");
       background: linear-gradient(135deg, rgba($product-red, 0.15), rgba($product-red, 0.08));
       color: $product-red;
       border: 1px solid rgba($product-red, 0.3);
+    }
+
+    // 🔥 Trạng thái mới dựa trên hạn sử dụng
+    &.expired {
+      background: linear-gradient(135deg, rgba(#dc2626, 0.2), rgba(#dc2626, 0.1));
+      color: #dc2626;
+      border: 1px solid rgba(#dc2626, 0.4);
+      animation: pulse-status 2s infinite;
+    }
+
+    &.expiring {
+      background: linear-gradient(135deg, rgba(#f59e0b, 0.2), rgba(#f59e0b, 0.1));
+      color: #f59e0b;
+      border: 1px solid rgba(#f59e0b, 0.4);
+      animation: blink-status 1.5s infinite;
+    }
+
+    &.valid {
+      background: linear-gradient(135deg, rgba(#10b981, 0.15), rgba(#10b981, 0.08));
+      color: #10b981;
+      border: 1px solid rgba(#10b981, 0.3);
     }
   }
 
@@ -736,4 +757,225 @@ $product-main: map.get(theme.$theme-colors, "main");
 ::selection {
   background: rgba(0, 136, 116, 0.2);
   color: #1e293b;
+}
+
+/* 🔥 Animations for expiry status */
+@keyframes pulse-status {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes blink-status {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+// CSS cho thông tin lô hàng
+.batch-info-cell {
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  min-width: 120px;
+
+  &:hover {
+    background: #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .batch-count {
+    margin-bottom: 4px;
+    
+    .total-batches {
+      font-weight: 600;
+      color: #495057;
+      font-size: 12px;
+    }
+  }
+
+  .batch-status {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    
+    span {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+      
+      &.expired-count {
+        background: #dc3545;
+        color: white;
+      }
+      
+      &.expiring-count {
+        background: #ffc107;
+        color: #333;
+      }
+      
+      &.valid-count {
+        background: #28a745;
+        color: white;
+      }
+    }
+  }
+}
+
+.no-batches {
+  color: #6c757d;
+  font-style: italic;
+  font-size: 12px;
+}
+
+// CSS cho ô hiển thị số lượng
+.quantity-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  .stock-amount {
+    color: #28a745;
+    font-size: 14px;
+  }
+
+  .sold-info {
+    color: #6c757d;
+    font-size: 10px;
+    font-style: italic;
+  }
+}
+
+// CSS cho loading overlay
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+
+  .loading-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+
+    p {
+      margin: 15px 0 0 0;
+      color: #495057;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid $product-main;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// CSS đã được đơn giản hóa - chỉ hiển thị giá và số lượng cơ bản
+
+// Banner thông tin hệ thống FIFO
+.fifo-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #e6f7ff, #f0fbff);
+  border: 2px solid #91d5ff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, #1890ff, #40a9ff);
+  }
+
+  .banner-icon {
+    font-size: 24px;
+    line-height: 1;
+    margin-top: 2px;
+  }
+
+  .banner-content {
+    flex: 1;
+
+    h4 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0050b3;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1d39c4;
+
+      strong {
+        font-weight: 600;
+        color: #0050b3;
+      }
+
+      br {
+        margin: 4px 0;
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 8px;
+
+    .banner-content {
+      h4 {
+        font-size: 15px;
+      }
+
+      p {
+        font-size: 13px;
+      }
+    }
+  }
 }

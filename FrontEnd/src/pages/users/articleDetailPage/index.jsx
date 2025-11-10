@@ -8,8 +8,9 @@ import { BiLike, BiSolidLike, BiDislike, BiSolidDislike } from "react-icons/bi";
 import { MdOutlineEmojiEmotions } from "react-icons/md";
 import ReactionModal from "../../../component/reactionModal";
 import ReactionBar from "../../../component/reactionBar";
+import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
-
+import ProductReviews from "../../../component/productReviews";
 const ArticleDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -240,7 +241,7 @@ const ArticleDetailPage = () => {
     if (!isLoggedIn) return;
 
     const isOwnReaction = targetUserId === currentUser._id;
-    const confirmMessage = isOwnReaction 
+    const confirmMessage = isOwnReaction
       ? "Bạn có chắc muốn xóa reaction của mình?"
       : "Bạn có chắc muốn xóa reaction này? (Quyền Admin)";
 
@@ -329,14 +330,14 @@ const ArticleDetailPage = () => {
     const isNested = depth > 0;
     const isLiked = comment.likes?.includes(userId);
     const isDisliked = comment.dislikes?.includes(userId);
-    const currentUserReaction = comment.reactions?.find(r => 
+    const currentUserReaction = comment.reactions?.find(r =>
       r.user._id === userId || r.user === userId
     );
     const isHidden = comment.status === 'hidden';
 
     return (
-      <div 
-        key={comment._id} 
+      <div
+        key={comment._id}
         className={`comment-item ${isNested ? 'nested-comment' : ''} ${isHidden ? 'hidden-comment' : ''}`}
         style={{ marginLeft: isNested ? '32px' : '0' }}
       >
@@ -360,14 +361,14 @@ const ArticleDetailPage = () => {
           )}
           {comment.content}
         </div>
-        
-        <ReactionBar 
-          reactions={comment.reactions || []} 
+
+        <ReactionBar
+          reactions={comment.reactions || []}
           currentUserId={userId}
           isAdmin={currentUser?.role === 'admin' || currentUser?.admin}
           onDeleteReaction={(targetUserId) => handleDeleteReaction(comment._id, targetUserId)}
         />
-        
+
         <div className="comment-actions">
           <button
             className={`btn-like-comment ${isLiked ? 'active' : ''}`}
@@ -459,7 +460,7 @@ const ArticleDetailPage = () => {
         {/* Render nested replies */}
         {replies.length > 0 && (
           <div className="nested-comments">
-            {replies.map(reply => 
+            {replies.map(reply =>
               renderComment(reply, [comment, ...replies], depth + 1)
             )}
           </div>
@@ -530,336 +531,330 @@ const ArticleDetailPage = () => {
   }
 
   return (
-    <div className="article-detail-page">
-      <div className="container">
-        {/* Breadcrumb */}
-        <div className="breadcrumb">
-          <span onClick={() => navigate("/")} className="clickable">
-            Trang chủ
-          </span>
-          <span className="separator">/</span>
-          <span onClick={() => navigate("/articles")} className="clickable">
-            Bài viết
-          </span>
-          <span className="separator">/</span>
-          <span className="current">{article.title}</span>
-        </div>
-
-        {!isEditing ? (
-          <>
-            {/* Article Header */}
-            <div className="article-header">
-              <div className="category-badge">{article.category}</div>
-              {article.isViewingDraft && (
-                <div className={`version-badge ${article.showingOriginal ? 'version-original' : 'version-draft'}`}>
-                  {article.showingOriginal ? '👁️ Phiên bản công khai' : '📝 Bản chỉnh sửa'}
-                </div>
-              )}
-              <h1 className="article-title">{article.title}</h1>
-
-              <div className="article-meta">
-                <div className="meta-item">
-                  <FaUser />
-                  <span>{article.authorName || article.author?.username}</span>
-                </div>
-                <div className="meta-item">
-                  <FaClock />
-                  <span>
-                    {new Date(article.createdAt).toLocaleDateString("vi-VN", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-                <div className="meta-item">
-                  <FaEye />
-                  <span>{article.views || 0} lượt xem</span>
-                </div>
-                <div className="meta-item">
-                  <FaClock />
-                  <span>{article.readTime}</span>
-                </div>
-              </div>
-
-              {article.status && article.status !== "approved" && (
-                <div className={`status-badge status-${article.status}`}>
-                  {article.status === "pending" && "⏳ Chờ duyệt"}
-                  {article.status === "rejected" && "❌ Đã từ chối"}
-                </div>
-              )}
-
-              {article.isViewingDraft && article.originalContent && (
-                <div className="draft-notice">
-                  <div>
-                    📝 Bạn đang xem bản chỉnh sửa chờ duyệt. Người dùng khác vẫn thấy nội dung gốc.
+      <>  <Breadcrumb
+      paths={[
+        { label: "Bài viết", to: "/article" },
+        { label: article.title },
+      ]}
+    />
+      <div className="article-detail-page">
+        <div className="container">
+          {!isEditing ? (
+            <>
+              {/* Article Header */}
+              <div className="article-header">
+                <div className="category-badge">{article.category}</div>
+                {article.isViewingDraft && (
+                  <div className={`version-badge ${article.showingOriginal ? 'version-original' : 'version-draft'}`}>
+                    {article.showingOriginal ? '👁️ Phiên bản công khai' : '📝 Bản chỉnh sửa'}
                   </div>
+                )}
+                <h1 className="article-title">{article.title}</h1>
+
+                <div className="article-meta">
+                  <div className="meta-item">
+                    <FaUser />
+                    <span>{article.authorName || article.author?.username}</span>
+                  </div>
+                  <div className="meta-item">
+                    <FaClock />
+                    <span>
+                      {new Date(article.createdAt).toLocaleDateString("vi-VN", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div className="meta-item">
+                    <FaEye />
+                    <span>{article.views || 0} lượt xem</span>
+                  </div>
+                  <div className="meta-item">
+                    <FaClock />
+                    <span>{article.readTime}</span>
+                  </div>
+                </div>
+
+                {article.status && article.status !== "approved" && (
+                  <div className={`status-badge status-${article.status}`}>
+                    {article.status === "pending" && "⏳ Chờ duyệt"}
+                    {article.status === "rejected" && "❌ Đã từ chối"}
+                  </div>
+                )}
+
+                {article.isViewingDraft && article.originalContent && (
+                  <div className="draft-notice">
+                    <div>
+                      📝 Bạn đang xem bản chỉnh sửa chờ duyệt. Người dùng khác vẫn thấy nội dung gốc.
+                    </div>
+                    <button
+                      className="btn-view-public"
+                      onClick={() => {
+                        // Toggle giữa draft và original
+                        setArticle((prev) => {
+                          if (prev.showingOriginal) {
+                            // Đang xem original, chuyển về draft
+                            return {
+                              ...prev,
+                              title: prev.draftTitle || prev.title,
+                              content: prev.draftContent || prev.content,
+                              excerpt: prev.draftExcerpt || prev.excerpt,
+                              category: prev.draftCategory || prev.category,
+                              image: prev.draftImage || prev.image,
+                              readTime: prev.draftReadTime || prev.readTime,
+                              showingOriginal: false,
+                            };
+                          } else {
+                            // Đang xem draft, chuyển sang original
+                            return {
+                              ...prev,
+                              draftTitle: prev.title,
+                              draftContent: prev.content,
+                              draftExcerpt: prev.excerpt,
+                              draftCategory: prev.category,
+                              draftImage: prev.image,
+                              draftReadTime: prev.readTime,
+                              title: prev.originalContent.title,
+                              content: prev.originalContent.content,
+                              excerpt: prev.originalContent.excerpt,
+                              category: prev.originalContent.category,
+                              image: prev.originalContent.image,
+                              readTime: prev.originalContent.readTime,
+                              showingOriginal: true,
+                            };
+                          }
+                        });
+                      }}
+                    >
+                      {article.showingOriginal ? '📝 Xem bản chỉnh sửa' : '👁️ Xem phiên bản công khai'}
+                    </button>
+                  </div>
+                )}
+
+                {article.rejectionReason && (
+                  <div className="rejection-reason">
+                    <strong>Lý do từ chối:</strong> {article.rejectionReason}
+                  </div>
+                )}
+
+                {canEditArticle() && (
                   <button
-                    className="btn-view-public"
-                    onClick={() => {
-                      // Toggle giữa draft và original
-                      setArticle((prev) => {
-                        if (prev.showingOriginal) {
-                          // Đang xem original, chuyển về draft
-                          return {
-                            ...prev,
-                            title: prev.draftTitle || prev.title,
-                            content: prev.draftContent || prev.content,
-                            excerpt: prev.draftExcerpt || prev.excerpt,
-                            category: prev.draftCategory || prev.category,
-                            image: prev.draftImage || prev.image,
-                            readTime: prev.draftReadTime || prev.readTime,
-                            showingOriginal: false,
-                          };
-                        } else {
-                          // Đang xem draft, chuyển sang original
-                          return {
-                            ...prev,
-                            draftTitle: prev.title,
-                            draftContent: prev.content,
-                            draftExcerpt: prev.excerpt,
-                            draftCategory: prev.category,
-                            draftImage: prev.image,
-                            draftReadTime: prev.readTime,
-                            title: prev.originalContent.title,
-                            content: prev.originalContent.content,
-                            excerpt: prev.originalContent.excerpt,
-                            category: prev.originalContent.category,
-                            image: prev.originalContent.image,
-                            readTime: prev.originalContent.readTime,
-                            showingOriginal: true,
-                          };
-                        }
-                      });
-                    }}
+                    className="btn-edit-article"
+                    onClick={() => setIsEditing(true)}
                   >
-                    {article.showingOriginal ? '📝 Xem bản chỉnh sửa' : '👁️ Xem phiên bản công khai'}
+                    <FaEdit /> Chỉnh sửa bài viết
+                  </button>
+                )}
+              </div>
+              {/* Featured Image */}
+              {article.image && (
+                <div className="article-image">
+                  <img src={article.image} alt={article.title} />
+                </div>
+              )}
+
+              {/* Article Content */}
+              <div className="article-content">
+                {article.excerpt && (
+                  <div className="article-excerpt">{article.excerpt}</div>
+                )}
+                <div
+                  className="article-body"
+                  dangerouslySetInnerHTML={{
+                    __html: article.content.replace(/\n/g, "<br />"),
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            /* Edit Form */
+            <div className="edit-article-form">
+              <h2>Chỉnh sửa bài viết</h2>
+              <form onSubmit={handleEditArticle}>
+                <div className="form-group">
+                  <label>Tiêu đề *</label>
+                  <input
+                    type="text"
+                    value={editFormData.title}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, title: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Danh mục</label>
+                  <select
+                    value={editFormData.category}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        category: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="Mẹo chọn hàng">Mẹo chọn hàng</option>
+                    <option value="Công thức">Công thức</option>
+                    <option value="Dinh dưỡng">Dinh dưỡng</option>
+                    <option value="Cảm hứng">Cảm hứng</option>
+                    <option value="Tin tức">Tin tức</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>URL Ảnh bìa *</label>
+                  <input
+                    type="url"
+                    value={editFormData.image}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, image: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Tóm tắt</label>
+                  <textarea
+                    value={editFormData.excerpt}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        excerpt: e.target.value,
+                      })
+                    }
+                    rows="2"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Nội dung *</label>
+                  <textarea
+                    value={editFormData.content}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        content: e.target.value,
+                      })
+                    }
+                    rows="15"
+                    required
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Hủy
+                  </button>
+                  <button type="submit" className="btn-submit">
+                    {currentUser?.admin ? "Cập nhật" : "Gửi yêu cầu duyệt"}
                   </button>
                 </div>
-              )}
-
-              {article.rejectionReason && (
-                <div className="rejection-reason">
-                  <strong>Lý do từ chối:</strong> {article.rejectionReason}
-                </div>
-              )}
-
-              {canEditArticle() && (
-                <button
-                  className="btn-edit-article"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <FaEdit /> Chỉnh sửa bài viết
-                </button>
-              )}
-            </div>
-
-            {/* Featured Image */}
-            {article.image && (
-              <div className="article-image">
-                <img src={article.image} alt={article.title} />
-              </div>
-            )}
-
-            {/* Article Content */}
-            <div className="article-content">
-              {article.excerpt && (
-                <div className="article-excerpt">{article.excerpt}</div>
-              )}
-              <div
-                className="article-body"
-                dangerouslySetInnerHTML={{
-                  __html: article.content.replace(/\n/g, "<br />"),
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          /* Edit Form */
-          <div className="edit-article-form">
-            <h2>Chỉnh sửa bài viết</h2>
-            <form onSubmit={handleEditArticle}>
-              <div className="form-group">
-                <label>Tiêu đề *</label>
-                <input
-                  type="text"
-                  value={editFormData.title}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, title: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Danh mục</label>
-                <select
-                  value={editFormData.category}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      category: e.target.value,
-                    })
-                  }
-                >
-                  <option value="Mẹo chọn hàng">Mẹo chọn hàng</option>
-                  <option value="Công thức">Công thức</option>
-                  <option value="Dinh dưỡng">Dinh dưỡng</option>
-                  <option value="Cảm hứng">Cảm hứng</option>
-                  <option value="Tin tức">Tin tức</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>URL Ảnh bìa *</label>
-                <input
-                  type="url"
-                  value={editFormData.image}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, image: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Tóm tắt</label>
-                <textarea
-                  value={editFormData.excerpt}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      excerpt: e.target.value,
-                    })
-                  }
-                  rows="2"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Nội dung *</label>
-                <textarea
-                  value={editFormData.content}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      content: e.target.value,
-                    })
-                  }
-                  rows="15"
-                  required
-                />
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Hủy
-                </button>
-                <button type="submit" className="btn-submit">
-                  {currentUser?.admin ? "Cập nhật" : "Gửi yêu cầu duyệt"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Comments Section */}
-        <div className="comments-section">
-          <div className="comments-header">
-            <h2 className="comments-title">
-              Bình luận ({comments.length})
-            </h2>
-            <select 
-              className="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="createdAt">Mới nhất</option>
-              <option value="likes">Nhiều thích nhất</option>
-            </select>
-          </div>
-
-          {/* Comment Form */}
-          {isLoggedIn ? (
-            <form onSubmit={handleSubmitComment} className="comment-form">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Viết bình luận của bạn..."
-                rows="4"
-                disabled={submittingComment}
-              />
-              <button
-                type="submit"
-                className="btn-submit-comment"
-                disabled={submittingComment}
-              >
-                {submittingComment ? "Đang gửi..." : "Gửi bình luận"}
-              </button>
-            </form>
-          ) : (
-            <div className="login-prompt">
-              <p>Vui lòng đăng nhập để bình luận</p>
-              <button
-                className="btn-login"
-                onClick={() => navigate("/login")}
-              >
-                Đăng nhập
-              </button>
+              </form>
             </div>
           )}
 
-          {/* Comments List */}
-          <div className="comments-list">
-            {comments.length === 0 ? (
-              <p className="no-comments">
-                Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
-              </p>
+          {/* Comments Section */}
+          <div className="comments-section">
+            <div className="comments-header">
+              <h2 className="comments-title">
+                Bình luận ({comments.length})
+              </h2>
+              <select
+                className="sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="createdAt">Mới nhất</option>
+                <option value="likes">Nhiều thích nhất</option>
+              </select>
+            </div>
+
+            {/* Comment Form */}
+            {isLoggedIn ? (
+              <form onSubmit={handleSubmitComment} className="comment-form">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Viết bình luận của bạn..."
+                  rows="4"
+                  disabled={submittingComment}
+                />
+                <button
+                  type="submit"
+                  className="btn-submit-comment"
+                  disabled={submittingComment}
+                >
+                  {submittingComment ? "Đang gửi..." : "Gửi bình luận"}
+                </button>
+              </form>
             ) : (
-              comments.map((comment) => (
-                <div key={comment._id}>
-                  {renderComment(comment, comments, 0)}
-                  
-                  {/* Reply form cho comment này */}
-                  {replyingTo === comment._id && (
-                    <div className="reply-form">
-                      {replyingToComment && (
-                        <div className="replying-to-info">
-                          Đang trả lời <strong>@{replyingToComment.user?.username}</strong>
-                          <button 
-                            className="btn-clear-mention"
-                            onClick={() => setReplyingToComment(null)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )}
-                      <textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder={replyingToComment ? `Trả lời @${replyingToComment.user?.username}...` : "Nhập câu trả lời của bạn..."}
-                        rows="3"
-                      />
-                      <button
-                        className="btn-submit-reply"
-                        onClick={() => handleSubmitReply(comment._id)}
-                      >
-                        Gửi
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
+              <div className="login-prompt">
+                <p>Vui lòng đăng nhập để bình luận</p>
+                <button
+                  className="btn-login"
+                  onClick={() => navigate("/login")}
+                >
+                  Đăng nhập
+                </button>
+              </div>
             )}
+
+            {/* Comments List */}
+            <div className="comments-list">
+              {comments.length === 0 ? (
+                <p className="no-comments">
+                  Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+                </p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment._id}>
+                    {renderComment(comment, comments, 0)}
+
+                    {/* Reply form cho comment này */}
+                    {replyingTo === comment._id && (
+                      <div className="reply-form">
+                        {replyingToComment && (
+                          <div className="replying-to-info">
+                            Đang trả lời <strong>@{replyingToComment.user?.username}</strong>
+                            <button
+                              className="btn-clear-mention"
+                              onClick={() => setReplyingToComment(null)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder={replyingToComment ? `Trả lời @${replyingToComment.user?.username}...` : "Nhập câu trả lời của bạn..."}
+                          rows="3"
+                        />
+                        <button
+                          className="btn-submit-reply"
+                          onClick={() => handleSubmitReply(comment._id)}
+                        >
+                          Gửi
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
+
         </div>
       </div>
-    </div>
-  );
+      </>
+      );
 };
 
-export default ArticleDetailPage;
+      export default ArticleDetailPage;

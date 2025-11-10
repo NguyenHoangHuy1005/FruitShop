@@ -16,6 +16,8 @@ import { addToCart } from "../../../component/redux/apiRequest";
 import PriceDisplay from "../../../component/PriceDisplay";
 import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
+import ProductReviews from "../../../component/productReviews";
+
 const ProductDetail = () => {
     const dispatch = useDispatch();
     const { id } = useParams();

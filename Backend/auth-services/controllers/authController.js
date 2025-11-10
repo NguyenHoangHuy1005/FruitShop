@@ -36,7 +36,12 @@ const cookieOpts = (ttlMs) => ({
 // ==== JWT HELPERS (global, KHÔNG gán lên authController) ====
 function genAccessToken(user) {
     return jwt.sign(
-        { id: user._id, admin: !!(user.admin || user.isAdmin) },
+        { 
+            id: user._id, 
+            admin: !!(user.admin || user.isAdmin),
+            username: user.username,
+            email: user.email
+        },
         ACCESS_SECRET,
         { expiresIn: "1h" } // Tăng lên 1 giờ để user có thời gian thanh toán
     );
@@ -44,7 +49,13 @@ function genAccessToken(user) {
 
 function genRefreshToken(user, ttlMs, remember = false) {
     return jwt.sign(
-        { id: user._id, admin: !!(user.admin || user.isAdmin), remember: !!remember },
+        { 
+            id: user._id, 
+            admin: !!(user.admin || user.isAdmin), 
+            remember: !!remember,
+            username: user.username,
+            email: user.email
+        },
         REFRESH_SECRET,
         { expiresIn: Math.floor(ttlMs / 1000) } // <- luôn truyền REFRESH_LONG_MS
     );

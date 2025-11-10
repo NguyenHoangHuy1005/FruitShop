@@ -8,6 +8,7 @@ import { FaCartShopping, FaFileInvoice } from "react-icons/fa6";
 import { MdDashboard, MdDiscount} from "react-icons/md";
 import { GrUserManager } from "react-icons/gr";
 import { AiFillProduct } from "react-icons/ai";
+import { HiDocumentText } from "react-icons/hi";
 import { useDispatch, useSelector } from 'react-redux';
 import { logout, ensureAccessToken, API } from "../../../../component/redux/apiRequest";
 import { Boxes } from "lucide-react";
@@ -100,6 +101,13 @@ const HeaderAd = ({ children, ...props }) => {
       onClick: () => navigate(ROUTERS.ADMIN.USERMANAGER),
       label: 'Người dùng',
       icon: <GrUserManager />,
+    },
+    {
+      key: 'content',
+      path: ROUTERS.ADMIN.CONTENT,
+      onClick: () => navigate(ROUTERS.ADMIN.CONTENT),
+      label: 'Nội dung',
+      icon: <HiDocumentText size={20} />,
     },
     // {
     //   key: 'logout',

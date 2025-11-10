@@ -18,6 +18,7 @@ import { FaListUl, FaPhone } from "react-icons/fa";
 import { ROUTERS } from "../../../../utils/router";
 import { formatter } from "../../../../utils/fomater";
 import { useDispatch, useSelector } from "react-redux";
+import NotificationIcon from "../../../../component/notificationIcon";
 
 export const categories = ["Trái cây", "Rau củ", "Giỏ quà tặng", "Hoa trái cây", "Thực phẩm khô"];
 
@@ -413,6 +414,7 @@ const Header = () => {
                   </a>
                 </li>
                 {/* === Đây là phần user === */}
+                <NotificationIcon />
                 <UserMenu onLoginClick={() => navigate(ROUTERS.ADMIN.LOGIN)} />
               </ul>
             </div>

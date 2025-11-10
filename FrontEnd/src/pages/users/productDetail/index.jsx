@@ -190,6 +190,11 @@ const ProductDetail = () => {
                     </div>
                 </div>
 
+                {/* Product Reviews Section */}
+                <div className="product-reviews-section">
+                    <ProductReviews productId={id} />
+                </div>
+
                 {/* Sản phẩm tương tự */}
                 <div className="section-title">
                     <h2>Sản phẩm tương tự</h2>

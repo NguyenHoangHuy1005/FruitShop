@@ -29,6 +29,16 @@ const middlewareController = {
             }
         });
     },
+
+    verifyTokenAndAdmin: (req, res, next) => {
+        middlewareController.verifyToken(req, res, () => {
+            if (req.user.admin) {
+                next();
+            } else {
+                return res.status(403).json({ message: "You are not allowed, admin only" });
+            }
+        });
+    },
 }
 
 module.exports = middlewareController;

@@ -89,6 +89,12 @@ const stockRoutes = require('./product-services/routes/stock');
 const productRoutes = require('./product-services/routes/product');
 const couponRoutes = require('./product-services/routes/coupon');
 const paymentRoutes = require('./payment-services/routes/payment');
+// content-services
+const articleRoutes = require('./content-services/routes/article');
+const reviewRoutes = require('./content-services/routes/review');
+const commentRoutes = require('./content-services/routes/comment');
+// auth-services
+const notificationRoutes = require('./auth-services/routes/notification');
 
 // Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -96,6 +102,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ---- Auth & User ----
 app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
+app.use('/api/notification', notificationRoutes);
 
 // ---- Admin ----
 app.use('/api', uploadRoutes);
@@ -109,6 +116,9 @@ app.use('/api/coupon', couponRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/article', articleRoutes);
+app.use('/api/review', reviewRoutes);
+app.use('/api/comment', commentRoutes);
 
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: 'Not Found', path: req.originalUrl }));

@@ -311,6 +311,14 @@ $product-subtle: rgba(15, 23, 42, 0.56);
             }
         }
     }
+
+    .product-reviews-section {
+        margin: 48px 0;
+        background: white;
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+    }
 }
 
 .row {

@@ -355,6 +355,21 @@ exports.handleSePayWebhook = async (req, res) => {
 
     console.log('[SEPAY WEBHOOK] Order marked as paid:', order._id);
 
+    // Gửi thông báo cho user về thanh toán thành công
+    if (order.user) {
+      const orderIdShort = String(order._id).slice(-8).toUpperCase();
+      const totalAmount = (order.amount?.total || 0).toLocaleString('vi-VN');
+      
+      createNotification(
+        order.user,
+        "order_paid",
+        "Thanh toán thành công",
+        `Đơn hàng #${orderIdShort} đã được thanh toán thành công. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
+        order._id,
+        "/orders"
+      ).catch(err => console.error("[notification] Failed to create order_paid notification:", err));
+    }
+
     // Send email notification
     try {
       const customerEmail = order.customer?.email;

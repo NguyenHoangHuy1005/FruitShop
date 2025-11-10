@@ -10,9 +10,11 @@ export const ROUTERS = {
     SHOPPINGCART: "/cart",
     CHECKOUT: "/checkout",
     ARTICLES: "/articles",
+    ARTICLE_DETAIL: "/articles/:id",
     CONTACT: "/contact",
     PAYMENT: "/payment/:id",
     PAYMENT_SUCCESS: "/payment/:id/success",
+    NOTIFICATIONS: "/notifications",
   },
   ADMIN: {
     DASHBOARD: `${ADMIN_PATH}/dashboard`,
@@ -27,5 +29,6 @@ export const ROUTERS = {
     FORGOT: `${ADMIN_PATH}/forgot`,
     STOCK: `${ADMIN_PATH}/stock`,
     INVOICES: `${ADMIN_PATH}/invoices`,
+    CONTENT: `${ADMIN_PATH}/content`,
   },
 };

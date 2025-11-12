@@ -8,6 +8,7 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
+    toggleProductPublish,
     getLatestBatchInfo,
 } from "../../../component/redux/apiRequest";
 
@@ -34,14 +35,14 @@ const ProductManagerPage = () => {
                 await syncInventoryFromBatches();
                 
                 // Sau đó load dữ liệu sản phẩm và lô hàng
-                await getAllProduct(dispatch);
+                await getAllProduct(dispatch, true);
                 await fetchAllProductBatches();
                 
                 console.log('Tải dữ liệu hoàn tất');
             } catch (error) {
                 console.error('Error initializing product manager page:', error);
                 // Vẫn load dữ liệu dù sync thất bại
-                getAllProduct(dispatch);
+                getAllProduct(dispatch, true);
                 fetchAllProductBatches();
             } finally {
                 setIsLoading(false);
@@ -79,7 +80,9 @@ const ProductManagerPage = () => {
                         batches: [],
                         totalInStock: 0,
                         totalSold: 0,
-                        statusCount: { expired: 0, expiring: 0, valid: 0 }
+                        totalExpiredQuantity: 0,
+                        // include 'empty' for batches with 0 remaining
+                        statusCount: { expired: 0, expiring: 0, valid: 0, empty: 0 }
                     };
                 }
                 
@@ -87,21 +90,32 @@ const ProductManagerPage = () => {
                 batchesByProduct[batch.productId].totalInStock += batch.remainingQuantity || 0;
                 batchesByProduct[batch.productId].totalSold += batch.soldQuantity || 0;
                 
-                // Tính trạng thái lô
+                // Tính trạng thái lô (dùng so sánh theo ngày - bỏ phần time để tránh sai lệch timezone)
                 const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const MS_PER_DAY = 24 * 60 * 60 * 1000;
+                const remaining = Number(batch.remainingQuantity || 0);
                 let status = 'valid';
-                if (batch.expiryDate) {
+
+                // If no remaining units, mark as empty (do not count as expired)
+                if (remaining <= 0) {
+                    status = 'empty';
+                } else if (batch.expiryDate) {
                     const expiryDate = new Date(batch.expiryDate);
-                    const daysLeft = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
-                    
-                    if (daysLeft <= 0) {
+                    const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+                    const daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
+
+                    if (daysLeft < 0) {
                         status = 'expired';
                     } else if (daysLeft <= 7) {
                         status = 'expiring';
                     }
                 }
-                
+
                 batchesByProduct[batch.productId].statusCount[status]++;
+                if (status === 'expired') {
+                    batchesByProduct[batch.productId].totalExpiredQuantity += remaining;
+                }
             });
             setProductBatches(batchesByProduct);
             
@@ -120,11 +134,75 @@ const ProductManagerPage = () => {
             // Lấy thông tin lô mới nhất cho từng sản phẩm
             const fetchPromises = products.map(async (product) => {
                 try {
+                    // If we already have batch details fetched on the client, derive latest info locally
+                    const localBatches = productBatches[product._id]?.batches;
+                    if (localBatches && localBatches.length > 0) {
+                        // Find FEFO active batch from local batches
+                        const now = new Date();
+                        // sort similar to backend: expiry soon first, null expiry last, then importDate
+                        const sorted = [...localBatches].sort((a, b) => {
+                            if (!a.expiryDate && !b.expiryDate) return new Date(a.importDate) - new Date(b.importDate);
+                            if (!a.expiryDate) return 1;
+                            if (!b.expiryDate) return -1;
+                            return new Date(a.expiryDate) - new Date(b.expiryDate);
+                        });
+
+                        // compute total sold based on remaining/sold in local batches if available
+                        // local batch items already include remainingQuantity and soldQuantity in our batch-details API
+                        // We'll pick the first batch with remainingQuantity > 0
+                        let active = null;
+                        for (const b of sorted) {
+                            const remaining = (b.remainingQuantity ?? b.batchQuantity ?? b.quantity ?? 0);
+                            if (remaining > 0) { active = b; break; }
+                        }
+
+                        if (active) {
+                            // compute summary totals from local data
+                            const totalInStock = (productBatches[product._id].totalInStock ?? 0);
+                            const totalSold = (productBatches[product._id].totalSold ?? 0);
+                            // determine status using date-only comparison
+                            const now = new Date();
+                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+                            let computedStatus = active.status || 'valid';
+                            if (!active.status && active.expiryDate) {
+                                const expiryDate = new Date(active.expiryDate);
+                                const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+                                const daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
+                                if (daysLeft < 0) computedStatus = 'expired';
+                                else if (daysLeft <= 7) computedStatus = 'expiring';
+                            }
+
+                            latestBatchData[product._id] = {
+                                latestBatch: {
+                                    _id: active._id,
+                                    productId: active.productId || product._id,
+                                    productName: active.productName || product.name,
+                                    supplierName: active.supplierName || (active.receipt && active.receipt.supplier?.name) || 'Unknown',
+                                    unitPrice: active.unitPrice ?? active.importPrice ?? 0,
+                                    sellingPrice: active.sellingPrice ?? active.unitPrice ?? 0,
+                                    batchQuantity: active.batchQuantity ?? active.quantity ?? 0,
+                                    remainingInThisBatch: active.remainingQuantity ?? 0,
+                                    soldFromThisBatch: active.soldQuantity ?? 0,
+                                    importDate: active.importDate,
+                                    expiryDate: active.expiryDate,
+                                    status: computedStatus
+                                },
+                                summary: {
+                                    totalInStock,
+                                    totalSold,
+                                    totalBatches: productBatches[product._id].batches.length
+                                }
+                            };
+                            return;
+                        }
+                        // if no active found locally, fall through to API call below
+                    }
+
+                    // Fallback: call backend API for authoritative latest-batch info
                     const data = await getLatestBatchInfo(product._id);
                     latestBatchData[product._id] = data;
                 } catch (error) {
-                    console.error(`Error fetching latest batch for product ${product._id}:`, error);
-                    // Nếu không có lô hàng, sử dụng thông tin từ product
                     latestBatchData[product._id] = {
                         latestBatch: null,
                         summary: {
@@ -144,6 +222,16 @@ const ProductManagerPage = () => {
         }
     };
     // ===== PRODUCT LIST =====
+    // Callback when a batch price has been updated in the modal
+    const handleBatchPriceUpdate = async (productId) => {
+        try {
+            // Refresh batches and latest batch info so UI shows updated prices
+            await fetchAllProductBatches();
+            await fetchAllLatestBatchInfo();
+        } catch (err) {
+            console.error('Error refreshing batch info after price update:', err);
+        }
+    };
     const handleSearch = (e) => setSearchTerm(e.target.value);
     const handleCloseModal = () => setShowModal(false);
     const handleEdit = (product) => {
@@ -167,7 +255,8 @@ const ProductManagerPage = () => {
             expiring: productBatch.statusCount.expiring,
             valid: productBatch.statusCount.valid,
             totalInStock: productBatch.totalInStock,
-            totalSold: productBatch.totalSold
+            totalSold: productBatch.totalSold,
+            totalExpiredQuantity: productBatch.totalExpiredQuantity || 0
         };
     };
 
@@ -314,6 +403,27 @@ const ProductManagerPage = () => {
                     const batchSummary = getBatchStatusSummary(product._id);
                     const latestBatch = latestBatchInfo[product._id];
 
+                    // Totals used for display and status derivation
+                    const totalInStock = batchSummary?.totalInStock ?? latestBatch?.summary?.totalInStock ?? 0;
+                    const totalExpiredUnits = batchSummary?.totalExpiredQuantity ?? 0;
+                    const hasBatch = batchSummary && batchSummary.total > 0;
+
+                    // Derive display status:
+                    // - If no stock -> Hết hàng
+                    // - If all stock is expired -> Hết hạn
+                    // - If some batches are expiring -> Sắp hết hạn
+                    // - Otherwise -> Còn hàng
+                    let displayStatus = 'Hết hàng';
+                    if (hasBatch && totalInStock > 0) {
+                        if (totalExpiredUnits >= totalInStock && totalExpiredUnits > 0) {
+                            displayStatus = 'Hết hạn';
+                        } else if ((batchSummary.expiring || 0) > 0) {
+                            displayStatus = 'Sắp hết hạn';
+                        } else {
+                            displayStatus = 'Còn hàng';
+                        }
+                    }
+                    const displayStock = totalInStock;
                     return (
                         <tr key={product._id}>
                         <td>{product.name || "—"}</td>
@@ -326,19 +436,19 @@ const ProductManagerPage = () => {
                         </td>
                         <td>
                             <b>{latestBatch?.latestBatch ? 
-                                (Number(latestBatch.latestBatch.sellingPrice) || 0).toLocaleString() + ' VND' : 
-                                <span style={{color: '#94a3b8', fontStyle: 'italic'}}>Đang tải giá...</span>
+                                (Number(latestBatch.latestBatch.sellingPrice) || 0).toLocaleString() : 
+                                <span>—</span>
                             }</b>
                         </td>
                         <td>{Number(product.discountPercent || 0)}%</td>
                         <td>
-                            <b>{latestBatch?.summary?.totalInStock || (Number(product.onHand || 0))}</b>
+                            <b>{displayStock}</b>
                         </td>
                         <td><b>{product.unit || "kg"}</b></td>
                         <td>{product.family || "—"}</td>
                         <td>{product.category || "Chưa phân loại"}</td>
                         <td>
-                            {batchSummary ? (
+                            {hasBatch ? (
                             <div 
                                 className="batch-info-cell"
                                 onClick={() => handleShowBatches(product._id, product.name)}
@@ -356,6 +466,7 @@ const ProductManagerPage = () => {
                                 {batchSummary.valid > 0 && (
                                     <span className="valid-count">{batchSummary.valid} còn hạn</span>
                                 )}
+                                
                                 </div>
                             </div>
                             ) : (
@@ -365,18 +476,103 @@ const ProductManagerPage = () => {
                         <td>
                             <span
                             className={`status ${
-                                product.status === "Hết hạn" ? "expired" :
-                                product.status === "Sắp hết hạn" ? "expiring" :
-                                product.status === "Còn hạn" ? "valid" :
-                                product.status === "Còn hàng" ? "in-stock" : "out-stock"
+                                displayStatus === "Hết hạn" ? "expired" :
+                                displayStatus === "Sắp hết hạn" ? "expiring" :
+                                displayStatus === "Còn hạn" ? "valid" :
+                                displayStatus === "Còn hàng" ? "in-stock" : "out-stock"
                             }`}
                             >
-                            {product.status}
+                            {displayStatus}
                             </span>
                         </td>
                         <td>
                             <button className="btn-edit" onClick={() => handleEdit(product)}>Sửa</button>
                             <button className="btn-delete" onClick={() => handleDelete(product._id)}>Xóa</button>
+                            <button
+                                className={`btn-toggle ${product.published ? 'Tắt' : 'Bật'}`}
+                                onClick={async () => {
+                                    const desired = !product.published;
+
+                                    // If trying to enable (bật), validate batch prices first
+                                    if (desired) {
+                                        // Ensure we have batch data for this product
+                                        let batches = productBatches[product._id]?.batches;
+                                        if (!batches) {
+                                            try {
+                                                // try fetching batches once
+                                                await fetchAllProductBatches();
+                                                batches = productBatches[product._id]?.batches;
+                                            } catch (err) {
+                                                // ignore - we'll still try to proceed
+                                            }
+                                        }
+
+                                        const problematic = (batches || []).filter((b) => {
+                                            // Ignore expired batches
+                                            const now = new Date();
+                                            let isExpired = false;
+                                            if (b.status) {
+                                                isExpired = b.status === 'expired';
+                                            } else if (b.expiryDate) {
+                                                const expiryDate = new Date(b.expiryDate);
+                                                const daysLeft = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+                                                isExpired = daysLeft <= 0;
+                                            }
+                                            if (isExpired) return false;
+
+                                            const importP = Number(b.unitPrice ?? b.importPrice ?? 0);
+                                            const sellP = Number(b.sellingPrice ?? 0);
+                                            return importP === sellP;
+                                        });
+
+                                        if (problematic.length > 0) {
+                                            // Build a friendly warning message
+                                            const list = problematic.map((b, idx) => {
+                                                const idxText =`#`;
+                                                return `- ${idxText}: giá nhập ${Number(b.unitPrice || b.importPrice || 0).toLocaleString()} = giá bán ${Number(b.sellingPrice || 0).toLocaleString()}`;
+                                            }).join('\n');
+                                            alert('Không thể bật sản phẩm vì có lô chưa chỉnh sửa giá bán:\n' + list + '\nVui lòng chỉnh giá bán cho các lô này trước khi bật sản phẩm!');
+                                            // Open batch modal so user can edit prices
+                                            setBatchModal({ show: true, productId: product._id, productName: product.name });
+                                            return;
+                                        }
+                                        // Ensure there is at least one non-expired batch with remaining units before enabling
+                                        const nonExpiredWithStock = (batches || []).some((b) => {
+                                            const remaining = Number(b.remainingQuantity ?? 0);
+                                            // treat expired batches (by status or expiryDate) as invalid for enabling
+                                            let isExpired = false;
+                                            if (b.status) {
+                                                isExpired = b.status === 'expired';
+                                            } else if (b.expiryDate) {
+                                                const now = new Date();
+                                                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                                const expiryDate = new Date(b.expiryDate);
+                                                const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+                                                const daysLeft = Math.floor((expiryDay - today) / (24 * 60 * 60 * 1000));
+                                                isExpired = daysLeft < 0;
+                                            }
+                                            return !isExpired && remaining > 0;
+                                        });
+
+                                        if (!nonExpiredWithStock) {
+                                            alert('Không thể bật sản phẩm vì không có lô còn hạn và còn tồn để bán. Vui lòng kiểm tra/lập lô mới trước khi bật.');
+                                            // Open batch modal so user can inspect / update batches
+                                            setBatchModal({ show: true, productId: product._id, productName: product.name });
+                                            return;
+                                        }
+                                        if (!window.confirm('Bật sản phẩm này để hiển thị cho người dùng?')) return;
+                                    }
+                                    try {
+                                        await toggleProductPublish(product._id, desired, dispatch);
+                                        alert('Thay đổi trạng thái hiển thị thành công');
+                                    } catch (err) {
+                                        alert(err?.message || err?.data?.message || 'Thay đổi trạng thái thất bại');
+                                    }
+                                }}
+                                title={product.published ? 'Đang tắt (nhấn để bật)' : 'Đang bật (nhấn để tắt)'}
+                            >
+                                {product.published ? 'Tắt' : 'Bật'}
+                            </button>
                         </td>
                         </tr>
                     );
@@ -416,7 +612,7 @@ const ProductManagerPage = () => {
                     productId={batchModal.productId}
                     productName={batchModal.productName}
                     onClose={handleCloseBatchModal}
-                    onPriceUpdate={fetchAllLatestBatchInfo}
+                    onPriceUpdate={handleBatchPriceUpdate}
                 />
             )}
         </div>

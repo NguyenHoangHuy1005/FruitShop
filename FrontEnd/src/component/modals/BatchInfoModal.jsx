@@ -51,8 +51,64 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
       }
 
       const data = await response.json();
-      setBatches(data.batches || data); // Support both new and old API format
-      setSummary(data.summary || null);
+
+      // Normalize batches and compute status based on expiry date (not quantity)
+      const rawBatches = data.batches || data || [];
+      const now = new Date();
+        // Use date-only comparison (ignore time-of-day) to avoid timezone / partial-day issues
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+        const processed = (rawBatches || []).map((b) => {
+          const expiryDate = b.expiryDate ? new Date(b.expiryDate) : null;
+          let daysLeft = null;
+          // If batch has no remaining units, mark as 'empty' and don't count as expired
+          const remaining = Number(b.remainingQuantity || 0);
+          let status = 'valid';
+          if (remaining <= 0) {
+            status = 'empty';
+          } else if (expiryDate) {
+            const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+            daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
+            if (daysLeft < 0) status = 'expired';
+            else if (daysLeft <= 7) status = 'expiring';
+          }
+
+          return {
+            ...b,
+            expiryDate: b.expiryDate,
+            daysLeft,
+            status,
+            // number of units in this batch that are expired (only count remaining units)
+            expiredQuantity: (status === 'expired' && remaining > 0) ? remaining : 0,
+          };
+        });
+
+      setBatches(processed);
+
+      // Always derive totals from processed batches (merge with backend summary if present)
+      const totalBatches = processed.length;
+      const totalImported = processed.reduce((s, x) => s + (Number(x.batchQuantity) || 0), 0);
+      const totalSold = processed.reduce((s, x) => s + (Number(x.soldQuantity) || 0), 0);
+  const totalDamaged = processed.reduce((s, x) => s + (Number(x.damagedQuantity) || 0), 0);
+  const totalExpired = processed.reduce((s, x) => s + (Number(x.expiredQuantity || 0)), 0);
+      // totalRemaining: sum of remainingQuantity only for non-expired batches
+      const totalRemaining = processed.reduce((s, x) => {
+        if (!x.expiryDate) return s + (Number(x.remainingQuantity) || 0);
+        const exp = new Date(x.expiryDate);
+        return exp > now ? s + (Number(x.remainingQuantity) || 0) : s;
+      }, 0);
+
+      const derived = {
+        totalBatches,
+        totalImported,
+        totalSold,
+        totalDamaged,
+        totalExpired,
+        totalRemaining,
+      };
+
+      setSummary({ ...(data.summary || {}), ...derived });
     } catch (error) {
       console.error('Error fetching batches:', error);
       alert('Lỗi khi lấy thông tin lô hàng: ' + error.message);
@@ -62,14 +118,9 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
   };
 
   const handleEditPrice = (batch) => {
-    // Prevent editing expired batches
-    if (batch.status === 'expired') {
-      alert('Không thể sửa giá của lô hàng đã hết hạn!');
-      return;
-    }
-    
+    // Allow editing price even for expired batches so admin can correct price/stock/status
     setEditingBatch(batch._id);
-    setEditPrice(batch.sellingPrice.toString());
+    setEditPrice((batch.sellingPrice ?? 0).toString());
   };
 
   const handleSavePrice = async (batchId) => {
@@ -136,6 +187,10 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
         className += 'expiring';
         text = `Sắp hết hạn (${daysLeft} ngày)`;
         break;
+      case 'empty':
+        className += 'empty';
+        text = 'Đã hết';
+        break;
       default:
         className += 'valid';
         text = daysLeft ? `Còn ${daysLeft} ngày` : 'Còn hạn';
@@ -190,10 +245,19 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
                       <label>Đã bán:</label>
                       <span>{summary.totalSold}</span>
                     </div>
-                    <div className="summary-item highlight">
-                      <label>Còn trong kho:</label>
-                      <span>{summary.totalInStock}</span>
+                    <div className="summary-item expired">
+                      <label>Tổng hết hạn:</label>
+                      <span style={{color: '#ef4444', fontWeight: '700'}}>{(summary.totalExpired || 0).toLocaleString()}</span>
                     </div>
+                    <div className="summary-item damaged">
+                      <label>Tổng hư hại:</label>
+                      <span style={{color: '#ef4444', fontWeight: '700'}}>{(summary.totalDamaged || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="summary-item remaining">
+                      <label>Tồn kho còn lại:</label>
+                      <span style={{color: '#059669', fontWeight: '700'}}>{(summary.totalRemaining || 0).toLocaleString()}</span>
+                    </div>
+                    
                   </div>
                 </div>
               )}
@@ -229,6 +293,11 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
                           <label>Hạn sử dụng:</label>
                           <span>{formatDate(batch.expiryDate)}</span>
                         </div>
+                        
+                        <div className="info-row">
+                          <label>Giá nhập:</label>
+                          <span>{formatCurrency(batch.unitPrice)}</span>
+                        </div>
                       </div>
                       
                       <div className="vertical-divider"></div>
@@ -238,20 +307,17 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
                           <label>Số lượng nhập:</label>
                           <span>{batch.batchQuantity}</span>
                         </div>
-                        
-                        <div className="info-row">
-                          <label>Còn lại:</label>
-                          <span className="remaining">{batch.remainingQuantity}</span>
-                        </div>
-                        
                         <div className="info-row">
                           <label>Đã bán:</label>
                           <span className="sold">{batch.soldQuantity}</span>
                         </div>
-                        
                         <div className="info-row">
-                          <label>Giá nhập:</label>
-                          <span>{formatCurrency(batch.unitPrice)}</span>
+                          <label>Hư hại:</label>
+                          <span className="damaged" style={{color: '#ef4444', fontWeight: 700}}>{(batch.damagedQuantity || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="info-row">
+                          <label>Còn lại:</label>
+                          <span className="remaining">{batch.remainingQuantity}</span>
                         </div>
                       </div>
                     </div>
@@ -291,7 +357,7 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
                               Sửa
                             </button>
                           ) : (
-                            <span className="expired-notice">Hết hạn - Không thể sửa</span>
+                            <span className="expired-notice">Hết hạn</span>
                           )}
                         </div>
                       )}

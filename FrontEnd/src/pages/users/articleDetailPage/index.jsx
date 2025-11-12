@@ -533,7 +533,7 @@ const ArticleDetailPage = () => {
   return (
       <>  <Breadcrumb
       paths={[
-        { label: "Bài viết", to: "/article" },
+        { label: "Bài viết", to: "/articles" },
         { label: article.title },
       ]}
     />

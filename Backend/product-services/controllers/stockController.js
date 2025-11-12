@@ -54,8 +54,9 @@ async function upsertProductInventory(productId, onHand = null, session = null) 
     let earliestExpiryStatus = "Còn hạn";
 
     for (const batch of sortedBatches) {
-      const soldFromThisBatch = Math.min(remainingSold, batch.quantity);
-      const remainingInThisBatch = Math.max(0, batch.quantity - soldFromThisBatch);
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
+      const remainingInThisBatch = Math.max(0, effectiveQty - soldFromThisBatch);
       
       // Kiểm tra xem lô có còn hiệu lực không
       let isValidBatch = true;
@@ -124,6 +125,8 @@ exports.getOne = async (req, res) => {
 // Danh sách tồn kho (kèm product)
 exports.list = async (_req, res) => {
   try {
+    // Lookup product documents and drop stock rows whose product no longer exists.
+    // This prevents deleted products from appearing in the stock overview.
     const rows = await Stock.aggregate([
       {
         $lookup: {
@@ -133,9 +136,12 @@ exports.list = async (_req, res) => {
           as: "p"
         }
       },
-      { $addFields: { productDoc: { $arrayElemAt: ["$p", 0] } } },
+      // Unwind will remove documents with empty "p" array (no matching product)
+      { $unwind: { path: "$p", preserveNullAndEmptyArrays: false } },
+      { $addFields: { productDoc: "$p" } },
       { $project: { p: 0 } }
     ]);
+
     return res.json(rows);
   } catch (err) {
     return res.status(500).json({ message: "Lỗi lấy danh sách tồn kho", error: err.message });
@@ -156,6 +162,34 @@ exports.stockIn = async (req, res) => {
 
   await upsertProductInventory(productId, doc.onHand);
   return res.json({ ok: true, data: doc });
+};
+
+// Xuất kho / Giảm tồn (accept positive qty to reduce)
+exports.stockOut = async (req, res) => {
+  try {
+    const { productId, qty = 0 } = req.body || {};
+    const dec = Math.max(0, parseInt(qty, 10) || 0);
+    if (!productId || dec <= 0) return res.status(400).json({ message: "Thiếu productId hoặc qty > 0" });
+
+    // Read current stock and compute new value (clamped to 0)
+    const current = await Stock.findOne({ product: productId }).lean();
+    const currentOnHand = current?.onHand || 0;
+    const newOnHand = Math.max(0, currentOnHand - dec);
+
+    const doc = await Stock.findOneAndUpdate(
+      { product: productId },
+      { $set: { onHand: newOnHand } },
+      { new: true, upsert: true }
+    );
+
+    // Recompute product inventory from batches (authoritative)
+    await upsertProductInventory(productId, doc.onHand);
+
+    return res.json({ ok: true, data: doc });
+  } catch (err) {
+    console.error('Error in stockOut:', err);
+    return res.status(500).json({ message: 'Lỗi giảm tồn kho', error: err.message });
+  }
 };
 
 // Set cứng số tồn (DEPRECATED - không dùng nữa)
@@ -542,7 +576,8 @@ exports.getBatchesByProduct = async (req, res) => {
         if (remainingSold <= 0) break;
         
         const batchId = batch._id.toString();
-        const soldFromThisBatch = Math.min(remainingSold, batch.quantity);
+        const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+        const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
         batchSoldQuantities[batchId] = soldFromThisBatch;
         remainingSold -= soldFromThisBatch;
       }
@@ -569,9 +604,10 @@ exports.getBatchesByProduct = async (req, res) => {
         }
       }
 
-      const batchId = item._id.toString();
-      const soldQuantity = soldQuantities[batchId] || 0;
-      const remainingQuantity = Math.max(0, item.quantity - soldQuantity);
+  const batchId = item._id.toString();
+  const soldQuantity = soldQuantities[batchId] || 0;
+  const damaged = item.damagedQuantity || 0;
+  const remainingQuantity = Math.max(0, (item.quantity || 0) - soldQuantity - damaged);
 
       return {
         _id: item._id,
@@ -582,8 +618,9 @@ exports.getBatchesByProduct = async (req, res) => {
         supplierName: item.receipt?.supplier?.name || 'Unknown',
         
         // Thông tin batch (đã tính chính xác)
-        batchQuantity: item.quantity,           // Số lượng nhập ban đầu
-        remainingQuantity: remainingQuantity,   // Số lượng còn lại = nhập - đã bán
+  batchQuantity: item.quantity,           // Số lượng nhập ban đầu
+  damagedQuantity: item.damagedQuantity || 0,
+  remainingQuantity: remainingQuantity,   // Số lượng còn lại = nhập - đã bán - hư hỏng
         soldQuantity: soldQuantity,             // Số lượng đã bán (tính theo FIFO)
         unitPrice: item.unitPrice,             // Đơn giá nhập
         sellingPrice: item.sellingPrice || item.unitPrice, // Giá bán (mặc định = giá nhập)
@@ -602,7 +639,7 @@ exports.getBatchesByProduct = async (req, res) => {
 
     // Tính tổng số lượng trong kho - chỉ tính lô còn hiệu lực
     const totalInStock = batchDetails.reduce((sum, batch) => {
-      // Chỉ cộng số lượng của các lô còn hiệu lực (chưa hết hạn)
+        // Chỉ cộng số lượng của các lô còn hiệu lực (chưa hết hạn)
       return batch.status !== 'expired' ? sum + batch.remainingQuantity : sum;
     }, 0);
     const totalSoldFromAllBatches = batchDetails.reduce((sum, batch) => sum + batch.soldQuantity, 0);
@@ -747,7 +784,9 @@ exports.getBatchDetails = async (req, res) => {
     const batchDetails = importItems.map(item => {
       const batchId = item._id.toString();
       const soldQuantity = soldQuantities[batchId] || 0;
-      const remainingQuantity = Math.max(0, item.quantity - soldQuantity);
+      const damaged = Number(item.damagedQuantity || 0);
+      // remaining = original quantity - sold - damaged
+      const remainingQuantity = Math.max(0, item.quantity - soldQuantity - damaged);
 
       return {
         _id: item._id,
@@ -755,16 +794,17 @@ exports.getBatchDetails = async (req, res) => {
         productName: item.product?.name || 'Unknown',
         productImage: item.product?.image?.[0] || null,
         supplierName: item.receipt?.supplier?.name || 'Unknown',
-        
+
         // Thông tin batch (đã tính chính xác)
-        batchQuantity: item.quantity,           // Số lượng nhập ban đầu
-        remainingQuantity: remainingQuantity,   // Số lượng còn lại
-        soldQuantity: soldQuantity,             // Số lượng đã bán
-        unitPrice: item.unitPrice,             // Đơn giá nhập
+        batchQuantity: item.quantity,                  // Số lượng nhập ban đầu
+        remainingQuantity: remainingQuantity,          // Số lượng còn lại (trừ hư hỏng)
+        damagedQuantity: damaged,                      // Số lượng đã bị ghi nhận hư hỏng
+        soldQuantity: soldQuantity,                    // Số lượng đã bán
+        unitPrice: item.unitPrice,                     // Đơn giá nhập
         sellingPrice: item.sellingPrice || item.unitPrice, // Giá bán
-        importDate: item.importDate,           // Ngày nhập
-        expiryDate: item.expiryDate,          // Hạn sử dụng
-        
+        importDate: item.importDate,                   // Ngày nhập
+        expiryDate: item.expiryDate,                   // Hạn sử dụng
+
         // Thông tin receipt
         receiptId: item.receipt?._id,
         createdAt: item.createdAt
@@ -846,6 +886,92 @@ exports.updateBatchSellingPrice = async (req, res) => {
   } catch (error) {
     console.error('Error updating batch selling price:', error);
     res.status(500).json({ message: 'Lỗi cập nhật giá bán', error: error.message });
+  }
+};
+
+// API để cập nhật số lượng (quantity) cho một lô hàng (ImportItem)
+exports.updateBatchQuantity = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { quantity } = req.body || {};
+
+    if (!batchId) return res.status(400).json({ message: 'Thiếu batchId' });
+    const newQty = Math.max(0, parseInt(quantity, 10));
+    if (Number.isNaN(newQty)) return res.status(400).json({ message: 'quantity không hợp lệ' });
+
+    const batch = await ImportItem.findById(batchId).lean();
+    if (!batch) return res.status(404).json({ message: 'Không tìm thấy lô hàng' });
+
+    // Tính số lượng đã bán phân bổ cho từng lô (giống logic ở getBatchDetails)
+    const importItems = await ImportItem.find({ product: batch.product }).lean();
+    const Order = require("../models/Order");
+    const orders = await Order.find({ status: { $in: ['completed', 'shipped', 'delivered'] } }).select('items createdAt').lean();
+
+    // Nhóm lô theo sản phẩm và khởi tạo soldQuantities
+    const batchesByProduct = {};
+    const soldQuantities = {};
+    importItems.forEach(item => {
+      const pid = item.product?._id?.toString() || item.product?.toString();
+      if (!batchesByProduct[pid]) batchesByProduct[pid] = [];
+      batchesByProduct[pid].push(item);
+      soldQuantities[item._id.toString()] = 0;
+    });
+
+    // Tính tổng số đã bán cho sản phẩm
+    Object.keys(batchesByProduct).forEach(productId => {
+      const productBatches = batchesByProduct[productId].sort((a, b) => new Date(a.importDate) - new Date(b.importDate));
+
+      // Tổng hợp đơn bán của sản phẩm này
+      const productSales = [];
+      orders.forEach(order => {
+        order.items.forEach(item => {
+          if (item.product.toString() === productId) {
+            productSales.push({ quantity: item.quantity, date: order.createdAt });
+          }
+        });
+      });
+
+      const totalSold = productSales.reduce((sum, s) => sum + s.quantity, 0);
+
+      let remainingSold = totalSold;
+      for (const b of productBatches) {
+        if (remainingSold <= 0) break;
+        const soldFromThisBatch = Math.min(remainingSold, b.quantity);
+        soldQuantities[b._id.toString()] = soldFromThisBatch;
+        remainingSold -= soldFromThisBatch;
+      }
+    });
+
+    const soldForThisBatch = soldQuantities[batch._id.toString()] || 0;
+
+    if (newQty > batch.quantity) {
+      return res.status(400).json({ message: 'Không được tăng số lượng lô qua giao diện này. Vui lòng tạo lô mới nếu cần.' });
+    }
+
+    if (newQty === batch.quantity) {
+      return res.status(400).json({ message: 'Số lượng không thay đổi.' });
+    }
+
+    if (newQty < soldForThisBatch) {
+      return res.status(400).json({ message: `Không thể đặt quantity < đã bán (${soldForThisBatch}).` });
+    }
+
+    const delta = batch.quantity - newQty; // số lượng bị trừ (hư hỏng/khấu trừ)
+
+    // Update batch quantity and increase damagedQuantity by delta
+    const updated = await ImportItem.findByIdAndUpdate(
+      batchId,
+      { $set: { quantity: newQty }, $inc: { damagedQuantity: delta } },
+      { new: true }
+    );
+
+    // Recompute stock and product inventory
+    await upsertProductInventory(String(batch.product));
+
+    return res.json({ ok: true, batch: updated, deducted: delta });
+  } catch (error) {
+    console.error('Error updating batch quantity:', error);
+    return res.status(500).json({ message: 'Lỗi cập nhật số lượng lô', error: error.message });
   }
 };
 
@@ -938,8 +1064,9 @@ exports.getLatestBatchInfo = async (req, res) => {
     let remainingSold = totalSold;
     
     for (const batch of validBatches) {
-      const soldFromThisBatch = Math.min(remainingSold, batch.quantity);
-      const remainingInBatch = Math.max(0, batch.quantity - soldFromThisBatch);
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
+      const remainingInBatch = Math.max(0, effectiveQty - soldFromThisBatch);
       
       if (remainingInBatch > 0) {
         activeBatch = batch;
@@ -972,8 +1099,8 @@ exports.getLatestBatchInfo = async (req, res) => {
     
     for (const batch of allBatches) {
       if (remainingSoldCalc <= 0) break;
-      
-      const soldFromThisBatch = Math.min(remainingSoldCalc, batch.quantity);
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const soldFromThisBatch = Math.min(remainingSoldCalc, effectiveQty);
       remainingSoldCalc -= soldFromThisBatch;
       
       if (batch._id.toString() === activeBatch._id.toString()) {
@@ -982,17 +1109,18 @@ exports.getLatestBatchInfo = async (req, res) => {
       }
     }
 
-    const remainingInActiveBatch = Math.max(0, activeBatch.quantity - soldFromActiveBatch);
+  const remainingInActiveBatch = Math.max(0, Math.max(0, (activeBatch.quantity || 0) - (activeBatch.damagedQuantity || 0)) - soldFromActiveBatch);
 
     // Tính tổng số lượng tồn kho của tất cả lô (chỉ tính lô chưa hết hạn)
     let totalInStock = 0;
     let remainingSoldForTotal = totalSold;
     for (const batch of validBatches) {
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
       if (remainingSoldForTotal <= 0) {
-        totalInStock += batch.quantity;
+        totalInStock += effectiveQty;
       } else {
-        const soldFromThisBatch = Math.min(remainingSoldForTotal, batch.quantity);
-        const remainingInThisBatch = Math.max(0, batch.quantity - soldFromThisBatch);
+        const soldFromThisBatch = Math.min(remainingSoldForTotal, effectiveQty);
+        const remainingInThisBatch = Math.max(0, effectiveQty - soldFromThisBatch);
         totalInStock += remainingInThisBatch;
         remainingSoldForTotal -= soldFromThisBatch;
       }
@@ -1024,9 +1152,10 @@ exports.getLatestBatchInfo = async (req, res) => {
         // Giá và số lượng từ lô đang hoạt động
         unitPrice: activeBatch.unitPrice,
         sellingPrice: activeBatch.sellingPrice || activeBatch.unitPrice,
-        batchQuantity: activeBatch.quantity,
-        remainingInThisBatch: remainingInActiveBatch,
-        soldFromThisBatch: soldFromActiveBatch,
+  batchQuantity: activeBatch.quantity,
+  damagedQuantity: activeBatch.damagedQuantity || 0,
+  remainingInThisBatch: remainingInActiveBatch,
+  soldFromThisBatch: soldFromActiveBatch,
         
         // Thông tin ngày tháng
         importDate: activeBatch.importDate,
@@ -1072,7 +1201,7 @@ exports.getPriceRange = async (req, res) => {
         { expiryDate: { $gt: now } } // Còn hạn
       ]
     })
-    .select('quantity sellingPrice unitPrice importDate expiryDate')
+    .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate')
     .lean();
 
     if (validBatches.length === 0) {
@@ -1108,8 +1237,9 @@ exports.getPriceRange = async (req, res) => {
     let remainingSold = totalSold;
     
     for (const batch of validBatches) {
-      const soldFromThisBatch = Math.min(remainingSold, batch.quantity);
-      const remainingInBatch = Math.max(0, batch.quantity - soldFromThisBatch);
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
+      const remainingInBatch = Math.max(0, effectiveQty - soldFromThisBatch);
       
       if (remainingInBatch > 0) {
         const price = batch.sellingPrice || batch.unitPrice;

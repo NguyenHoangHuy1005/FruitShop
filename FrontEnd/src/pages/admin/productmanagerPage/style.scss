@@ -55,7 +55,8 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
   }
 
-  .btn-add, .btn-sync-inventory {
+  .btn-add,
+  .btn-sync-inventory {
     background: linear-gradient(135deg, #2c3e50, #008874);
     color: white;
     border: none;
@@ -180,6 +181,8 @@ $product-main: map.get(theme.$theme-colors, "main");
     text-transform: uppercase;
     letter-spacing: 0.5px;
     display: inline-block;
+    white-space: normal;
+    overflow-wrap: break-word;
 
     &.in-stock {
       background: linear-gradient(135deg, rgba($product-main, 0.15), rgba($product-main, 0.08));
@@ -213,6 +216,31 @@ $product-main: map.get(theme.$theme-colors, "main");
       color: #10b981;
       border: 1px solid rgba(#10b981, 0.3);
     }
+  }
+
+  /* Reserve more space for the status column and push action buttons to the right
+     so long labels like "Sắp hết hạn" (two lines) have room. Uses nth-child so
+     we don't need to change JSX markup. */
+  tbody td:nth-child(10) {
+    min-width: auto;
+    /* hoặc bỏ hẳn nếu không cần cố định */
+    width: fit-content;
+    /* co giãn theo nội dung */
+    white-space: nowrap;
+    /* tránh xuống dòng nếu không cần */
+    padding: 0 4px;
+    /* giảm padding để ô gọn hơn */
+    vertical-align: middle;
+    /* giữ nội dung cân giữa chiều dọc */
+  }
+
+  tbody td:last-child {
+    /* action column: add left padding to move buttons right */
+    padding-left: 40px;
+    text-align: start;
+    vertical-align: middle;
+    width: 180px;
+    /* reserve some width for actions */
   }
 
   .btn-edit,
@@ -281,6 +309,63 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
   }
 
+  /* Toggle ON/OFF button for publish state */
+  .btn-toggle {
+    padding: 7px 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 6px;
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    color: #fff;
+    text-transform: uppercase;
+
+    &:hover {
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      line-height: 1;
+    }
+  }
+
+  .btn-toggle.Bật {
+    background: linear-gradient(90deg, #059669 0%, #10b981 100%);
+  }
+
+  .btn-toggle.Tắt {
+    background: linear-gradient(90deg, #b1b1b1 0%, #8d8d8d 100%);
+  }
+
+  .btn-toggle.Bật .icon::before {
+    content: '✓';
+    color: #fff;
+  }
+
+  .btn-toggle.Tắt .icon::before {
+    content: '✕';
+    color: #fff;
+  }
+
   .no-data {
     text-align: center;
     padding: 48px 24px;
@@ -312,8 +397,13 @@ $product-main: map.get(theme.$theme-colors, "main");
   animation: fadeIn 0.3s ease;
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 }
 
@@ -350,7 +440,7 @@ $product-main: map.get(theme.$theme-colors, "main");
   &::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
-    
+
     &:hover {
       background: #94a3b8;
     }
@@ -368,6 +458,7 @@ $product-main: map.get(theme.$theme-colors, "main");
       transform: translateY(50px) scale(0.96);
       opacity: 0;
     }
+
     to {
       transform: translateY(0) scale(1);
       opacity: 1;
@@ -570,7 +661,7 @@ $product-main: map.get(theme.$theme-colors, "main");
     &::-webkit-scrollbar-thumb {
       background: #cbd5e1;
       border-radius: 4px;
-      
+
       &:hover {
         background: #94a3b8;
       }
@@ -761,10 +852,13 @@ $product-main: map.get(theme.$theme-colors, "main");
 
 /* 🔥 Animations for expiry status */
 @keyframes pulse-status {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.8;
     transform: scale(1.02);
@@ -772,9 +866,12 @@ $product-main: map.get(theme.$theme-colors, "main");
 }
 
 @keyframes blink-status {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -798,7 +895,7 @@ $product-main: map.get(theme.$theme-colors, "main");
 
   .batch-count {
     margin-bottom: 4px;
-    
+
     .total-batches {
       font-weight: 600;
       color: #495057;
@@ -810,23 +907,23 @@ $product-main: map.get(theme.$theme-colors, "main");
     display: flex;
     flex-direction: column;
     gap: 2px;
-    
+
     span {
       font-size: 10px;
       padding: 2px 6px;
       border-radius: 10px;
       font-weight: 500;
-      
+
       &.expired-count {
         background: #dc3545;
         color: white;
       }
-      
+
       &.expiring-count {
         background: #ffc107;
         color: #333;
       }
-      
+
       &.valid-count {
         background: #28a745;
         color: white;
@@ -901,8 +998,13 @@ $product-main: map.get(theme.$theme-colors, "main");
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 // CSS đã được đơn giản hóa - chỉ hiển thị giá và số lượng cơ bản

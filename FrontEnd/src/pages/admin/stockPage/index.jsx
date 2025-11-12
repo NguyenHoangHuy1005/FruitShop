@@ -3,11 +3,13 @@ import "./style.scss";
 import {
     listStock,
     stockIn,
+    stockOut,
     getAllProduct,
     stockInWithInvoice,
     getAllSuppliers,
     addSupplier,
     getBatchDetails,
+    updateBatchQuantity,
 } from "../../../component/redux/apiRequest";
 import { useDispatch } from "react-redux";
 import ImportForm from "../../../component/modals/ImportModal/ImportForm";
@@ -75,7 +77,7 @@ function SupplierManagerModal({
             setTab("list");
             setForm({ name: "", contact_name: "", phone: "", email: "", address: "" });
         } catch (e) {
-            setError(e?.message || "Lỗi thêm NCC!");
+            setError(e?.message || "Lỗi thêm nhà cung cấp!");
         } finally {
             setBusy(false);
         }
@@ -193,7 +195,7 @@ function SupplierManagerModal({
 
                     <div className="modal-actions">
                         <button className="btn special" disabled={busy} onClick={handleAdd}>
-                            {busy ? "Đang lưu..." : "Lưu NCC"}
+                            {busy ? "Đang lưu..." : "Lưu nhà cung cấp"}
                         </button>
                         <button className="btn outline" onClick={() => setTab("list")}>Hủy</button>
                     </div>
@@ -292,12 +294,26 @@ const StockManagerPage = () => {
     // Tính tổng số lượng tồn kho thực tế từ các lô hàng
     const getActualStock = useCallback((productId) => {
         if (!productId || !batchRows.length) return 0;
-        
-        // Tổng tất cả remainingQuantity của sản phẩm này
+
+        const now = new Date();
+
+        // Tổng remainingQuantity chỉ từ các lô còn hiệu lực (chưa hết hạn) và còn > 0
         const totalRemaining = batchRows
             .filter(batch => batch.productId === productId)
+            .filter(batch => {
+                // ignore batches with no remaining quantity
+                const rem = batch.remainingQuantity || 0;
+                if (rem <= 0) return false;
+
+                // if no expiry date -> still valid
+                if (!batch.expiryDate) return true;
+
+                // otherwise only count if expiryDate > now
+                const expiryDate = new Date(batch.expiryDate);
+                return expiryDate > now;
+            })
             .reduce((sum, batch) => sum + (batch.remainingQuantity || 0), 0);
-        
+
         return totalRemaining;
     }, [batchRows]);
 
@@ -324,13 +340,8 @@ const StockManagerPage = () => {
         let expiredCount = 0;
         
         batches.forEach(batch => {
-            if (batch.remainingQuantity <= 0) {
-                // Hết hàng
-                expiredCount++;
-            } else if (!batch.expiryDate) {
-                // Không có hạn sử dụng = còn hiệu lực
-                validCount++;
-            } else {
+            // Determine status based on expiry date first (time-based), not on remainingQuantity
+            if (batch.expiryDate) {
                 const expiryDate = new Date(batch.expiryDate);
                 if (expiryDate <= now) {
                     // Đã hết hạn
@@ -342,6 +353,9 @@ const StockManagerPage = () => {
                     // Còn hiệu lực
                     validCount++;
                 }
+            } else {
+                // No expiry date -> treat as valid (time-based)
+                validCount++;
             }
         });
         
@@ -459,21 +473,40 @@ const StockManagerPage = () => {
     }, [rows, batchRows, q, viewMode, sortOrder, soldSortOrder, getStockStatus, getActualStock, getBatchStatistics]);
 
     const onStockIn = async (productId) => {
-        const v = prompt("Nhập số lượng cần nhập thêm (+):", "10");
+        const v = prompt("Nhập số lượng: dùng số dương để tăng, bắt đầu bằng '-' để giảm (ví dụ: -2):", "0");
         if (v === null) return;
-        const qty = Math.max(1, parseInt(v, 10) || 0);
-        if (!qty) return;
+
+        // Trim and validate
+        const raw = String(v).trim();
+        if (!raw) return;
+
+        // Check for negative adjustment
+        const isNegative = raw.startsWith("-");
+        // Allow formats like "-2" or "- 2"
+        const numeric = parseInt(raw.replace(/[^0-9-]/g, ""), 10);
+        if (Number.isNaN(numeric) || numeric === 0) return;
 
         setBusy(true);
         try {
-        await stockIn(productId, qty);
-        await load();
-        await getAllProduct(dispatch);
-        alert("Nhập kho thành công!");
+            if (isNegative) {
+                const dec = Math.abs(numeric);
+                await stockOut(productId, dec);
+                await load();
+                await loadBatchDetails();
+                await getAllProduct(dispatch, true);
+                alert(`Giảm ${dec} đơn vị khỏi tồn kho thành công!`);
+            } else {
+                const inc = Math.abs(numeric);
+                await stockIn(productId, inc);
+                await load();
+                await loadBatchDetails();
+                await getAllProduct(dispatch, true);
+                alert(`Tăng ${inc} đơn vị vào tồn kho thành công!`);
+            }
         } catch (e) {
-        alert(e?.message || "Nhập kho thất bại!");
+            alert(e?.message || "Cập nhật tồn kho thất bại!");
         } finally {
-        setBusy(false);
+            setBusy(false);
         }
     };
 
@@ -505,7 +538,7 @@ const StockManagerPage = () => {
             setShowModal(false);
             await load();
             await loadBatchDetails();
-            await getAllProduct(dispatch);
+            await getAllProduct(dispatch, true);
         } catch (e) {
             alert(e.message || "Lỗi nhập kho!");
         } finally {
@@ -552,7 +585,7 @@ const StockManagerPage = () => {
                             <div className="stat-icon">✅</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.valid}</div>
-                                <div className="stat-label">Lô còn hiệu lực</div>
+                                <div className="stat-label">Còn hiệu lực</div>
                             </div>
                         </div>
                         
@@ -560,7 +593,7 @@ const StockManagerPage = () => {
                             <div className="stat-icon">⚠️</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.expiring}</div>
-                                <div className="stat-label">Lô sắp hết hạn</div>
+                                <div className="stat-label">sắp hết hạn</div>
                             </div>
                         </div>
                         
@@ -568,7 +601,7 @@ const StockManagerPage = () => {
                             <div className="stat-icon">❌</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.expired}</div>
-                                <div className="stat-label">Lô hết hạn/hết hàng</div>
+                                <div className="stat-label">hết hạn sử dụng</div>
                             </div>
                         </div>
                     </div>
@@ -669,8 +702,7 @@ const StockManagerPage = () => {
                                     })()}
                                 </td>
                                 <td className="actions">
-                                    <button className="btn" onClick={() => onStockIn(p._id)}>Nhập kho nhanh</button>
-                                    <button className="btn special" onClick={() => openModal(p._id)}>Nhập NCC</button>
+                                    <button className="btn special" onClick={() => openModal(p._id)}>Nhập kho</button>
                                 </td>
                             </tr>
                             );
@@ -690,11 +722,13 @@ const StockManagerPage = () => {
                             <th>Nhà cung cấp</th>
                             <th>SL ban đầu</th>
                             <th>Còn lại</th>
+                            <th>Hư hại</th>
                             <th>Đã bán</th>
                             <th>Đơn giá nhập</th>
                             <th>Ngày nhập</th>
                             <th>Hạn sử dụng</th>
                             <th>Trạng thái</th>
+                            <th>Hành động</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -711,28 +745,33 @@ const StockManagerPage = () => {
                             const getStatusClass = () => {
                                 const now = new Date();
                                 const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                                
-                                if (batch.remainingQuantity <= 0) return "out-stock";
+
+                                // Prefer expiry date to determine status (time-based)
                                 if (batch.expiryDate) {
                                     const expiryDate = new Date(batch.expiryDate);
                                     if (expiryDate < now) return "expired";
                                     if (expiryDate <= oneWeekFromNow) return "expiring";
                                     return "valid";
                                 }
+
+                                // Fallback when no expiryDate: use remainingQuantity to indicate out-of-stock vs in-stock
+                                if ((batch.remainingQuantity || 0) <= 0) return "out-stock";
                                 return "in-stock";
                             };
-                            
+
                             const getStatusText = () => {
                                 const now = new Date();
                                 const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                                
-                                if (batch.remainingQuantity <= 0) return "Hết hàng";
+
                                 if (batch.expiryDate) {
                                     const expiryDate = new Date(batch.expiryDate);
                                     if (expiryDate < now) return "Hết hạn";
                                     if (expiryDate <= oneWeekFromNow) return "Sắp hết hạn";
                                     return "Còn hạn";
                                 }
+
+                                // Fallback wording when no expiry date
+                                if ((batch.remainingQuantity || 0) <= 0) return "Hết hàng";
                                 return "Còn hàng";
                             };
 
@@ -749,6 +788,7 @@ const StockManagerPage = () => {
                                 <td>{batch.supplierName}</td>
                                 <td><b>{batch.batchQuantity}</b></td>
                                 <td><b className={getStatusClass()}>{batch.remainingQuantity}</b></td>
+                                <td><b style={{color: '#ef4444'}}>{batch.damagedQuantity || 0}</b></td>
                                 <td><span style={{color: "#7c3aed"}}>{batch.soldQuantity}</span></td>
                                 <td><b style={{color: "#008874"}}>{batch.unitPrice?.toLocaleString()} ₫</b></td>
                                 <td>{formatDate(batch.importDate)}</td>
@@ -765,6 +805,71 @@ const StockManagerPage = () => {
                                     <span className={`status ${getStatusClass()}`}>
                                         {getStatusText()}
                                     </span>
+                                </td>
+                                <td>
+                                    {(() => {
+                                        const statusClass = getStatusClass();
+                                        // Hide edit button for expired batches
+                                        if (statusClass === 'expired') return null;
+
+                                        return (
+                                            <button
+                                                className="btn"
+                                                onClick={async () => {
+                                                    // Prompt for decrement amount (will be recorded as damagedQuantity)
+                                                    const input = prompt(`Nhập số lượng cần trừ khỏi lô (số sẽ được ghi vào cột "Hư hại")`, "0");
+                                                    if (input === null) return;
+                                                    const delta = parseInt(String(input).trim().replace(/[^0-9]/g, ''), 10);
+                                                    if (Number.isNaN(delta) || delta <= 0) {
+                                                        alert('Số lượng trừ không hợp lệ (phải là số nguyên dương).');
+                                                        return;
+                                                    }
+                                                    const currentQty = Number(batch.batchQuantity || 0);
+                                                    const sold = Number(batch.soldQuantity || 0);
+                                                    const existingDamaged = Number(batch.damagedQuantity || 0);
+
+                                                    // maximum amount we can mark as damaged without going below sold units
+                                                    const maxDamageable = currentQty - sold - existingDamaged;
+                                                    if (maxDamageable <= 0) {
+                                                        alert('Không thể ghi nhận hư hại: không còn số lượng khả dụng để đánh dấu hư hại.');
+                                                        return;
+                                                    }
+
+                                                    if (delta > maxDamageable) {
+                                                        alert(`Số lượng hư hại không thể vượt quá ${maxDamageable}. Vui lòng nhập lại.`);
+                                                        return;
+                                                    }
+
+                                                    // newQty is the resulting total after subtracting delta
+                                                    const newQty = currentQty - delta;
+
+                                                    if (newQty < sold) {
+                                                        alert(`Không thể trừ ${delta} vì sẽ nhỏ hơn số đã bán (${sold}).`);
+                                                        return;
+                                                    }
+                                                    if (newQty === currentQty) {
+                                                        alert('Số lượng không thay đổi.');
+                                                        return;
+                                                    }
+
+                                                    setBusy(true);
+                                                    try {
+                                                        await updateBatchQuantity(batch._id, newQty);
+                                                        await loadBatchDetails();
+                                                        await load();
+                                                        await getAllProduct(dispatch, true);
+                                                        alert(`Đã trừ ${delta} đơn vị (ghi nhận vào Hư hại) cho lô.`);
+                                                    } catch (err) {
+                                                        alert(err?.message || 'Cập nhật thất bại');
+                                                    } finally {
+                                                        setBusy(false);
+                                                    }
+                                                }}
+                                            >
+                                                Chỉnh sửa
+                                            </button>
+                                        );
+                                    })()}
                                 </td>
                             </tr>
                             );

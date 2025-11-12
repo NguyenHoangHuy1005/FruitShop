@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
+import Breadcrumb from "../theme/breadcrumb";
 import { AiOutlineArrowRight, AiOutlinePlus } from "react-icons/ai";
 import { BiTimeFive } from "react-icons/bi";
 import { FaEye } from "react-icons/fa";
@@ -160,6 +161,7 @@ const ArticlesPage = () => {
 
   return (
     <div className="articles-page">
+    <Breadcrumb paths={[{ label: "Bài viết" }]} />
       <div className="articles-hero">
         <div className="container">
           <div className="hero-content card">

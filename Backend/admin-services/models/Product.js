@@ -25,6 +25,8 @@ const ProductSchema = new mongoose.Schema(
         viewCount: { type: Number, default: 0, min: 0 },
         // đếm số lượt mua
         purchaseCount: { type: Number, default: 0, min: 0 },
+        // Hiển thị trên trang người dùng (admin bật/tắt)
+        published: { type: Boolean, default: false },
     },
     { timestamps: true }
 );

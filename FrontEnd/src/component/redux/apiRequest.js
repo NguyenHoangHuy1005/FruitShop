@@ -331,8 +331,8 @@ export const createProduct = async (product, dispatch) => {
     dispatch(createProductStart());
     try {
         const res = await API.post("/product/create", product);
-        dispatch(createProductSuccess(res.data));
-        await getAllProduct(dispatch);
+    dispatch(createProductSuccess(res.data));
+    await getAllProduct(dispatch, true);
         alert("Tạo sản phẩm thành công!");
     } catch (error) {
         console.error("Create product error:", error?.response?.data || error);
@@ -341,14 +341,28 @@ export const createProduct = async (product, dispatch) => {
     }
 };
 
-export const getAllProduct = async (dispatch) => {
+export const getAllProduct = async (dispatch, isAdmin = false) => {
     dispatch(getProductStart());
     try {
-        const res = await API.get("/product");
+        const url = isAdmin ? "/product?admin=1" : "/product";
+        const res = await API.get(url);
         dispatch(getProductSuccess(res.data));
     } catch (error) {
         console.error("Get product error:", error?.response?.data || error);
         dispatch(getProductFailure());
+    }
+};
+
+// Admin: toggle product published state
+export const toggleProductPublish = async (id, publish, dispatch) => {
+    try {
+        const res = await API.patch(`/product/${id}/toggle-publish`, { publish });
+        // refresh product list for admin UI
+        if (dispatch) await getAllProduct(dispatch, true);
+        return res.data;
+    } catch (error) {
+        console.error('toggleProductPublish error:', error?.response?.data || error);
+        throw error?.response?.data || error;
     }
 };
 
@@ -357,8 +371,8 @@ export const updateProduct = async (id, product, dispatch) => {
     try {
         const res = await API.put(`/product/${id}`, product);
         dispatch(updateProductSuccess(res.data));
-        // 🔥 đảm bảo UI đồng bộ với DB
-        await getAllProduct(dispatch);
+    // 🔥 đảm bảo UI đồng bộ với DB (admin view)
+    await getAllProduct(dispatch, true);
         alert("Cập nhật sản phẩm thành công!");
     } catch (err) {
         console.error(err);
@@ -373,7 +387,7 @@ export const deleteProduct = async (id, dispatch) => {
     try {
         await API.delete(`/product/${id}`);
         dispatch(deleteProductSuccess(id));
-        await getAllProduct(dispatch);
+        await getAllProduct(dispatch, true);
         alert("Xóa sản phẩm thành công!");
     } catch (err) {
         console.error(err);
@@ -788,6 +802,18 @@ export const stockIn = async (productId, qty) => {
     return res.data;
 };
 
+// Giảm tồn kho (xuất kho)
+export const stockOut = async (productId, qty) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        "/stock/out",
+        { productId, qty },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
 // Set cứng số tồn
 export const stockSet = async (productId, qty) => {
     const token = await ensureAccessToken(null);
@@ -971,6 +997,18 @@ export const getPriceRange = async (productId) => {
     const res = await API.get(`/stock/price-range/${productId}`, {
         validateStatus: () => true,
     });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Cập nhật số lượng cho một lô hàng
+export const updateBatchQuantity = async (batchId, quantity) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.put(
+        `/stock/batch/${batchId}/quantity`,
+        { quantity },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data;
 };

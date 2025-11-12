@@ -188,7 +188,6 @@
 
         &:hover {
           box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
-          transform: translateY(-1px);
         }
 
         &.expired {
@@ -243,9 +242,9 @@
             border-radius: 12px;
             font-size: 10px;
             font-weight: 600;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            background: linear-gradient(135deg, #008874 0%, #006655 100%);
             color: white;
-            box-shadow: 0 1px 3px rgba(0, 123, 255, 0.4);
+            box-shadow: 0 1px 3px rgba(0, 136, 116, 0.4);
             animation: pulse 2s ease-in-out infinite;
             white-space: nowrap;
           }
@@ -316,11 +315,11 @@
 
               &.remaining {
                 color: #28a745;
-                font-weight: 700;
+                font-weight: 600;
               }
 
               &.sold {
-                color: #dc3545;
+                color: #28a745;
                 font-weight: 600;
               }
             }
@@ -348,7 +347,7 @@
                 }
 
                 .btn-edit-price {
-                  background: #3498db;
+                  background: #008874;
                   color: white;
                   border: none;
                   padding: 4px 8px;
@@ -358,13 +357,13 @@
                   transition: background-color 0.2s;
 
                   &:hover {
-                    background: #2980b9;
+                    background: #006655;
                   }
                 }
 
                 .expired-notice {
-                  background: #f8f9fa;
-                  color: #6c757d;
+                  background: #c5c5c5;
+                  color: #414549;
                   padding: 4px 8px;
                   border-radius: 4px;
                   font-size: 10px;

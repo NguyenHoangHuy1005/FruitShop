@@ -326,7 +326,7 @@ const CouponManagerPage = () => {
             }
 
             alert(data.message || "Giảm giá thành công!");
-            await getAllProduct(dispatch);
+            await getAllProduct(dispatch, true);
             setBulkDiscountModal({ 
                 open: false, 
                 selectedProducts: [], 

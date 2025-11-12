@@ -27,12 +27,14 @@ router.get("/batch-details", auth.requireAdmin, stock.getBatchDetails);
 router.get("/batches/:productId", auth.requireAdmin, stock.getBatchesByProduct);
 router.get("/latest-batch/:productId", auth.requireAdmin, stock.getLatestBatchInfo);
 router.get("/price-range/:productId", stock.getPriceRange); // Public API cho người dùng
+router.put("/batch/:batchId/quantity", auth.requireAdmin, stock.updateBatchQuantity);
 
 // route theo productId để cuối cùng
 router.get("/:productId", auth.requireAdmin, stock.getOne);
 
 // nhập đơn giản / set số lượng
 router.post("/in", auth.requireAdmin, stock.stockIn);
+router.post("/out", auth.requireAdmin, stock.stockOut);
 router.post("/set", auth.requireAdmin, stock.setQuantity);
 router.post("/in-with-invoice", auth.requireAdmin, stock.stockInWithInvoice);
 

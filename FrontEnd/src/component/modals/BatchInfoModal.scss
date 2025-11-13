@@ -269,6 +269,13 @@
               background: #28a745;
               color: white;
             }
+            
+            &.out-of-stock {
+              background: #343a40; /* dark gray */
+              color: #fff;
+              font-weight: 700;
+              box-shadow: 0 2px 8px rgba(199, 46, 46, 0.12);
+            }
           }
         }
 

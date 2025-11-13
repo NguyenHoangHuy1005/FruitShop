@@ -96,6 +96,7 @@ const ProductManagerPage = () => {
                 const MS_PER_DAY = 24 * 60 * 60 * 1000;
                 const remaining = Number(batch.remainingQuantity || 0);
                 let status = 'valid';
+                let daysLeft = null;
 
                 // If no remaining units, mark as empty (do not count as expired)
                 if (remaining <= 0) {
@@ -103,14 +104,18 @@ const ProductManagerPage = () => {
                 } else if (batch.expiryDate) {
                     const expiryDate = new Date(batch.expiryDate);
                     const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
-                    const daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
+                    daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
 
-                    if (daysLeft < 0) {
+                    if (daysLeft <= 0) {
                         status = 'expired';
                     } else if (daysLeft <= 7) {
                         status = 'expiring';
                     }
                 }
+
+                // persist computed properties onto the batch object so callers can rely on them
+                batch.status = status;
+                batch.daysLeft = daysLeft;
 
                 batchesByProduct[batch.productId].statusCount[status]++;
                 if (status === 'expired') {
@@ -127,7 +132,7 @@ const ProductManagerPage = () => {
     };
 
     // Fetch thông tin lô mới nhất cho tất cả sản phẩm
-    const fetchAllLatestBatchInfo = async () => {
+    const fetchAllLatestBatchInfo = async (batchesMap) => {
         try {
             const latestBatchData = {};
             
@@ -135,7 +140,7 @@ const ProductManagerPage = () => {
             const fetchPromises = products.map(async (product) => {
                 try {
                     // If we already have batch details fetched on the client, derive latest info locally
-                    const localBatches = productBatches[product._id]?.batches;
+                    const localBatches = (batchesMap && batchesMap[product._id]) ? batchesMap[product._id].batches : productBatches[product._id]?.batches;
                     if (localBatches && localBatches.length > 0) {
                         // Find FEFO active batch from local batches
                         const now = new Date();
@@ -148,18 +153,19 @@ const ProductManagerPage = () => {
                         });
 
                         // compute total sold based on remaining/sold in local batches if available
-                        // local batch items already include remainingQuantity and soldQuantity in our batch-details API
-                        // We'll pick the first batch with remainingQuantity > 0
+                        // local batch items already include remainingQuantity, soldQuantity and status in our batch-details API
+                        // We'll pick the first non-expired batch with remainingQuantity > 0
                         let active = null;
                         for (const b of sorted) {
                             const remaining = (b.remainingQuantity ?? b.batchQuantity ?? b.quantity ?? 0);
-                            if (remaining > 0) { active = b; break; }
+                            const isExpired = (b.status === 'expired') || false;
+                            if (remaining > 0 && !isExpired) { active = b; break; }
                         }
 
                         if (active) {
                             // compute summary totals from local data
-                            const totalInStock = (productBatches[product._id].totalInStock ?? 0);
-                            const totalSold = (productBatches[product._id].totalSold ?? 0);
+                            const totalInStock = (batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].totalInStock ?? 0) : (productBatches[product._id].totalInStock ?? 0);
+                            const totalSold = (batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].totalSold ?? 0) : (productBatches[product._id].totalSold ?? 0);
                             // determine status using date-only comparison
                             const now = new Date();
                             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -169,7 +175,7 @@ const ProductManagerPage = () => {
                                 const expiryDate = new Date(active.expiryDate);
                                 const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
                                 const daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
-                                if (daysLeft < 0) computedStatus = 'expired';
+                                if (daysLeft <= 0) computedStatus = 'expired';
                                 else if (daysLeft <= 7) computedStatus = 'expiring';
                             }
 
@@ -189,9 +195,9 @@ const ProductManagerPage = () => {
                                     status: computedStatus
                                 },
                                 summary: {
-                                    totalInStock,
-                                    totalSold,
-                                    totalBatches: productBatches[product._id].batches.length
+                                     totalInStock,
+                                     totalSold,
+                                     totalBatches: ((batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].batches.length) : (productBatches[product._id]?.batches.length || 0))
                                 }
                             };
                             return;
@@ -223,11 +229,29 @@ const ProductManagerPage = () => {
     };
     // ===== PRODUCT LIST =====
     // Callback when a batch price has been updated in the modal
-    const handleBatchPriceUpdate = async (productId) => {
+    const handleBatchPriceUpdate = async (productId, patch) => {
         try {
-            // Refresh batches and latest batch info so UI shows updated prices
-            await fetchAllProductBatches();
-            await fetchAllLatestBatchInfo();
+            // If caller provides an immediate patch (batchId + sellingPrice), apply pessimistic update to UI first
+            if (patch && patch.sellingPrice !== undefined) {
+                setLatestBatchInfo((prev) => {
+                    const prevEntry = prev[productId] || {};
+                    const prevLatest = prevEntry.latestBatch || {};
+                    return {
+                        ...prev,
+                        [productId]: {
+                            ...prevEntry,
+                            latestBatch: {
+                                ...prevLatest,
+                                sellingPrice: patch.sellingPrice
+                            }
+                        }
+                    };
+                });
+            }
+
+            // Refresh authoritative data
+            const batches = await fetchAllProductBatches();
+            await fetchAllLatestBatchInfo(batches);
         } catch (err) {
             console.error('Error refreshing batch info after price update:', err);
         }
@@ -549,7 +573,7 @@ const ProductManagerPage = () => {
                                                 const expiryDate = new Date(b.expiryDate);
                                                 const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
                                                 const daysLeft = Math.floor((expiryDay - today) / (24 * 60 * 60 * 1000));
-                                                isExpired = daysLeft < 0;
+                                                isExpired = daysLeft <= 0;
                                             }
                                             return !isExpired && remaining > 0;
                                         });

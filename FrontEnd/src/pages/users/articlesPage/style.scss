@@ -111,14 +111,20 @@
     padding: 80px 0 40px;
 
     .container {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 36px;
-        align-items: center;
+    display: grid;
+    /* give a bit more room to text vs image for better balance */
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 32px;
+    align-items: stretch;
     }
 
     .hero-content {
         position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 360px;
+    padding: 36px;
 
         .hero-tag {
         display: inline-block;
@@ -133,54 +139,59 @@
         margin-bottom: 18px;
         }
 
-        h1 {
-        font-size: clamp(32px, 4vw, 44px);
-        margin-bottom: 16px;
-        }
+    h1 {
+    font-size: clamp(28px, 3.6vw, 44px);
+    margin-bottom: 12px;
+    line-height: 1.15;
+    font-weight: 700;
+    }
 
-        p {
-        font-size: 16px;
-        margin-bottom: 20px;
-        }
+    p {
+    font-size: 16px;
+    margin-bottom: 18px;
+    color: #374151;
+    max-width: 60ch;
+    }
 
-        .hero-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        color: #2563eb;
-        text-decoration: none;
-        border-bottom: 1px solid rgba(37, 99, 235, 0.4);
-        padding-bottom: 4px;
-
-        svg {
-            transition: transform 0.25s ease;
-        }
-
-        &:hover svg {
-            transform: translateX(4px);
-        }
-        }
+    .hero-cta {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: #03291b;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 8px 18px rgba(34,197,94,0.12);
+    }
     }
 
     .hero-highlight {
-        position: relative;
-        border-radius: 32px;
-        overflow: hidden;
-        box-shadow: 0 32px 60px rgba(15, 23, 42, 0.18);
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 28px 54px rgba(15, 23, 42, 0.14);
+    /* enforce a nice visual height for balance with hero text */
+    min-height: 360px;
 
-        &::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(120deg, rgba(56, 189, 248, 0.15), rgba(59, 130, 246, 0.05));
-        }
+    &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(56, 189, 248, 0.06), rgba(59, 130, 246, 0.03));
+    pointer-events: none;
+    }
 
-        img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        }
+    img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+    }
+
+    &:hover img {
+    transform: scale(1.03);
+    }
     }
 }
 
@@ -332,7 +343,7 @@
 
 @media (max-width: 1024px) {
     .articles-hero .container {
-        grid-template-columns: 1fr;
+    grid-template-columns: 1fr;
     }
 
     .articles-hero {
@@ -368,12 +379,27 @@
 
 @media (max-width: 576px) {
     .articles-hero .hero-content {
-        padding: 26px;
+    padding: 20px;
     }
 
     .articles-hero .hero-highlight {
         border-radius: 24px;
     }
+}
+
+/* make hero link wrapper behave like separate grid items while being clickable */
+.articles-hero .hero-link-wrapper {
+  display: contents; /* allow its children to participate in grid layout */
+  text-decoration: none;
+  color: inherit;
+}
+
+.articles-hero .hero-content.card {
+  cursor: pointer;
+}
+
+.articles-hero .hero-highlight {
+  cursor: pointer;
 }
 
 // New styles for dynamic features
@@ -631,5 +657,65 @@
     font-size: 16px;
     background: #f8fafc;
     border-radius: 12px;
+  }
+}
+
+/* Layout fixes to avoid badge/title overlap in list cards */
+.articles-page {
+  /* make the generic card a positioned container (keeps other absolute badges working) */
+  .card {
+    position: relative;
+  }
+
+  /* In grids/lists we want the badge to flow with content instead of overlaying */
+  .latest-card .card-badge,
+  .spotlight-card .card-badge {
+    position: static; /* let it take up space */
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  /* give card-body a little more breathing room so badges/titles don't touch */
+  .latest-card .card-body,
+  .spotlight-card .card-body {
+    padding: 20px 24px 26px;
+  }
+
+  /* Prevent long titles from overflowing and pushing layout */
+  .latest-card h3,
+  .spotlight-card h3 {
+    display: -webkit-box;
+  -webkit-line-clamp: 2;
+  /* standard property for newer browsers (place after vendor-prefixed) */
+  line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+    margin-bottom: 8px;
+  }
+
+  /* Slight tweak for the header row so status and badge align nicely */
+  .latest-card .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap; /* wrap on very narrow screens */
+  }
+
+  /* make sure rejection block doesn't collide with other content */
+  .rejection-reason {
+    margin-top: 8px;
   }
 }

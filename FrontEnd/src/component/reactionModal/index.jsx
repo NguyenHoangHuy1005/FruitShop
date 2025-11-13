@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MdClose } from 'react-icons/md';
 import './style.scss';
 
@@ -58,7 +59,7 @@ const ReactionModal = ({ show, onClose, onSubmit, currentReaction }) => {
 
   if (!show) return null;
 
-  return (
+  return createPortal(
     <div className="reaction-modal-overlay">
       <div className="reaction-modal" ref={modalRef}>
         <div className="modal-header">
@@ -112,7 +113,8 @@ const ReactionModal = ({ show, onClose, onSubmit, currentReaction }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

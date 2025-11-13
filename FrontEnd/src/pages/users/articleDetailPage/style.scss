@@ -2,6 +2,8 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   padding: 40px 0 80px;
+  position: relative;
+  isolation: isolate;
 
   .container {
     max-width: 900px;
@@ -447,8 +449,10 @@
   .comments-section {
     background: white;
     padding: 50px;
-    border-radius: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border-radius: 24px;
+    box-shadow: 0 15px 50px rgba(15, 23, 42, 0.08);
+    position: relative;
+    z-index: 1;
 
     .comments-header {
       display: flex;
@@ -495,50 +499,85 @@
 
     .comment-form {
       margin-bottom: 48px;
+      padding: 28px 32px;
+      border-radius: 20px;
+      border: 2px solid #dbeafe;
+      background: linear-gradient(135deg, #f8fbff 0%, #f1f5ff 100%);
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
 
-      textarea {
-        width: 100%;
-        padding: 18px 22px;
-        border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        font-size: 16px;
-        font-family: inherit;
-        resize: vertical;
-        transition: all 0.3s;
-        line-height: 1.7;
-        color: #1e293b;
-        font-weight: 500;
-
-        &:focus {
-          outline: none;
-          border-color: #0ea5e9;
-          box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-          background: #f8fafc;
+      &__field {
+        label {
+          display: block;
+          font-size: 16px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 12px;
         }
 
-        &::placeholder {
-          color: #94a3b8;
-        }
+        textarea {
+          box-sizing: border-box;
+          width: 100%;
+          padding: 20px 24px;
+          border: 2px solid #cbd5f5;
+          border-radius: 16px;
+          font-size: 17px;
+          font-family: inherit;
+          resize: vertical;
+          transition: all 0.3s;
+          line-height: 1.8;
+          color: #0f172a;
+          background: white;
+          min-height: 75px; /* make the main comment box larger */
+          max-width: 100%;
 
-        &:disabled {
-          background: #f1f5f9;
-          cursor: not-allowed;
-          color: #94a3b8;
+          &:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+          }
+
+          &::placeholder {
+            color: #94a3b8;
+            font-size: 16px;
+          }
+
+          &:disabled {
+            background: #f1f5f9;
+            cursor: not-allowed;
+            color: #94a3b8;
+          }
         }
       }
 
+      &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      &__hint {
+        margin: 0;
+        font-size: 15px;
+        color: #475569;
+        font-weight: 600;
+      }
+
       .btn-submit-comment {
-        margin-top: 16px;
-        padding: 14px 36px;
+        padding: 16px 38px;
         background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
         color: white;
         border: none;
-        border-radius: 12px;
-        font-size: 16px;
+        border-radius: 16px;
+        font-size: 17px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        box-shadow: 0 12px 25px rgba(14, 165, 233, 0.3);
 
         &:hover:not(:disabled) {
           transform: translateY(-3px);
@@ -551,9 +590,10 @@
         }
 
         &:disabled {
-          opacity: 0.5;
+          opacity: 0.6;
           cursor: not-allowed;
           transform: none;
+          box-shadow: none;
         }
       }
     }
@@ -614,6 +654,14 @@
         margin-bottom: 20px;
         transition: all 0.3s;
         border: 2px solid #e2e8f0;
+        position: relative;
+        scroll-margin-top: 140px;
+
+        &.highlight-target {
+          border-color: #0ea5e9;
+          box-shadow: 0 12px 30px rgba(14, 165, 233, 0.25);
+          z-index: 2;
+        }
 
         &.nested-comment {
           background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -873,10 +921,13 @@
       .reply-form {
         margin-top: 16px;
         margin-left: 32px;
-        padding: 16px;
+        padding: 20px;
         background: #f0fdf4;
-        border-radius: 8px;
-        border: 1px solid #d1fae5;
+        border-radius: 16px;
+        border: 1px solid #bbf7d0;
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);
+        position: relative;
+        z-index: 1;
 
         .replying-to-info {
           display: flex;
@@ -884,7 +935,7 @@
           justify-content: space-between;
           padding: 8px 12px;
           background: #dbeafe;
-          border-radius: 6px;
+          border-radius: 10px;
           margin-bottom: 12px;
           font-size: 13px;
           color: #1e40af;
@@ -910,34 +961,66 @@
         }
 
         textarea {
+          box-sizing: border-box;
           width: 100%;
-          padding: 10px;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 14px;
+          padding: 14px 16px;
+          border: 2px solid #86efac;
+          border-radius: 12px;
+          font-size: 16px;
           font-family: inherit;
           resize: vertical;
           margin-bottom: 12px;
+          line-height: 1.6;
+          background: white;
+          min-height: 110px; /* larger reply box for comfortable typing */
 
           &:focus {
             outline: none;
             border-color: #10b981;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+          }
+
+          &::placeholder {
+            color: #6b7280;
+            font-size: 15px;
           }
         }
 
         .btn-submit-reply {
-          padding: 8px 20px;
+          padding: 10px 24px;
           background: #10b981;
           color: white;
           border: none;
-          border-radius: 6px;
-          font-size: 14px;
-          font-weight: 500;
+          border-radius: 10px;
+          font-size: 15px;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
 
           &:hover {
             background: #059669;
+          }
+        }
+        .reply-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .btn-cancel-reply {
+          padding: 10px 20px;
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+
+          &:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
           }
         }
       }

@@ -1,14 +1,13 @@
 .reaction-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 12000;
   animation: fadeIn 0.2s ease;
 
   @keyframes fadeIn {
@@ -29,6 +28,8 @@
     overflow-y: auto;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     animation: slideUp 0.3s ease;
+    position: relative;
+    z-index: 1;
 
     @keyframes slideUp {
       from {
@@ -67,7 +68,7 @@
       border-bottom: 2px solid #e5e7eb;
 
       h3 {
-        font-size: 20px;
+        font-size: 24px;
         font-weight: 700;
         color: #1f2937;
         margin: 0;
@@ -102,8 +103,8 @@
 
       .emoji-grid {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 8px;
+        grid-template-columns: repeat(6, minmax(40px, 1fr));
+        gap: 10px;
         margin-bottom: 24px;
 
         .emoji-option {
@@ -112,7 +113,7 @@
           border: 3px solid transparent;
           border-radius: 12px;
           background: #f9fafb;
-          font-size: 28px;
+          font-size: 32px;
           cursor: pointer;
           transition: all 0.2s;
           display: flex;
@@ -138,21 +139,23 @@
 
         label {
           display: block;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 600;
-          color: #374151;
+          color: #1f2937;
           margin-bottom: 8px;
         }
 
         textarea {
           width: 100%;
-          padding: 12px 16px;
+          padding: 14px 18px;
           border: 2px solid #e5e7eb;
-          border-radius: 12px;
-          font-size: 15px;
+          border-radius: 16px;
+          font-size: 16px;
+          line-height: 1.7;
           font-family: inherit;
           resize: vertical;
           transition: all 0.2s;
+          min-height: 120px;
 
           &:focus {
             outline: none;
@@ -161,15 +164,17 @@
           }
 
           &::placeholder {
-            color: #9ca3af;
+            color: #94a3b8;
+            font-size: 16px;
           }
         }
 
         .char-count {
           text-align: right;
-          font-size: 12px;
-          color: #6b7280;
-          margin-top: 4px;
+          font-size: 13px;
+          color: #475569;
+          margin-top: 6px;
+          font-weight: 600;
         }
       }
 
@@ -190,18 +195,18 @@
         .preview-content {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
 
           .preview-emoji {
-            font-size: 32px;
+            font-size: 36px;
             line-height: 1;
           }
 
           .preview-text {
-            font-size: 15px;
-            color: #1e293b;
+            font-size: 16px;
+            color: #0f172a;
             flex: 1;
-            font-style: italic;
+            font-weight: 600;
           }
         }
       }
@@ -212,10 +217,10 @@
 
         button {
           flex: 1;
-          padding: 12px 24px;
+          padding: 14px 26px;
           border: none;
-          border-radius: 10px;
-          font-size: 15px;
+          border-radius: 12px;
+          font-size: 16px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;

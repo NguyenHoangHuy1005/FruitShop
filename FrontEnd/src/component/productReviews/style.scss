@@ -158,6 +158,7 @@
         border-radius: 6px;
         font-size: 14px;
         font-family: inherit;
+        box-sizing: border-box;
 
         &:focus {
           outline: none;
@@ -167,6 +168,7 @@
 
       textarea {
         resize: vertical;
+        min-height: 120px; /* make main review textarea more comfortable */
       }
     }
 
@@ -562,11 +564,20 @@
           font-family: inherit;
           resize: vertical;
           margin-bottom: 12px;
+          box-sizing: border-box;
+          min-height: 80px; /* larger reply box */
 
           &:focus {
             outline: none;
             border-color: #10b981;
           }
+        }
+
+        .reply-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+          align-items: center;
         }
 
         .btn-submit-reply {
@@ -582,6 +593,22 @@
 
           &:hover {
             background: #059669;
+          }
+        }
+
+        .btn-cancel-reply {
+          padding: 8px 18px;
+          background: #e5e7eb;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background 0.15s;
+
+          &:hover {
+            background: #d1d5db;
           }
         }
       }
@@ -615,6 +642,19 @@
             opacity: 0.6;
             background: #fef2f2;
             border-left-color: #ef4444;
+          }
+
+          &.highlight-target {
+            box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+            border-color: #2563eb;
+            transition: box-shadow 0.3s ease;
+            animation: highlightPulse 1.8s ease-in-out;
+          }
+
+          @keyframes highlightPulse {
+            0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.12); }
+            50% { box-shadow: 0 0 0 8px rgba(59,130,246,0.06); }
+            100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
           }
 
           &:last-child {

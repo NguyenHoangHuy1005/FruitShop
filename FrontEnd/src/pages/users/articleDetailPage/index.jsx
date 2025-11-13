@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -10,10 +10,10 @@ import ReactionModal from "../../../component/reactionModal";
 import ReactionBar from "../../../component/reactionBar";
 import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
-import ProductReviews from "../../../component/productReviews";
 const ArticleDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = useSelector((state) => state.auth?.login?.currentUser);
   const isLoggedIn = !!currentUser;
   const userId = currentUser?._id;
@@ -38,12 +38,111 @@ const ArticleDetailPage = () => {
     category: "",
     image: "",
   });
+  const highlightTimeoutRef = useRef(null);
+  const lastScrolledCommentRef = useRef(null);
+  const highlightStateClearedRef = useRef(false);
+  const [stateHighlightTarget, setStateHighlightTarget] = useState(null);
+  const commentInputId = "article-comment-input";
+
+  const scrollToElement = useCallback((elementId) => {
+    if (!elementId) return false;
+    const element = document.getElementById(elementId);
+    if (!element) return false;
+
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.classList.add("highlight-target");
+
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = setTimeout(() => {
+      element.classList.remove("highlight-target");
+      highlightTimeoutRef.current = null;
+    }, 3000);
+
+    return true;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     fetchArticleDetail();
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, sortBy, sortOrder]);
+
+  useEffect(() => {
+    if (!comments.length) return;
+
+    const params = new URLSearchParams(location.search);
+    const commentTarget = params.get("commentId") || params.get("replyId");
+
+    if (!commentTarget || lastScrolledCommentRef.current === commentTarget) return;
+
+    const timer = setTimeout(() => {
+      if (scrollToElement(`comment-${commentTarget}`)) {
+        lastScrolledCommentRef.current = commentTarget;
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [comments, location.search, scrollToElement]);
+
+  useEffect(() => {
+    if (location.state?.highlightTarget) {
+      setStateHighlightTarget(location.state.highlightTarget);
+      if (!highlightStateClearedRef.current) {
+        navigate(
+          { pathname: location.pathname, search: location.search, hash: location.hash },
+          { replace: true, state: null }
+        );
+        highlightStateClearedRef.current = true;
+      }
+    } else {
+      highlightStateClearedRef.current = false;
+    }
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
+
+  useEffect(() => {
+    if (!comments.length || !stateHighlightTarget?.id) return;
+
+    const targetId = `comment-${stateHighlightTarget.id}`;
+    if (scrollToElement(targetId)) {
+      lastScrolledCommentRef.current = stateHighlightTarget.id;
+      setStateHighlightTarget(null);
+    }
+  }, [comments, stateHighlightTarget, scrollToElement]);
+
+  useEffect(() => {
+    lastScrolledCommentRef.current = null;
+  }, [location.search]);
+
+  // Auto-scroll and focus the reply textarea when replyingTo changes
+  useEffect(() => {
+    if (!replyingTo) return;
+    const id = `reply-input-${replyingTo}`;
+    // small delay to allow DOM to render the reply form
+    const t = setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        try {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch {
+          /* ignore scroll errors */
+        }
+        el.focus && el.focus();
+      }
+    }, 80);
+
+    return () => clearTimeout(t);
+  }, [replyingTo]);
 
   const fetchArticleDetail = async () => {
     setLoading(true);
@@ -338,6 +437,7 @@ const ArticleDetailPage = () => {
     return (
       <div
         key={comment._id}
+        id={`comment-${comment._id}`}
         className={`comment-item ${isNested ? 'nested-comment' : ''} ${isHidden ? 'hidden-comment' : ''}`}
         style={{ marginLeft: isNested ? '32px' : '0' }}
       >
@@ -779,20 +879,30 @@ const ArticleDetailPage = () => {
             {/* Comment Form */}
             {isLoggedIn ? (
               <form onSubmit={handleSubmitComment} className="comment-form">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Viết bình luận của bạn..."
-                  rows="4"
-                  disabled={submittingComment}
-                />
-                <button
-                  type="submit"
-                  className="btn-submit-comment"
-                  disabled={submittingComment}
-                >
-                  {submittingComment ? "Đang gửi..." : "Gửi bình luận"}
-                </button>
+                <div className="comment-form__field">
+                  <label htmlFor={commentInputId}>Chia sẻ suy nghĩ của bạn</label>
+                  <textarea
+                    id={commentInputId}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Chia sẻ suy nghĩ của bạn..."
+                    rows="4"
+                    maxLength={800}
+                    disabled={submittingComment}
+                  />
+                </div>
+                <div className="comment-form__footer">
+                  <p className="comment-form__hint">
+                    Hãy giữ bình luận lịch sự và thân thiện ✨
+                  </p>
+                  <button
+                    type="submit"
+                    className="btn-submit-comment"
+                    disabled={submittingComment}
+                  >
+                    {submittingComment ? "Đang gửi..." : "Gửi bình luận"}
+                  </button>
+                </div>
               </form>
             ) : (
               <div className="login-prompt">
@@ -832,17 +942,36 @@ const ArticleDetailPage = () => {
                           </div>
                         )}
                         <textarea
+                          id={`reply-input-${comment._id}`}
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
-                          placeholder={replyingToComment ? `Trả lời @${replyingToComment.user?.username}...` : "Nhập câu trả lời của bạn..."}
+                          placeholder={
+                            replyingToComment
+                              ? `Trả lời @${replyingToComment.user?.username}...`
+                              : "Chia sẻ câu trả lời của bạn..."
+                          }
                           rows="3"
+                          maxLength={600}
                         />
-                        <button
-                          className="btn-submit-reply"
-                          onClick={() => handleSubmitReply(comment._id)}
-                        >
-                          Gửi
-                        </button>
+                        <div className="reply-actions">
+                          <button
+                            className="btn-submit-reply"
+                            onClick={() => handleSubmitReply(comment._id)}
+                          >
+                            Gửi
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-cancel-reply"
+                            onClick={() => {
+                              setReplyingTo(null);
+                              setReplyingToComment(null);
+                              setReplyText("");
+                            }}
+                          >
+                            Hủy
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

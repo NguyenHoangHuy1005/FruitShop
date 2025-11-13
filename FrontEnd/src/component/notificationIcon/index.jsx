@@ -75,7 +75,43 @@ const NotificationIcon = () => {
 
         // Chuyển hướng dựa trên loại thông báo
         if (notification.link) {
-            navigate(notification.link);
+            // Try to derive a highlight target (reply/review/comment) when possible
+            try {
+                const url = new URL(notification.link, window.location.origin);
+                const params = new URLSearchParams(url.search);
+                const relatedId = notification.relatedId;
+                let highlightTarget = null;
+
+                if (relatedId) {
+                    const isArticleLink = url.pathname.startsWith('/articles');
+                    const isProductLink = url.pathname.startsWith('/product/detail');
+
+                    if (isArticleLink) {
+                        // comment on article
+                        highlightTarget = { type: 'comment', id: relatedId };
+                    } else if (isProductLink) {
+                        const replyTypes = ['review_reply', 'review_mention', 'reply_reaction', 'reply_reaction'];
+                        if (replyTypes.includes(notification.type)) {
+                            highlightTarget = { type: 'reply', id: relatedId };
+                        } else {
+                            highlightTarget = { type: 'review', id: relatedId };
+                        }
+                    }
+                }
+
+                const to = `${url.pathname}${params.toString() ? `?${params.toString()}` : ''}${url.hash || ''}`;
+                if (highlightTarget) {
+                    navigate(to, { state: { highlightTarget } });
+                } else {
+                    navigate(to);
+                }
+                return;
+            } catch (err) {
+                // fallback to simple navigate
+                console.error('Invalid notification link:', err);
+                navigate(notification.link);
+                return;
+            }
         } else if (notification.type?.startsWith("order_")) {
             navigate("/orders");
         } else if (notification.type?.startsWith("article_")) {

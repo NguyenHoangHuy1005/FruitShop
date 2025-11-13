@@ -370,7 +370,7 @@
             margin-bottom: 12px;
           }
 
-          .reply-item {
+            .reply-item {
             background: white;
             border-radius: 8px;
             padding: 12px;
@@ -421,6 +421,9 @@
               line-height: 1.5;
             }
 
+            /* Ensure .btn-delete-small styles apply even when the markup places the button
+               directly inside .reply-item (sometimes markup didn't include .reply-actions) */
+            .btn-delete-small,
             .reply-actions {
               display: flex;
               gap: 8px;
@@ -428,23 +431,64 @@
 
               .btn-delete-small {
                 padding: 6px 12px;
-                background: #fef2f2;
+                background: transparent;
                 color: #dc2626;
-                border: 1px solid #fecaca;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
+                border: 1px solid rgba(220,66,66,0.15);
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
                 cursor: pointer;
-                display: flex;
+                display: inline-flex;
                 align-items: center;
-                gap: 6px;
-                transition: all 0.2s;
+                gap: 8px;
+                transition: all 0.18s ease;
+                box-shadow: none;
+
+                svg { flex-shrink: 0; }
 
                 &:hover {
-                  background: #dc2626;
-                  color: white;
-                  border-color: #dc2626;
+                  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                  color: #fff;
+                  border-color: rgba(220,66,66,0.9);
+                  transform: translateY(-2px);
+                  box-shadow: 0 6px 18px rgba(220,66,66,0.12);
                 }
+
+                &:focus {
+                  outline: none;
+                  box-shadow: 0 0 0 4px rgba(239,68,68,0.12);
+                }
+              }
+            }
+            /* Global fallback so .btn-delete-small receives rules even outside the nested scope */
+            .btn-delete-small {
+              padding: 6px 12px;
+              background: transparent;
+              color: #dc2626;
+              border: 1px solid rgba(220,66,66,0.15);
+              border-radius: 8px;
+              font-size: 13px;
+              font-weight: 600;
+              cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              transition: all 0.18s ease;
+              box-shadow: none;
+
+              svg { flex-shrink: 0; }
+
+              &:hover {
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                color: #fff;
+                border-color: rgba(220,66,66,0.9);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 18px rgba(220,66,66,0.12);
+              }
+
+              &:focus {
+                outline: none;
+                box-shadow: 0 0 0 4px rgba(239,68,68,0.12);
               }
             }
           }
@@ -458,59 +502,78 @@
           button {
             padding: 8px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
+            gap: 8px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+            min-height: 40px;
+            padding-left: 12px;
+            padding-right: 12px;
+            svg { flex-shrink: 0; }
 
             &.btn-approve {
-              background: #10b981;
-              color: white;
+              background: linear-gradient(135deg,#34d399 0%,#10b981 100%);
+              color: #052e1f;
+              box-shadow: 0 8px 20px rgba(16,185,129,0.12);
 
-              &:hover {
-                background: #059669;
-              }
+              &:hover { transform: translateY(-3px); }
             }
 
             &.btn-reject {
-              background: #ef4444;
-              color: white;
+              background: linear-gradient(135deg,#f87171 0%,#ef4444 100%);
+              color: #3a0f0f;
+              box-shadow: 0 8px 20px rgba(239,68,68,0.12);
 
-              &:hover {
-                background: #dc2626;
-              }
+              &:hover { transform: translateY(-3px); }
             }
 
             &.btn-hide {
-              background: #64748b;
-              color: white;
+              background: linear-gradient(135deg,#94a3b8 0%,#64748b 100%);
+              color: #071125;
+              box-shadow: 0 6px 14px rgba(100,116,139,0.08);
 
-              &:hover {
-                background: #475569;
-              }
+              &:hover { transform: translateY(-2px); }
             }
 
             &.btn-show {
-              background: #3b82f6;
-              color: white;
+              background: linear-gradient(135deg,#60a5fa 0%,#3b82f6 100%);
+              color: #04294b;
+              box-shadow: 0 8px 20px rgba(59,130,246,0.12);
 
-              &:hover {
-                background: #2563eb;
-              }
+              &:hover { transform: translateY(-3px); }
+            }
+
+            &.btn-edit {
+              background: linear-gradient(135deg,#f3f4f6 0%,#e5e7eb 100%);
+              color: #0f172a;
+              border: 1px solid #e6e9ee;
+              box-shadow: 0 4px 12px rgba(2,6,23,0.06);
+
+              &:hover { transform: translateY(-2px); }
             }
 
             &.btn-delete {
-              background: #f1f5f9;
+              /* ghost-style delete: subtle by default, strong on hover */
+              background: transparent;
               color: #dc2626;
-              border: 1px solid #e2e8f0;
+              border: 1px solid rgba(220,66,66,0.12);
+              box-shadow: none;
 
               &:hover {
-                background: #fef2f2;
-                border-color: #fecaca;
+                background: linear-gradient(135deg,#ef4444 0%,#dc2626 100%);
+                color: #fff;
+                border-color: rgba(220,66,66,0.95);
+                transform: translateY(-3px);
+                box-shadow: 0 10px 30px rgba(220,66,66,0.12);
+              }
+
+              &:focus {
+                outline: none;
+                box-shadow: 0 0 0 5px rgba(220,66,66,0.08);
               }
             }
           }

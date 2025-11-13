@@ -12,6 +12,47 @@ const NotificationsPage = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth?.login?.currentUser);
 
+  const buildNotificationLink = (notification) => {
+    const fallback = { to: notification.link || '/', state: null };
+    if (!notification.link) return fallback;
+    if (typeof window === 'undefined') return fallback;
+
+    try {
+      const url = new URL(notification.link, window.location.origin);
+      const params = new URLSearchParams(url.search);
+      const relatedId = notification.relatedId;
+      let highlightTarget = null;
+
+      if (relatedId) {
+        const isArticleLink = url.pathname.startsWith('/articles');
+        const isProductLink = url.pathname.startsWith('/product/detail');
+
+        if (isArticleLink) {
+          params.set('commentId', relatedId);
+          highlightTarget = { type: 'comment', id: relatedId };
+        } else if (isProductLink) {
+          const replyTypes = ['review_reply', 'review_mention', 'reply_reaction'];
+          if (replyTypes.includes(notification.type)) {
+            params.set('replyId', relatedId);
+            highlightTarget = { type: 'reply', id: relatedId };
+          } else {
+            params.set('reviewId', relatedId);
+            highlightTarget = { type: 'review', id: relatedId };
+          }
+        }
+      }
+
+      const searchString = params.toString();
+      return {
+        to: `${url.pathname}${searchString ? `?${searchString}` : ''}${url.hash || ''}`,
+        state: highlightTarget ? { highlightTarget } : null
+      };
+    } catch (err) {
+      console.error('Invalid notification link:', err);
+      return fallback;
+    }
+  };
+
   useEffect(() => {
     console.log('NotificationsPage mounted');
     console.log('User:', user);
@@ -133,7 +174,13 @@ const NotificationsPage = () => {
     
     // Chuyển hướng dựa trên link hoặc type
     if (notification.link) {
-      navigate(notification.link);
+      const navigation = buildNotificationLink(notification);
+      const options = navigation.state ? { state: navigation.state } : undefined;
+      if (options) {
+        navigate(navigation.to, options);
+      } else {
+        navigate(navigation.to);
+      }
     } else if (notification.type?.startsWith('order_')) {
       navigate('/orders');
     } else if (notification.type?.startsWith('article_')) {

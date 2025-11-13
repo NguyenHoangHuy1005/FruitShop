@@ -2,14 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { 
-  FaCheckCircle, 
-  FaTimesCircle, 
-  FaEye, 
-  FaEyeSlash, 
+import {
+  FaCheckCircle,
+  FaTimesCircle,
+  FaEye,
+  FaEyeSlash,
   FaTrash,
   FaStar,
-  FaPlus
+  FaPlus,
+  FaEdit,
 } from "react-icons/fa";
 import ReactionBar from "../../../component/reactionBar";
 import "./style.scss";
@@ -41,6 +42,16 @@ const ContentManagementPage = () => {
 
   // Form data for creating article
   const [formData, setFormData] = useState({
+    title: "",
+    content: "",
+    excerpt: "",
+    category: "Mẹo chọn hàng",
+    image: "",
+  });
+  // Edit form state for updating existing articles
+  const [editArticle, setEditArticle] = useState(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editFormData, setEditFormData] = useState({
     title: "",
     content: "",
     excerpt: "",
@@ -145,6 +156,91 @@ const ContentManagementPage = () => {
     } catch (error) {
       console.error("Error deleting article:", error);
       toast.error("Lỗi khi xóa bài viết");
+    }
+  };
+
+  const handleOpenEdit = (article) => {
+    setEditArticle(article);
+    setEditFormData({
+      title: article.title || "",
+      content: article.content || "",
+      excerpt: article.excerpt || "",
+      category: article.category || "Mẹo chọn hàng",
+      image: article.image || "",
+    });
+    setShowEditForm(true);
+    // scroll to top of page so admin sees the form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditForm(false);
+    setEditArticle(null);
+    setEditFormData({ title: "", content: "", excerpt: "", category: "Mẹo chọn hàng", image: "" });
+  };
+
+  const handleUpdateArticle = async (e) => {
+    e.preventDefault();
+
+    if (!editArticle) return;
+
+    if (!editFormData.title || !editFormData.content) {
+      toast.error("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      // Try PATCH on the regular article endpoint first
+      let response;
+      try {
+        response = await axios.patch(
+          `http://localhost:3000/api/article/${editArticle._id}`,
+          editFormData,
+          headers
+        );
+      } catch (err) {
+        // If not found or method not allowed, try PUT as a fallback
+        if (err.response && (err.response.status === 404 || err.response.status === 405)) {
+          try {
+            response = await axios.put(
+              `http://localhost:3000/api/article/${editArticle._id}`,
+              editFormData,
+              headers
+            );
+          } catch (err2) {
+            // Final fallback: try admin-scoped update route if backend exposes it
+            try {
+              response = await axios.patch(
+                `http://localhost:3000/api/article/admin/${editArticle._id}`,
+                editFormData,
+                headers
+              );
+            } catch (err3) {
+              throw err3 || err2 || err;
+            }
+          }
+        } else {
+          throw err;
+        }
+      }
+
+      if (response?.data?.success) {
+        toast.success("Bài viết đã được cập nhật");
+        setShowEditForm(false);
+        setEditArticle(null);
+        setEditFormData({ title: "", content: "", excerpt: "", category: "Mẹo chọn hàng", image: "" });
+        // refresh admin article list
+        fetchArticles();
+      } else {
+        throw new Error(response?.data?.message || 'Không thể cập nhật bài viết');
+      }
+    } catch (error) {
+      console.error("Error updating article:", error);
+      const message = error.response?.data?.message || error.message || "Lỗi khi cập nhật bài viết";
+      toast.error(message);
     }
   };
 
@@ -545,6 +641,78 @@ const ContentManagementPage = () => {
         </div>
       )}
 
+        {showEditForm && (
+          <div className="create-article-form">
+            <h2>Chỉnh sửa bài viết</h2>
+            <form onSubmit={handleUpdateArticle}>
+              <div className="form-group">
+                <label>Tiêu đề *</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  placeholder="Nhập tiêu đề bài viết"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Danh mục</label>
+                <select
+                  value={editFormData.category}
+                  onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                >
+                  <option value="Mẹo chọn hàng">Mẹo chọn hàng</option>
+                  <option value="Công thức">Công thức</option>
+                  <option value="Dinh dưỡng">Dinh dưỡng</option>
+                  <option value="Cảm hứng">Cảm hứng</option>
+                  <option value="Tin tức">Tin tức</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>URL Ảnh bìa</label>
+                <input
+                  type="url"
+                  value={editFormData.image}
+                  onChange={(e) => setEditFormData({ ...editFormData, image: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Tóm tắt</label>
+                <textarea
+                  value={editFormData.excerpt}
+                  onChange={(e) => setEditFormData({ ...editFormData, excerpt: e.target.value })}
+                  placeholder="Tóm tắt ngắn gọn nội dung bài viết"
+                  rows="2"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Nội dung *</label>
+                <textarea
+                  value={editFormData.content}
+                  onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
+                  placeholder="Viết nội dung bài viết..."
+                  rows="10"
+                  required
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={handleCancelEdit}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn-submit">
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
       <div className="tabs">
         <button
           className={activeTab === "articles" ? "active" : ""}
@@ -631,7 +799,15 @@ const ContentManagementPage = () => {
                         </button>
                       </>
                     )}
-                    <button
+                      {currentUser && article.author && currentUser._id === article.author._id && (
+                        <button
+                          className="btn-edit"
+                          onClick={() => handleOpenEdit(article)}
+                        >
+                          <FaEdit /> Chỉnh sửa
+                        </button>
+                      )}
+                      <button
                       className="btn-delete"
                       onClick={() => handleDeleteArticle(article._id)}
                     >

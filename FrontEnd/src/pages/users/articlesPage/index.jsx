@@ -164,29 +164,34 @@ const ArticlesPage = () => {
     <Breadcrumb paths={[{ label: "Bài viết" }]} />
       <div className="articles-hero">
         <div className="container">
-          <div className="hero-content card">
-            <span className="hero-tag">Bài viết mới</span>
-            <h1>Trái cây sạch cho cuộc sống cân bằng</h1>
-            <p>
-              Cùng FruitShop khám phá nguồn cảm hứng nấu ăn, mẹo dinh dưỡng và câu chuyện
-              mùa vụ để mỗi bữa ăn đều tròn vị và tốt cho sức khỏe.
-            </p>
-            <button
-              className="btn-create-article"
-              onClick={() => {
-                if (!isLoggedIn) {
-                  toast.error("Vui lòng đăng nhập để viết bài");
-                  return;
-                }
-                setShowCreateForm(!showCreateForm);
-              }}
-            >
-              <AiOutlinePlus /> {showCreateForm ? "Đóng form" : "Viết bài mới"}
-            </button>
-          </div>
-          <div className="hero-highlight">
-            {featured && <img src={featured.image || "https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=1200&q=80"} alt={featured.title} />}
-          </div>
+          {/* If we have a featured article, make the hero area clickable and link to it. */}
+          {featured ? (
+            <Link to={`/articles/${featured._id}`} className="hero-link-wrapper">
+              <div className="hero-content card">
+                <span className="hero-tag">Bài viết mới</span>
+                <h1>{featured.title || 'Trái cây sạch cho cuộc sống cân bằng'}</h1>
+                <p>{featured.excerpt || 'Cùng FruitShop khám phá nguồn cảm hứng nấu ăn, mẹo dinh dưỡng và câu chuyện mùa vụ để mỗi bữa ăn đều tròn vị và tốt cho sức khỏe.'}</p>
+                <div className="hero-cta">Đọc bài</div>
+              </div>
+              <div className="hero-highlight">
+                <img src={featured.image || "https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=1200&q=80"} alt={featured.title} />
+              </div>
+            </Link>
+          ) : (
+            <>
+              <div className="hero-content card">
+                <span className="hero-tag">Bài viết mới</span>
+                <h1>Trái cây sạch cho cuộc sống cân bằng</h1>
+                <p>
+                  Cùng FruitShop khám phá nguồn cảm hứng nấu ăn, mẹo dinh dưỡng và câu chuyện
+                  mùa vụ để mỗi bữa ăn đều tròn vị và tốt cho sức khỏe.
+                </p>
+              </div>
+              <div className="hero-highlight">
+                {featured && <img src={featured.image || "https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=1200&q=80"} alt={featured.title} />}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

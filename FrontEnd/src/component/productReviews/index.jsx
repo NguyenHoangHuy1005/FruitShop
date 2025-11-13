@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -36,6 +37,65 @@ const ProductReviews = ({ productId }) => {
       checkCanReview();
     }
   }, [productId, user?.accessToken, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When user opens a reply box for a review, scroll it into view and focus the textarea.
+  useEffect(() => {
+    if (!replyingTo) return;
+
+    // If replying to a nested reply, target that reply's input. Otherwise target the review-level input.
+    const targetId = replyingToReply ? `reply-input-${replyingToReply._id}` : `reply-input-${replyingTo}`;
+    // small timeout to allow DOM to render the reply form
+    const t = setTimeout(() => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        if (typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        el.focus();
+      }
+    }, 80);
+
+    return () => clearTimeout(t);
+  }, [replyingTo, replyingToReply]);
+
+  // If navigation provided a highlightTarget (from notifications), scroll to it and highlight briefly.
+  const { state } = useLocation();
+  useEffect(() => {
+    const target = state?.highlightTarget;
+    if (!target) return;
+
+    // Retry loop: try to find the element several times (useful when data loads async)
+    let attempts = 0;
+    const maxAttempts = 8; // ~8 * 300ms = 2400ms max wait
+    const intervalMs = 300;
+
+    const tryScroll = () => {
+      attempts += 1;
+      const el = document.getElementById(`${target.type}-${target.id}`);
+      if (el) {
+        try {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch {
+          // ignore
+        }
+        el.classList.add("highlight-target");
+        setTimeout(() => el.classList.remove("highlight-target"), 2200);
+        return true;
+      }
+      return false;
+    };
+
+    // first immediate attempt
+    if (tryScroll()) return;
+
+    const id = setInterval(() => {
+      if (tryScroll() || attempts >= maxAttempts) {
+        clearInterval(id);
+      }
+    }, intervalMs);
+
+    return () => clearInterval(id);
+  }, [state?.highlightTarget, reviews]);
 
   const fetchReviews = async () => {
     setLoading(true);
@@ -497,6 +557,7 @@ const ProductReviews = ({ productId }) => {
 
     return (
       <div 
+        id={`reply-${reply._id}`}
         key={reply._id} 
         className={`reply-item ${isNested ? 'nested-reply' : ''} ${isHidden ? 'hidden-reply' : ''}`}
         style={{ marginLeft: isNested ? '32px' : '0' }}
@@ -600,6 +661,48 @@ const ProductReviews = ({ productId }) => {
             </>
           )}
         </div>
+
+        {/* If the user is replying specifically to this reply, show the inline reply form here */}
+        {replyingTo === reviewId && replyingToReply && replyingToReply._id === reply._id && (
+          <div className="reply-form" style={{ marginTop: 12 }}>
+            <div className="replying-to-info">
+              Đang trả lời <strong>@{reply.user?.username}</strong>
+              <button
+                className="btn-clear-mention"
+                onClick={() => setReplyingToReply(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              id={`reply-input-${reply._id}`}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder={`Trả lời @${reply.user?.username}...`}
+              rows="3"
+            />
+            <div className="reply-actions">
+              <button
+                type="button"
+                className="btn-cancel-reply"
+                onClick={() => {
+                  setReplyingTo(null);
+                  setReplyingToReply(null);
+                  setReplyText("");
+                }}
+              >
+                Hủy
+              </button>
+
+              <button
+                className="btn-submit-reply"
+                onClick={() => handleReplySubmit(reviewId)}
+              >
+                Gửi
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Render nested replies recursively */}
         {nestedReplies.length > 0 && (
@@ -751,7 +854,7 @@ const ProductReviews = ({ productId }) => {
             );
 
             return (
-            <div key={review._id} className="review-item">
+            <div id={`review-${review._id}`} key={review._id} className="review-item">
               <div className="review-header">
                 <div className="user-info">
                   <span className="review-number">#{reviewIndex + 1}</span>
@@ -840,7 +943,7 @@ const ProductReviews = ({ productId }) => {
                 )}
               </div>
 
-              {replyingTo === review._id && (
+              {replyingTo === review._id && !replyingToReply && (
                 <div className="reply-form">
                   {replyingToReply && (
                     <div className="replying-to-info">
@@ -854,17 +957,32 @@ const ProductReviews = ({ productId }) => {
                     </div>
                   )}
                   <textarea
+                    id={`reply-input-${review._id}`}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder={replyingToReply ? `Trả lời @${replyingToReply.user?.username}...` : "Nhập câu trả lời của bạn..."}
                     rows="3"
                   />
-                  <button
-                    className="btn-submit-reply"
-                    onClick={() => handleReplySubmit(review._id)}
-                  >
-                    Gửi
-                  </button>
+                  <div className="reply-actions">
+                    <button
+                      type="button"
+                      className="btn-cancel-reply"
+                      onClick={() => {
+                        setReplyingTo(null);
+                        setReplyingToReply(null);
+                        setReplyText("");
+                      }}
+                    >
+                      Hủy
+                    </button>
+
+                    <button
+                      className="btn-submit-reply"
+                      onClick={() => handleReplySubmit(review._id)}
+                    >
+                      Gửi
+                    </button>
+                  </div>
                 </div>
               )}
 

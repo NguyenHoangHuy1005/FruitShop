@@ -54,7 +54,7 @@ const LoginAdminPage = () => {
     return (
         <div className="login">
         <div className="login__container">
-            <h2 className="login__title">---ĐĂNG NHẬP---</h2>
+            <h2 className="login__title">Đăng nhập</h2>
 
             {/* ✅ Đặt alert bên trong return */}
             {showVerifiedMsg && (
@@ -106,11 +106,17 @@ const LoginAdminPage = () => {
                 </label>
             </div>
 
-            <button type="submit" className="login__button">Đăng nhập</button>
-
-            <Link to={ROUTERS.ADMIN.SIGNUP} className="register__button">Đăng ký</Link>
-            <p>Hoặc</p>
-            <Link to={ROUTERS.ADMIN.FORGOT} className="forgot-password__button">Quên mật khẩu?</Link>
+            <div className="login__actions">
+                <button type="submit" className="login__button">Đăng nhập</button>
+                <div className="login__alt-actions">
+                <Link to={ROUTERS.ADMIN.FORGOT} className="login__button login__button--ghost">
+                    Quên mật khẩu
+                </Link>
+                <Link to={ROUTERS.ADMIN.SIGNUP} className="login__button login__button--outline">
+                    Tạo tài khoản
+                </Link>
+                </div>
+            </div>
             </form>
         </div>
         </div>

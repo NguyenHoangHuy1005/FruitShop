@@ -368,7 +368,8 @@
     background: rgba(248, 250, 252, 0.92);
 }
 
-.email-change {
+.email-change,
+.username-change {
     display: flex;
     flex-direction: column;
     gap: 18px;
@@ -386,6 +387,14 @@
         .otp {
             flex: 0 0 140px;
         }
+    }
+}
+
+.username-change {
+    .username-hint {
+        margin: 0;
+        font-size: 13px;
+        color: #475569;
     }
 }
 

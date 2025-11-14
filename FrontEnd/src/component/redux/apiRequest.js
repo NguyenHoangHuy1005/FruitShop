@@ -765,6 +765,26 @@ export const confirmEmailChange = async (otp, dispatch) => {
     return res;
 };
 
+export const requestUsernameChange = async (newUsername) => {
+    const token = await ensureAccessToken(null);
+    return API.post(
+        '/auth/username/change/request',
+        { newUsername },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+};
+
+export const confirmUsernameChange = async (otp, dispatch) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        '/auth/username/change/confirm',
+        { token: String(otp || '') },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status === 200) await refreshCurrentUser(dispatch);
+    return res;
+};
+
 
 /* ======================= STOCK (Admin) ======================= */
 

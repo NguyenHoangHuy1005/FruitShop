@@ -597,6 +597,100 @@ const authController = {
         }
     },
 
+    // ============== REQUEST CHANGE USERNAME (OTP) ==============
+    requestChangeUsername: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const newUsername = String(req.body?.newUsername || "").trim();
+            if (!userId) return res.status(401).json({ message: "Chưa xác thực" });
+            const usernameRegex = /^[a-zA-Z0-9_.-]{3,30}$/;
+            if (!newUsername || !usernameRegex.test(newUsername)) {
+                return res
+                    .status(400)
+                    .json({ message: "tên tài khoản phải có 3-30 ký tự (chữ cái, chữ số hoặc ._-)." });
+            }
+
+            const me = await User.findById(userId).select("username email");
+            if (!me) return res.status(404).json({ message: "Người dùng không tìm thấy." });
+            if (newUsername.toLowerCase() === String(me.username || "").toLowerCase()) {
+                return res.status(400).json({ message: "Tên tài khoản mới trùng với tên tài khoản hiện tại." });
+            }
+
+            const dup = await User.findOne({ username: newUsername }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Tên tài khoản đã được sử dụng." });
+            const token = generate6Digit();
+            const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+            await User.updateOne(
+                { _id: userId },
+                {
+                    $set: {
+                        newUsernamePending: newUsername,
+                        usernameChangeToken: token,
+                        usernameChangeExpiresAt: expires,
+                    },
+                }
+            );
+
+            let sent = false;
+            try {
+                sent = await sendVerificationMail(me.email, me.username || me.email, token);
+            } catch (_) {}
+
+            return res.status(200).json({
+                message: sent
+                    ? `Mã OTP để xác nhận đổi tên tài khoản đã được gửi tới ${me.email}. Mã có hiệu lực trong 10 phút.`
+                    : "Không thể gửi email OTP. Vui lòng thử lại.",
+                emailSent: sent,
+            });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
+
+    // ============== CONFIRM CHANGE USERNAME ==============
+    confirmChangeUsername: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const token = String(req.body?.token || "").trim();
+            if (!userId) return res.status(401).json({ message: "Chưa xác thực" });
+            if (!/^\d{6}$/.test(token)) return res.status(400).json({ message: "Mã OTP phải gồm 6 chữ số" });
+
+            const snap = await User.findOne({
+                _id: userId,
+                usernameChangeToken: token,
+                newUsernamePending: { $ne: null },
+                $or: [
+                    { usernameChangeExpiresAt: null },
+                    { usernameChangeExpiresAt: { $gte: new Date() } },
+                ],
+            }).select("newUsernamePending");
+
+            if (!snap) return res.status(400).json({ message: "Mã OTP không hợp lệ hoặc đã hết hạn." });
+
+            const dup = await User.findOne({ username: snap.newUsernamePending }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Tên tài khoản đã được sử dụng." });
+
+            await User.updateOne(
+                { _id: userId },
+                {
+                    $set: { username: snap.newUsernamePending },
+                    $unset: {
+                        newUsernamePending: 1,
+                        usernameChangeToken: 1,
+                        usernameChangeExpiresAt: 1,
+                    },
+                }
+            );
+
+            const updated = await User.findById(userId).select("-password").lean();
+            return res.status(200).json({ message: "Đổi tên tài khoản thành công!", user: updated });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
 };
 
 authController.refresh = async (req, res) => {

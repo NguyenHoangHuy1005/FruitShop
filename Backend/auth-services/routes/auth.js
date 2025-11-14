@@ -20,4 +20,7 @@ router.post("/password/reset", authController.resetPassword);
 router.post("/email/change/request", middlewareController.verifyToken, authController.requestChangeEmail);
 router.post("/email/change/confirm", middlewareController.verifyToken, authController.confirmChangeEmail);
 
+router.post("/username/change/request", middlewareController.verifyToken, authController.requestChangeUsername);
+router.post("/username/change/confirm", middlewareController.verifyToken, authController.confirmChangeUsername);
+
 module.exports = router;

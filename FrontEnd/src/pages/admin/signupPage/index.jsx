@@ -1,5 +1,5 @@
 // src/pages/admin/signup/SignupPage.jsx (đường dẫn thực tế của bạn)
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import "./style.scss";
 import { memo, useState } from "react";
@@ -48,7 +48,7 @@ const SignupPage = () => {
     return (
         <div className="login">
         <div className="login__container">
-            <h2 className="login__title">---ĐĂNG KÝ---</h2>
+            <h2 className="login__title">Đăng ký</h2>
             <form className="login__form" onSubmit={handleSubmit}>
             <div className="login__form-group">
                 <label className="login__label">Tên đăng nhập</label>
@@ -75,7 +75,12 @@ const SignupPage = () => {
                 <input type="tel" id="phone" required onChange={(e) => setPhone(e.target.value)} />
             </div>
 
-            <button type="submit" className="login__button">Đăng ký</button>
+            <div className="login__actions">
+                <button type="submit" className="login__button">Đăng ký</button>
+                <Link to={ROUTERS.ADMIN.LOGIN} className="login__button login__button--ghost">
+                Quay lại đăng nhập
+                </Link>
+            </div>
             </form>
         </div>
         </div>

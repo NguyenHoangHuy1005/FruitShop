@@ -57,6 +57,11 @@ const UserSchema = new mongoose.Schema(
         emailChangeToken:     { type: String, default: null },
         emailChangeExpiresAt: { type: Date,   default: null },
 
+        // ============ �?��"I USERNAME (OTP) ============
+        newUsernamePending:      { type: String, default: null, trim: true },
+        usernameChangeToken:     { type: String, default: null },
+        usernameChangeExpiresAt: { type: Date,   default: null },
+
     },
     { timestamps: true }
 );

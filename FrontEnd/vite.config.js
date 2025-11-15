@@ -9,4 +9,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    allowedHosts: ["all"],
+    headers: {
+      // chu y: header nay de google identity chap nhan http localhost
+      "Referrer-Policy": "no-referrer-when-downgrade",
+    },
+  },
 });

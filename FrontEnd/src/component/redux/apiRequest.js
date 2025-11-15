@@ -118,6 +118,50 @@ export const loginUser = async (user, dispatch, navigate) => {
     }
 };
 
+export const loginGoogle = async (dispatch, credential, navigate) => {
+    dispatch(loginStart());
+    try {
+        const res = await API.post("/auth/google-login", { credential });
+        dispatch(loginSuccess(res.data));
+
+        if (res.data?.accessToken) {
+        API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
+        }
+        markHasRefresh();
+
+        if (res.data?.cart) {
+        const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
+        dispatch(cartSuccess({ items, summary }));
+        } else {
+        await ensureCart(dispatch);
+        }
+
+        const msg = res?.data?.message || "Đăng nhập Google thành công!";
+        alert(msg);
+
+        if (res.data.admin === true) {
+        navigate?.(ROUTERS.ADMIN?.DASHBOARD || "/admin/dashboard");
+        } else if (navigate) {
+        navigate("/");
+        }
+
+        return res.data;
+    } catch (error) {
+        if (error?.response?.status === 403 && error?.response?.data?.pendingEmail) {
+        const pending = error.response.data.pendingEmail;
+        localStorage.setItem("PENDING_EMAIL", pending);
+        dispatch(setPendingEmail(pending));
+        alert("Tài khoản chưa xác minh. Vui lòng nhập mã OTP.");
+        navigate?.(ROUTERS.ADMIN?.AUTH || "/admin/auth");
+        return;
+        }
+        const errMsg = error?.response?.data?.message || "Đăng nhập Google thất bại!";
+        alert(errMsg);
+        dispatch(loginFailure());
+        throw error;
+    }
+};
+
 export const registerUser = async (user, dispatch, navigate) => {
     dispatch(registerStart());
     try {
@@ -151,6 +195,20 @@ export const registerUser = async (user, dispatch, navigate) => {
     }
 };
 
+export const registerGoogle = async (dispatch, credential) => {
+    dispatch(registerStart());
+    try {
+        const res = await API.post("/auth/google-register", { credential });
+        dispatch(registerSuccess());
+        return res.data;
+    } catch (error) {
+        const errMsg = error?.response?.data?.message || "Đăng ký Google thất bại!";
+        alert(errMsg);
+        dispatch(registerFailure());
+        throw error;
+    }
+};
+
 // Xác minh OTP
 // Xác minh OTP (luôn dùng email đã lưu)
 export const verifyAccount = async ({ token }, dispatch) => {
@@ -180,6 +238,22 @@ export const verifyAccount = async ({ token }, dispatch) => {
     }
 };
 
+
+export const verifyGoogleOtp = async (dispatch, payload) => {
+    dispatch(verifyStart());
+    try {
+        const res = await API.post("/auth/google-verify-otp", payload);
+        dispatch(verifySuccess());
+        const message = res?.data?.message || "Đăng ký Google thành công! Vui lòng đăng nhập.";
+        alert(message);
+        return res.data;
+    } catch (error) {
+        const errMsg = error?.response?.data?.message || "Xác minh OTP thất bại!";
+        alert(errMsg);
+        dispatch(verifyFailure());
+        throw error;
+    }
+};
 
 // Gửi lại mã
 // Gửi lại mã (đọc email từ localStorage nếu param trống)
@@ -761,6 +835,26 @@ export const requestEmailChange = async (newEmail) => {
 export const confirmEmailChange = async (otp, dispatch) => {
     const token = await ensureAccessToken(null);
     const res = await API.post('/auth/email/change/confirm', { token: String(otp || '') }, { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true });
+    if (res.status === 200) await refreshCurrentUser(dispatch);
+    return res;
+};
+
+export const requestUsernameChange = async (newUsername) => {
+    const token = await ensureAccessToken(null);
+    return API.post(
+        '/auth/username/change/request',
+        { newUsername },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+};
+
+export const confirmUsernameChange = async (otp, dispatch) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post(
+        '/auth/username/change/confirm',
+        { token: String(otp || '') },
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
     if (res.status === 200) await refreshCurrentUser(dispatch);
     return res;
 };

@@ -78,6 +78,31 @@ async function sendResetMail(toEmail, toName, token) {
         return false;
     }
 }
+
+async function sendGoogleOtpMail(email, otp) {
+    try {
+        const t = getTransporter();
+        const from = process.env.MAIL_FROM || process.env.MAIL_USER;
+        const html = `
+        <div style="font-family:Arial,sans-serif;line-height:1.5">
+            <p>Mã OTP đăng ký Google của bạn là:</p>
+            <p style="font-size:26px;font-weight:bold;letter-spacing:3px">${otp}</p>
+            <p>Mã sẽ hết hạn sau 10 phút. Nếu bạn không yêu cầu, vui lòng bỏ qua.</p>
+        </div>
+        `;
+        const info = await t.sendMail({
+        from,
+        to: email,
+        subject: "OTP đăng ký Google",
+        html,
+        });
+        console.log("[mailer] google OTP messageId:", info.messageId);
+        return true;
+    } catch (e) {
+        console.error("sendGoogleOtpMail error:", e && e.message ? e.message : e);
+        return false;
+    }
+}
 // ==== Helpers ====
 const formatVND = (n) =>
     (Number(n) || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
@@ -331,6 +356,7 @@ module.exports = {
     getTransporter,
     sendVerificationMail, 
     sendResetMail,
+    sendGoogleOtpMail,
     sendOrderConfirmationMail,
     sendPaymentSuccessMail,
 };

@@ -1,7 +1,11 @@
 const User = require("../models/User");
+const PendingGoogleSignup = require("../models/PendingGoogleSignup");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { sendVerificationMail, sendResetMail } = require("../utils/mailer");
+const { verifyGoogleToken } = require("../utils/googleAuth");
+const { generateOtp, hashOtp, sendOtpEmail } = require("../utils/googleOtpService");
 const Cart = require("../../product-services/models/Carts");
 
 
@@ -171,83 +175,8 @@ const authController = {
         }
 
         // ✅ Tăng loginCount mỗi lần đăng nhập thành công
-        user.loginCount = (user.loginCount || 0) + 1;
-        await user.save();
-
-        // === NEW: Remember me (chỉ áp dụng cho USER) ===
         const remember = !!req.body.remember;
-        const isAdmin = !!(user.admin || user.isAdmin);
-        const tokenTtl = REFRESH_LONG_MS;
-        let cookieConf;
-
-        if (isAdmin) {
-        // Admin: session cookie, không maxAge
-        cookieConf = COOKIE_OPTS;
-        } else if (remember) {
-        // User có tick: persistent cookie 30 ngày
-        cookieConf = cookieOpts(REFRESH_LONG_MS);
-        } else {
-        // User không tick: session cookie
-        cookieConf = COOKIE_OPTS;
-        }
-
-        const accessToken  = genAccessToken(user);
-        const refreshToken = genRefreshToken(user, tokenTtl, remember);
-        refreshTokens.push(refreshToken);
-
-        res.cookie("refreshToken", refreshToken, cookieConf);
-
-
-
-        // ✅ merge giỏ guest (nếu có CART_ID) vào giỏ user
-        const guestKey = req.cookies.CART_ID;
-        let userCart = await Cart.findOne({ user: user._id, status: "active" });
-
-        if (guestKey) {
-            const guestCart = await Cart.findOne({ cartKey: guestKey, status: "active" });
-            if (guestCart && guestCart.items.length) {
-                if (!userCart) {
-                    guestCart.user = user._id;
-                    guestCart.cartKey = null;
-                    await guestCart.save();
-                    userCart = guestCart;
-                } else {
-                    for (const gItem of guestCart.items) {
-                        const idx = userCart.items.findIndex(i => i.product.equals(gItem.product));
-                        if (idx >= 0) {
-                            userCart.items[idx].quantity += gItem.quantity;
-                            userCart.items[idx].total = userCart.items[idx].quantity * userCart.items[idx].price;
-                        } else {
-                            userCart.items.push(gItem);
-                        }
-                    }
-                    userCart.summary.totalItems = userCart.items.reduce((s, i) => s + i.quantity, 0);
-                    userCart.summary.subtotal   = userCart.items.reduce((s, i) => s + i.total, 0);
-                    await userCart.save();
-                    await Cart.deleteOne({ _id: guestCart._id });
-                }
-            }
-            res.clearCookie("CART_ID", { path: "/" }); // ❌ clear cookie guest sau khi merge
-        }
-
-
-        const { password, ...others } = user._doc;
-        
-        // Lấy giỏ hiện tại của user (sau khi merge)
-        userCart = await Cart.findOne({ user: user._id, status: "active" })
-            .populate("items.product");
-
-        if (!userCart) {
-            userCart = await Cart.create({
-                user: user._id,
-                items: [],
-                summary: { totalItems: 0, subtotal: 0 }
-            });
-            userCart = await userCart.populate("items.product");
-        }
-        // console.log("LOGIN -> return cart:", JSON.stringify(userCart, null, 2)); k cần in ra
-        // return res.status(200).json({ ...others, accessToken, cart: userCart });
-        return res.status(200).json({ ...others, accessToken, admin: isAdmin });
+        return finalizeLoginSuccess({ req, res, user, remember });
 
         } catch (error) {
         console.error(error);
@@ -597,6 +526,100 @@ const authController = {
         }
     },
 
+    // ============== REQUEST CHANGE USERNAME (OTP) ==============
+    requestChangeUsername: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const newUsername = String(req.body?.newUsername || "").trim();
+            if (!userId) return res.status(401).json({ message: "Chưa xác thực" });
+            const usernameRegex = /^[a-zA-Z0-9_.-]{3,30}$/;
+            if (!newUsername || !usernameRegex.test(newUsername)) {
+                return res
+                    .status(400)
+                    .json({ message: "tên tài khoản phải có 3-30 ký tự (chữ cái, chữ số hoặc ._-)." });
+            }
+
+            const me = await User.findById(userId).select("username email");
+            if (!me) return res.status(404).json({ message: "Người dùng không tìm thấy." });
+            if (newUsername.toLowerCase() === String(me.username || "").toLowerCase()) {
+                return res.status(400).json({ message: "Tên tài khoản mới trùng với tên tài khoản hiện tại." });
+            }
+
+            const dup = await User.findOne({ username: newUsername }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Tên tài khoản đã được sử dụng." });
+            const token = generate6Digit();
+            const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+            await User.updateOne(
+                { _id: userId },
+                {
+                    $set: {
+                        newUsernamePending: newUsername,
+                        usernameChangeToken: token,
+                        usernameChangeExpiresAt: expires,
+                    },
+                }
+            );
+
+            let sent = false;
+            try {
+                sent = await sendVerificationMail(me.email, me.username || me.email, token);
+            } catch (_) {}
+
+            return res.status(200).json({
+                message: sent
+                    ? `Mã OTP để xác nhận đổi tên tài khoản đã được gửi tới ${me.email}. Mã có hiệu lực trong 10 phút.`
+                    : "Không thể gửi email OTP. Vui lòng thử lại.",
+                emailSent: sent,
+            });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
+
+    // ============== CONFIRM CHANGE USERNAME ==============
+    confirmChangeUsername: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            const token = String(req.body?.token || "").trim();
+            if (!userId) return res.status(401).json({ message: "Chưa xác thực" });
+            if (!/^\d{6}$/.test(token)) return res.status(400).json({ message: "Mã OTP phải gồm 6 chữ số" });
+
+            const snap = await User.findOne({
+                _id: userId,
+                usernameChangeToken: token,
+                newUsernamePending: { $ne: null },
+                $or: [
+                    { usernameChangeExpiresAt: null },
+                    { usernameChangeExpiresAt: { $gte: new Date() } },
+                ],
+            }).select("newUsernamePending");
+
+            if (!snap) return res.status(400).json({ message: "Mã OTP không hợp lệ hoặc đã hết hạn." });
+
+            const dup = await User.findOne({ username: snap.newUsernamePending }).select("_id").lean();
+            if (dup) return res.status(409).json({ message: "Tên tài khoản đã được sử dụng." });
+
+            await User.updateOne(
+                { _id: userId },
+                {
+                    $set: { username: snap.newUsernamePending },
+                    $unset: {
+                        newUsernamePending: 1,
+                        usernameChangeToken: 1,
+                        usernameChangeExpiresAt: 1,
+                    },
+                }
+            );
+
+            const updated = await User.findById(userId).select("-password").lean();
+            return res.status(200).json({ message: "Đổi tên tài khoản thành công!", user: updated });
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ message: "Lỗi máy chủ." });
+        }
+    },
 };
 
 authController.refresh = async (req, res) => {
@@ -633,7 +656,237 @@ authController.refresh = async (req, res) => {
     }
 };
 
+authController.googleLogin = async (req, res) => {
+    try {
+        const credential = String(req.body.credential || "").trim();
+        const remember = !!req.body.remember;
+        const profile = await verifyGoogleToken(credential);
+        const email = profile?.email;
 
+        if (!email) {
+            return res.status(404).json({
+                success: false,
+                message: "email không đúng hoặc chưa đăng ký",
+            });
+        }
 
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "email không đúng hoặc chưa đăng ký",
+            });
+        }
+        if (!user.isVerified) {
+            return res.status(403).json({
+                success: false,
+                message: "tài khoản chưa xác minh email. vui lòng nhập mã OTP.",
+                pendingEmail: user.email,
+            });
+        }
+
+        return finalizeLoginSuccess({ req, res, user, remember });
+    } catch (error) {
+        console.error("googleLogin error:", error?.message || error);
+        const status = error?.status || 500;
+        const message = error?.message || "đăng nhập Google thất bại";
+        return res.status(status).json({ success: false, message });
+    }
+};
+
+authController.googleRegister = async (req, res) => {
+    try {
+        const credential = String(req.body.credential || "").trim();
+        const profile = await verifyGoogleToken(credential);
+        const email = profile?.email;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "email không đúng hoặc chưa đăng ký",
+            });
+        }
+
+        const exists = await User.findOne({ email }).lean();
+        if (exists) {
+            return res.status(409).json({
+                success: false,
+                message: "email đã tồn tại",
+            });
+        }
+
+        const otp = generateOtp();
+        const verifyToken = crypto.randomBytes(24).toString("hex");
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        await PendingGoogleSignup.findOneAndUpdate(
+            { email },
+            {
+                email,
+                otpHash: hashOtp(otp),
+                verifyToken,
+                googleSub: profile?.sub || null,
+                expiresAt,
+            },
+            { upsert: true, setDefaultsOnInsert: true }
+        );
+
+        const sent = await sendOtpEmail(email, otp);
+        if (!sent) {
+            return res.status(500).json({
+                success: false,
+                message: "không gửi được otp",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            verifyToken,
+            message: "otp đã được gửi",
+        });
+    } catch (error) {
+        console.error("googleRegister error:", error?.message || error);
+        const status = error?.status || 500;
+        const message = error?.message || "đăng ký Google thất bại";
+        return res.status(status).json({ success: false, message });
+    }
+};
+
+authController.googleVerifyOtp = async (req, res) => {
+    try {
+        const verifyToken = String(req.body.verifyToken || "").trim();
+        const otp = String(req.body.otp || "").trim();
+
+        if (!verifyToken || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "thiếu token hoặc otp",
+            });
+        }
+
+        const pending = await PendingGoogleSignup.findOne({ verifyToken });
+        if (!pending) {
+            return res.status(400).json({
+                success: false,
+                message: "otp không hợp lệ",
+            });
+        }
+
+        if (pending.expiresAt && pending.expiresAt < new Date()) {
+            await PendingGoogleSignup.deleteOne({ _id: pending._id });
+            return res.status(400).json({
+                success: false,
+                message: "otp đã hết hạn",
+            });
+        }
+
+        const hashed = hashOtp(otp);
+        if (hashed !== pending.otpHash) {
+            return res.status(400).json({
+                success: false,
+                message: "otp không hợp lệ",
+            });
+        }
+
+        const exists = await User.findOne({ email: pending.email }).lean();
+        if (exists) {
+            await PendingGoogleSignup.deleteOne({ _id: pending._id });
+            return res.status(409).json({
+                success: false,
+                message: "email đã tồn tại",
+            });
+        }
+
+        await User.create({
+            email: pending.email,
+            provider: "google",
+            isVerified: true,
+        });
+
+        await PendingGoogleSignup.deleteOne({ _id: pending._id });
+
+        return res.status(201).json({
+            success: true,
+            message: "đăng ký Google thành công",
+        });
+    } catch (error) {
+        console.error("googleVerifyOtp error:", error?.message || error);
+        return res.status(500).json({
+            success: false,
+            message: "xác minh OTP thất bại",
+        });
+    }
+};
+
+async function finalizeLoginSuccess({ req, res, user, remember }) {
+    const rememberFlag = !!remember;
+    const isAdmin = !!(user.admin || user.isAdmin);
+    const tokenTtl = REFRESH_LONG_MS;
+    let cookieConf;
+
+    if (isAdmin) {
+        cookieConf = COOKIE_OPTS;
+    } else if (rememberFlag) {
+        cookieConf = cookieOpts(REFRESH_LONG_MS);
+    } else {
+        cookieConf = COOKIE_OPTS;
+    }
+
+    user.loginCount = (user.loginCount || 0) + 1;
+    await user.save();
+
+    const accessToken  = genAccessToken(user);
+    const refreshToken = genRefreshToken(user, tokenTtl, rememberFlag);
+    refreshTokens.push(refreshToken);
+
+    res.cookie("refreshToken", refreshToken, cookieConf);
+
+    const guestKey = req.cookies?.CART_ID;
+    let userCart = await Cart.findOne({ user: user._id, status: "active" });
+
+    if (guestKey) {
+        const guestCart = await Cart.findOne({ cartKey: guestKey, status: "active" });
+        if (guestCart && guestCart.items.length) {
+            if (!userCart) {
+                guestCart.user = user._id;
+                guestCart.cartKey = null;
+                await guestCart.save();
+                userCart = guestCart;
+            } else {
+                for (const gItem of guestCart.items) {
+                    const idx = userCart.items.findIndex((i) => i.product.equals(gItem.product));
+                    if (idx >= 0) {
+                        userCart.items[idx].quantity += gItem.quantity;
+                        userCart.items[idx].total =
+                        userCart.items[idx].quantity * userCart.items[idx].price;
+                    } else {
+                        userCart.items.push(gItem);
+                    }
+                }
+                userCart.summary.totalItems = userCart.items.reduce((s, i) => s + i.quantity, 0);
+                userCart.summary.subtotal   = userCart.items.reduce((s, i) => s + i.total, 0);
+                await userCart.save();
+                await Cart.deleteOne({ _id: guestCart._id });
+            }
+        }
+        res.clearCookie("CART_ID", { path: "/" });
+    }
+
+    const { password, ...others } = user._doc;
+
+    userCart = await Cart.findOne({ user: user._id, status: "active" }).populate("items.product");
+
+    if (!userCart) {
+        userCart = await Cart.create({
+        user: user._id,
+        items: [],
+        summary: { totalItems: 0, subtotal: 0 },
+        });
+        userCart = await userCart.populate("items.product");
+    }
+
+    return res.status(200).json({ ...others, accessToken, admin: isAdmin });
+}
 
 module.exports = authController;
+

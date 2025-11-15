@@ -7,7 +7,8 @@ $main: map.get(theme.$theme-colors, "main");
 
 .login {
     input {
-        width: calc(100% - 32px);
+        width: 100%;
+        box-sizing: border-box;
     }
 
     min-height: 100vh;
@@ -17,29 +18,48 @@ $main: map.get(theme.$theme-colors, "main");
     background: linear-gradient(135deg, #f5f7fa 0%, #eaeaea 100%);
 
     &__container {
-        background: #fff;
-        padding: 36px;
-        border-radius: 16px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        max-width: 440px;
+        background: rgba(255, 255, 255, 0.96);
+        padding: 44px 48px;
+        border-radius: 26px;
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+        max-width: 520px;
         width: 100%;
         position: relative;
         transition: box-shadow 0.25s ease, transform 0.25s ease;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        overflow: hidden;
 
         &::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, $main, #00b89b, #f39c12);
-            border-radius: 16px 16px 0 0;
+            inset: -40% auto auto -40%;
+            width: 160%;
+            height: 160%;
+            background: radial-gradient(circle at top, rgba(#62f1c7, 0.18), transparent 60%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            border: 1px solid rgba($main, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            pointer-events: none;
+        }
+
+        > * {
+            position: relative;
+            z-index: 1;
         }
 
         &:hover {
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
+            box-shadow: 0 30px 70px rgba(15, 23, 42, 0.32);
+            transform: translateY(-4px);
         }
     }
 
@@ -57,28 +77,31 @@ $main: map.get(theme.$theme-colors, "main");
         background-clip: text;
 
         &::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
-            background: linear-gradient(90deg, $main, #00b89b);
-            border-radius: 2px;
+            display: none;
         }
+    }
+
+    &__subtitle {
+        margin: -12px 0 24px;
+        text-align: center;
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.5;
     }
 
     &__form {
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 20px;
+        width: 100%;
+        align-items: stretch;
     }
 
     &__form-group {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        width: 100%;
     }
 
     &__label {
@@ -118,20 +141,25 @@ $main: map.get(theme.$theme-colors, "main");
     }
 
     &__button {
-        height: 46px;
-        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 52px;
+        font-size: 14px;
         font-weight: 700;
         color: #fff;
         background: linear-gradient(135deg, $main, #00b89b);
-        border-radius: 10px;
+        border-radius: 12px;
         border: none;
         cursor: pointer;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
-        box-shadow: 0 2px 8px rgba($main, 0.25);
-        transition: all 0.25s ease;
+        letter-spacing: 0.4px;
+        box-shadow: 0 6px 18px rgba($main, 0.25);
+        transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
         position: relative;
         overflow: hidden;
+        text-decoration: none;
 
         &::before {
             content: '';
@@ -153,12 +181,136 @@ $main: map.get(theme.$theme-colors, "main");
 
         &:hover {
             background: linear-gradient(135deg, #00b89b, color.adjust($main, $lightness: -5%));
-            transform: translateY(-2px);
-            box-shadow: 0 4px 14px rgba($main, 0.35);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 10px 24px rgba($main, 0.35);
         }
 
         &:active {
             transform: translateY(0);
+        }
+
+        &--outline,
+        &--ghost {
+            min-height: 42px;
+            font-size: 12.5px;
+            padding: 0 20px;
+            letter-spacing: 0.2px;
+            box-shadow: none;
+            border-radius: 10px;
+            font-weight: 800;
+            text-decoration: none;
+            width: auto;
+            align-self: center;
+        }
+
+        &--outline {
+            background: #fff;
+            color: $main;
+            border: 1.5px solid rgba($main, 0.35);
+
+            &:hover {
+                background: rgba($main, 0.08);
+                border-color: $main;
+                color: color.adjust($main, $lightness: -5%);
+            }
+        }
+
+        &--ghost {
+            background: rgba($main, 0.08);
+            color: $main;
+            border: 1px solid transparent;
+
+            &:hover {
+                background: rgba($main, 0.13);
+                color: color.adjust($main, $lightness: -4%);
+            }
+        }
+    }
+
+    &__actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 8px;
+        width: 100%;
+        align-items: stretch;
+    }
+
+    &__divider {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 18px 0 6px;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.4px;
+        font-weight: 700;
+        color: #94a3b8;
+
+        &::before,
+        &::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.7), rgba(148, 163, 184, 0));
+        }
+    }
+
+    &__google-wrapper {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    &__google-status {
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        color: color.adjust($main, $lightness: -12%);
+        min-height: 18px;
+        padding: 0 8px;
+        transition: color 0.2s ease;
+
+        &--loading {
+            color: $main;
+        }
+    }
+
+    &__google-otp {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__google-otp-fields {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        width: 100%;
+    }
+
+    &__google-otp-input {
+        flex: 1;
+        height: 46px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0 16px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        text-align: center;
+        background: #fff;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+        &:focus {
+            border-color: $main;
+            box-shadow: 0 0 0 3px rgba($main, 0.2);
+            outline: none;
         }
     }
 

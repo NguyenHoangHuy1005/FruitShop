@@ -148,6 +148,15 @@
         return (
             <div className="forgot">
             <div className="forgot__container">
+                <div className="forgot__back">
+                <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => navigate(ROUTERS.ADMIN.LOGIN)}
+                >
+                    ← Quay lại đăng nhập
+                </button>
+                </div>
                 <h2 className="forgot__title">ĐẶT LẠI MẬT KHẨU</h2>
 
                 {msg && <div className="alert">{msg}</div>}

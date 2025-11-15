@@ -4,6 +4,8 @@ import Breadcrumb from "../theme/breadcrumb";
 import {
     requestEmailChange,
     confirmEmailChange,
+    requestUsernameChange,
+    confirmUsernameChange,
     updateProfile,
     uploadAvatar,
     requestPasswordReset,
@@ -17,9 +19,11 @@ const ProfilePage = () => {
     const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
     const [profile, setProfile] = useState({ fullname: "", phone: "" });
     const [emailForm, setEmailForm] = useState({ newEmail: "", otp: "" });
+    const [usernameForm, setUsernameForm] = useState({ newUsername: "", otp: "" });
     const [pwdForm, setPwdForm] = useState({ otp: "", newPassword: "", confirm: "" });
     const [busy, setBusy] = useState(false);
     const [showEmailForm, setShowEmailForm] = useState(false);
+    const [showUsernameForm, setShowUsernameForm] = useState(false);
     const [showPwdForm, setShowPwdForm] = useState(false);
 
     useEffect(() => {
@@ -97,9 +101,11 @@ const ProfilePage = () => {
         }
     };
 
+    const normalizeOtp = (value) => String(value || "").replace(/\D/g, "").slice(0, 6);
+
     const onConfirmEmailChange = async () => {
-        const code = String(emailForm.otp || "").trim();
-        if (!/^\d{6}$/.test(code)) return alert("Mã OTP phải gồm 6 chữ số");
+        const code = normalizeOtp(emailForm.otp);
+        if (code.length !== 6) return alert("Mã OTP phải gồm 6 chữ số");
         try {
             setBusy(true);
             const r = await confirmEmailChange(code, dispatch);
@@ -111,6 +117,48 @@ const ProfilePage = () => {
     };
 
     // ===== Đổi mật khẩu dùng flow forgot/reset sẵn có =====
+
+    const resetUsernameForm = () => setUsernameForm({ newUsername: "", otp: "" });
+
+    const onRequestUsernameOTP = async () => {
+        const usernamePattern = /^[a-zA-Z0-9_.-]{3,30}$/;
+        const name = String(usernameForm.newUsername || "").trim();
+        if (!usernamePattern.test(name)) {
+            return alert("Username mới không hợp lệ (3-30 ký tự chữ, số, '.', '_' hoặc '-').");
+        }
+        if (name.toLowerCase() === String(user.username || "").toLowerCase()) {
+            return alert("Username mới trùng username hiện tại.");
+        }
+        try {
+            setBusy(true);
+            const r = await requestUsernameChange(name);
+            alert(r?.data?.message || (r?.status === 200 ? "Đã gửi mã" : "Gửi mã thất bại"));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const onConfirmUsernameChange = async () => {
+        const code = normalizeOtp(usernameForm.otp);
+        if (code.length !== 6) return alert("Mã OTP phải gồm 6 chữ số");
+        try {
+            setBusy(true);
+            const r = await confirmUsernameChange(code, dispatch);
+            alert(r?.data?.message || (r?.status === 200 ? "Đổi username thành công" : "Thất bại"));
+            if (r?.status === 200) {
+                resetUsernameForm();
+                setShowUsernameForm(false);
+            }
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const onCancelUsernameChange = () => {
+        resetUsernameForm();
+        setShowUsernameForm(false);
+    };
+
     const onRequestPwdOTP = async () => {
         try {
             setBusy(true);
@@ -122,8 +170,9 @@ const ProfilePage = () => {
     };
 
     const onChangePassword = async () => {
-        const { otp, newPassword, confirm } = pwdForm;
-        if (!otp || !newPassword) return alert("Thiếu mã hoặc mật khẩu mới");
+        const { newPassword, confirm } = pwdForm;
+        const token = normalizeOtp(pwdForm.otp);
+        if (!token || !newPassword) return alert("Thiếu mã hoặc mật khẩu mới");
         if (newPassword !== confirm) return alert("Xác nhận mật khẩu không khớp");
         if (newPassword.length < 6) return alert("Mật khẩu phải có ít nhất 6 ký tự");
 
@@ -131,7 +180,7 @@ const ProfilePage = () => {
             setBusy(true);
             const { ok, error, data } = await resetPassword({
                 email: user.email,
-                token: String(otp).trim(),
+                token,
                 newPassword,
                 password_confirm: confirm,
             });
@@ -301,6 +350,74 @@ const ProfilePage = () => {
                                             Hủy
                                         </button>
                                     </div>
+                                </div>
+                            )}
+                        </section>
+
+
+                        {/* Doi username */}
+                        <section className="card card--panel profile-card">
+                            <div className="card__header">
+                                <div>
+                                    <h3>Đổi username đăng nhập</h3>
+                                    <p className="muted">
+                                        Tùy chỉnh tên đăng nhập và xác nhận bằng mã OTP gửi về {user.email}.
+                                    </p>
+                                </div>
+                                <span className="tag">OTP bảo vệ</span>
+                            </div>
+                            {!showUsernameForm ? (
+                                <div className="card__cta">
+                                    <button
+                                        className="btn primary"
+                                        onClick={() => setShowUsernameForm(true)}
+                                        disabled={busy}
+                                    >
+                                        Đổi username
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="username-change">
+                                    <div className="field">
+                                        <label>Username mới</label>
+                                        <input
+                                            placeholder="vd: fruitlover_01"
+                                            value={usernameForm.newUsername}
+                                            onChange={(e) =>
+                                                setUsernameForm((f) => ({ ...f, newUsername: e.target.value }))
+                                            }
+                                        />
+                                    </div>
+                                    <div className="row">
+                                        <button className="btn" onClick={onRequestUsernameOTP} disabled={busy}>
+                                            Gửi mã
+                                        </button>
+                                        <input
+                                            className="otp"
+                                            placeholder="Mã 6 số"
+                                            value={usernameForm.otp}
+                                            onChange={(e) =>
+                                                setUsernameForm((f) => ({ ...f, otp: e.target.value }))
+                                            }
+                                        />
+                                        <button
+                                            className="btn primary"
+                                            onClick={onConfirmUsernameChange}
+                                            disabled={busy}
+                                        >
+                                            Xác nhận
+                                        </button>
+                                        <button
+                                            className="btn"
+                                            onClick={onCancelUsernameChange}
+                                            disabled={busy}
+                                        >
+                                            Hủy
+                                        </button>
+                                    </div>
+                                    <p className="muted username-hint">
+                                        Mã OTP sẽ được gửi tới <strong>{user.email}</strong>
+                                    </p>
                                 </div>
                             )}
                         </section>

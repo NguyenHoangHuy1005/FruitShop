@@ -2,8 +2,9 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import "./style.scss";
 import React, { useState, useEffect, memo } from "react";
+import GoogleButton from "../../../component/auth/GoogleButton";
 import { ROUTERS } from "../../../utils/router";
-import { loginUser } from "../../../component/redux/apiRequest";
+import * as authApi from "../../../component/redux/apiRequest";
 
 const LoginAdminPage = () => {
     const [username, setUsername] = useState("");
@@ -20,6 +21,9 @@ const LoginAdminPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
+    const [googleProcessing, setGoogleProcessing] = useState(false);
+    const [googleStatus, setGoogleStatus] = useState("");
+    const googleClientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID || "";
 
     // Hiện thông báo khi vừa xác minh xong (kể cả user F5)
     useEffect(() => {
@@ -48,13 +52,34 @@ const LoginAdminPage = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        loginUser({ username, password, remember }, dispatch, navigate);
+        authApi.loginUser({ username, password, remember }, dispatch, navigate);
+    };
+
+    const handleGoogleLogin = (credential) => authApi.loginGoogle(dispatch, credential, navigate);
+
+    const onGoogleSuccess = async (credential) => {
+        if (!credential || googleProcessing) return;
+        try {
+            setGoogleProcessing(true);
+            setGoogleStatus("Đang xử lý đăng nhập Google...");
+            await handleGoogleLogin(credential);
+            setGoogleStatus("");
+        } catch (error) {
+            setGoogleStatus(error?.message || "Đăng nhập Google thất bại.");
+        } finally {
+            setGoogleProcessing(false);
+        }
+    };
+
+    const onGoogleError = (error) => {
+        setGoogleProcessing(false);
+        setGoogleStatus(error?.message || "Đăng nhập Google thất bại.");
     };
 
     return (
         <div className="login">
         <div className="login__container">
-            <h2 className="login__title">---ĐĂNG NHẬP---</h2>
+            <h2 className="login__title">Đăng nhập</h2>
 
             {/* ✅ Đặt alert bên trong return */}
             {showVerifiedMsg && (
@@ -106,11 +131,35 @@ const LoginAdminPage = () => {
                 </label>
             </div>
 
-            <button type="submit" className="login__button">Đăng nhập</button>
+            <div className="login__actions">
+                <button type="submit" className="login__button">Đăng nhập</button>
+                <div className="login__alt-actions">
+                <Link to={ROUTERS.ADMIN.FORGOT} className="login__button login__button--ghost">
+                    Quên mật khẩu
+                </Link>
+                <Link to={ROUTERS.ADMIN.SIGNUP} className="login__button login__button--outline">
+                    Tạo tài khoản
+                </Link>
+                </div>
+            </div>
 
-            <Link to={ROUTERS.ADMIN.SIGNUP} className="register__button">Đăng ký</Link>
-            <p>Hoặc</p>
-            <Link to={ROUTERS.ADMIN.FORGOT} className="forgot-password__button">Quên mật khẩu?</Link>
+            <div className="login__divider" aria-hidden="true">
+                <span>Hoặc</span>
+            </div>
+
+            <div className="login__google-wrapper">
+                <GoogleButton
+                    clientId={googleClientId}
+                    disabled={googleProcessing}
+                    onSuccess={onGoogleSuccess}
+                    onError={onGoogleError}
+                />
+                {googleStatus && (
+                    <p className={`login__google-status${googleProcessing ? " login__google-status--loading" : ""}`}>
+                        {googleStatus}
+                    </p>
+                )}
+            </div>
             </form>
         </div>
         </div>

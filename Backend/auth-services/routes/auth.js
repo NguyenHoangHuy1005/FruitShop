@@ -7,6 +7,9 @@ router.post("/register", authController.registerUser);
 router.post("/login", authController.loginUser);
 router.post("/refresh", authController.refresh);
 router.post("/logout", authController.userLogout);
+router.post("/google-login", authController.googleLogin);
+router.post("/google-register", authController.googleRegister);
+router.post("/google-verify-otp", authController.googleVerifyOtp);
 
 // Email verification
 router.post("/verify", authController.verifyAccount);
@@ -19,5 +22,8 @@ router.post("/password/reset", authController.resetPassword);
 // Change email (OTP gửi về email hiện tại)
 router.post("/email/change/request", middlewareController.verifyToken, authController.requestChangeEmail);
 router.post("/email/change/confirm", middlewareController.verifyToken, authController.confirmChangeEmail);
+
+router.post("/username/change/request", middlewareController.verifyToken, authController.requestChangeUsername);
+router.post("/username/change/confirm", middlewareController.verifyToken, authController.confirmChangeUsername);
 
 module.exports = router;

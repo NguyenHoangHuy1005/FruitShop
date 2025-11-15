@@ -55,7 +55,7 @@ const LoginAdminPage = () => {
         authApi.loginUser({ username, password, remember }, dispatch, navigate);
     };
 
-    const handleGoogleLogin = (credential) => authApi.loginGoogle(dispatch, credential);
+    const handleGoogleLogin = (credential) => authApi.loginGoogle(dispatch, credential, navigate);
 
     const onGoogleSuccess = async (credential) => {
         if (!credential || googleProcessing) return;

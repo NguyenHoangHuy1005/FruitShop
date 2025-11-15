@@ -1,11 +1,16 @@
 const mongoose = require("mongoose");
 
+const providerIsLocal = function () {
+    return (this.provider || "local") === "local";
+};
+
 const UserSchema = new mongoose.Schema(
     {
         username: {
         type: String,
-        required: true,
+        required: providerIsLocal,
         unique: true,
+        sparse: true,
         minlength: 3,
         maxlength: 50,
         trim: true,
@@ -23,41 +28,44 @@ const UserSchema = new mongoose.Schema(
         },
         phone: {
         type: String,
-        required: true,
+        required: providerIsLocal,
         match: /^(0|\+84)(\d{9})$/,
         unique: true,
+        sparse: true,
         trim: true,
         },
-        // SỬA LỖI: không dùng default: true cho password!
         password: {
         type: String,
-        required: true,
+        required: providerIsLocal,
         minlength: 6,
+        default: null,
+        },
+        provider: {
+        type: String,
+        enum: ["local", "google"],
+        default: "local",
+        index: true,
         },
         admin: {
         type: Boolean,
         default: false,
         },
-        // hồ sơ người dùng
         fullname: { type: String, default: "" },
         avatar:   { type: String, default: "" },
         
-        // ============ TRACKING LƯỢNG TRUY CẬP ============
         loginCount: { type: Number, default: 0 },
 
-        // ============ XÁC MINH EMAIL ============
         isVerified: { type: Boolean, default: false },
         verificationToken: { type: String, default: null },
         verificationExpiresAt:  { type: Date,   default: null },
-        // ============ ĐẶT LẠI MẬT KHẨU ============
+
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpiresAt: { type: Date, default: null },
-        // ============ ĐỔI EMAIL (OTP gửi về email hiện tại) ============
+
         newEmailPending:      { type: String, default: null },
         emailChangeToken:     { type: String, default: null },
         emailChangeExpiresAt: { type: Date,   default: null },
 
-        // ============ �?��"I USERNAME (OTP) ============
         newUsernamePending:      { type: String, default: null, trim: true },
         usernameChangeToken:     { type: String, default: null },
         usernameChangeExpiresAt: { type: Date,   default: null },

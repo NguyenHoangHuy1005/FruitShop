@@ -113,7 +113,16 @@ const NotificationIcon = () => {
                 return;
             }
         } else if (notification.type?.startsWith("order_")) {
-            navigate("/orders");
+            // Chuyển đến trang orders và tự động mở chi tiết đơn hàng
+            console.log('🔔 Order notification clicked:', {
+                type: notification.type,
+                relatedId: notification.relatedId
+            });
+            if (notification.relatedId) {
+                navigate("/orders", { state: { selectedOrderId: notification.relatedId } });
+            } else {
+                navigate("/orders");
+            }
         } else if (notification.type?.startsWith("article_")) {
             navigate("/articles");
         }

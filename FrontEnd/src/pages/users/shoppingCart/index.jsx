@@ -107,6 +107,15 @@ const ShoppingCart = () => {
 
     const handleQtyChange = (productId, raw) => {
         const q = Math.max(0, parseInt(raw, 10) || 0);
+        
+        // 🔥 Kiểm tra không vượt quá availableStock
+        const item = cart?.items?.find(it => getId(it) === productId);
+        console.log('🛒 Qty change:', { productId, newQty: q, item, availableStock: item?.availableStock });
+        
+        if (item?.availableStock !== undefined && q > item.availableStock) {
+            toast.warning(`Chỉ còn ${item.availableStock} ${item.unit || "kg"} có thể đặt`);
+            return;
+        }
 
         // // Nếu nhập 0 -> hỏi trước khi xoá
         // if (q === 0) {
@@ -283,11 +292,41 @@ const ShoppingCart = () => {
                                             <input
                                                 type="number"
                                                 min={0}             // 0 = xoá (khớp BE)
+                                                max={it.availableStock || 9999}
                                                 step={1}
                                                 value={it.quantity} // controlled
-                                                onChange={(e) => handleQtyChange(productId, e.target.value)}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    const num = parseInt(val, 10);
+                                                    // Chặn ngay nếu vượt quá max
+                                                    if (it.availableStock && num > it.availableStock) {
+                                                        e.target.value = it.availableStock;
+                                                        handleQtyChange(productId, it.availableStock);
+                                                    } else {
+                                                        handleQtyChange(productId, val);
+                                                    }
+                                                }}
+                                                onBlur={(e) => {
+                                                    // Đảm bảo không vượt quá khi blur
+                                                    const num = parseInt(e.target.value, 10) || 0;
+                                                    if (it.availableStock && num > it.availableStock) {
+                                                        e.target.value = it.availableStock;
+                                                        handleQtyChange(productId, it.availableStock);
+                                                    }
+                                                }}
                                                 style={{ width: 80 }}
+                                                title={it.availableStock ? `Tối đa ${it.availableStock} ${it.unit || "kg"}` : ""}
                                             />
+                                            {it.availableStock !== undefined && it.availableStock < 50 && (
+                                                <div style={{ 
+                                                    fontSize: '11px', 
+                                                    color: it.availableStock < 10 ? '#e74c3c' : '#f39c12', 
+                                                    marginTop: '4px',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {it.availableStock === 0 ? '❌ Hết hàng' : `⚠️ Còn ${it.availableStock} ${it.unit || "kg"}`}
+                                                </div>
+                                            )}
                                         </td>
                                         <td>
                                             {(() => {

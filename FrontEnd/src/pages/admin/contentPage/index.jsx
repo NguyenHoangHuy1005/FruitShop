@@ -532,7 +532,8 @@ const ContentManagementPage = () => {
   };
 
   return (
-    <div className="content-management-page">
+    <div className="container">
+      <div className="content-management-page">
       <div className="page-header">
         <h1>Quản lý nội dung</h1>
         {activeTab === "articles" && !showCreateForm && (
@@ -540,7 +541,7 @@ const ContentManagementPage = () => {
             className="btn-create"
             onClick={() => setShowCreateForm(true)}
           >
-            <FaPlus /> Đăng bài viết mới
+            <FaPlus /> Tạo bài viết
           </button>
         )}
       </div>
@@ -1103,6 +1104,7 @@ const ContentManagementPage = () => {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 };

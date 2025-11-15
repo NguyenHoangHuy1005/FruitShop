@@ -10,20 +10,23 @@ import ExpiryAlert from "../../../component/ExpiryAlert";
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(""); // "" = all, "2025-01" = Jan 2025
+  const [selectedMonth, setSelectedMonth] = useState(""); // YYYY-MM format
+
+  const loadStats = async (month = "") => {
+    try {
+      setLoading(true);
+      const data = await getOrderStats(month);
+      setStats(data);
+    } catch (e) {
+      console.error("Load stats fail:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getOrderStats();
-        setStats(data);
-      } catch (e) {
-        console.error("Load stats fail:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    loadStats(selectedMonth);
+  }, [selectedMonth]);
 
   if (loading) return <p>⏳ Đang tải dữ liệu...</p>;
   if (!stats) return <p>❌ Không có dữ liệu thống kê.</p>;
@@ -33,81 +36,44 @@ const Dashboard = () => {
     ([period, revenue]) => ({ period, revenue })
   );
 
-  // 🔥 Lọc orderByStatus theo tháng
-  const orderData = (() => {
-    if (!selectedMonth) {
-      // Hiển thị tất cả
-      return Object.entries(stats.orderByStatus || {}).map(
-        ([status, value]) => ({ status, value })
-      );
-    }
-    
-    // Lọc theo tháng (cần backend hỗ trợ orderByStatusAndMonth)
-    const monthData = stats.orderByStatusAndMonth?.[selectedMonth] || {};
-    return Object.entries(monthData).map(
-      ([status, value]) => ({ status, value })
-    );
-  })();
-
-  // 🔥 Tính tỉ lệ đơn hàng thành công vs thất bại THEO THÁNG ĐÃ CHỌN
-  const calculateOrderRates = () => {
-    let successOrders = 0;
-    let failedOrders = 0;
-    let totalOrders = 0;
-
-    if (!selectedMonth) {
-      // Tất cả thời gian
-      successOrders = (stats.orderByStatus?.completed || 0) + 
-                      (stats.orderByStatus?.shipped || 0) + 
-                      (stats.orderByStatus?.paid || 0);
-      failedOrders = stats.orderByStatus?.cancelled || 0;
-      totalOrders = stats.countOrders;
-    } else {
-      // Theo tháng cụ thể
-      const monthData = stats.orderByStatusAndMonth?.[selectedMonth] || {};
-      successOrders = (monthData.completed || 0) + 
-                      (monthData.shipped || 0) + 
-                      (monthData.paid || 0);
-      failedOrders = monthData.cancelled || 0;
-      totalOrders = Object.values(monthData).reduce((sum, val) => sum + val, 0);
-    }
-
-    const successRate = totalOrders > 0 
-      ? ((successOrders / totalOrders) * 100).toFixed(1) 
-      : 0;
-    const failedRate = totalOrders > 0 
-      ? ((failedOrders / totalOrders) * 100).toFixed(1) 
-      : 0;
-
-    return {
-      successOrders,
-      failedOrders,
-      successRate,
-      failedRate,
-      totalOrders,
-    };
-  };
-
-  const orderRates = calculateOrderRates();
+  // Use backend-calculated metrics
+  const totalRevenue = stats.totalRevenue || 0;
+  const totalProfit = stats.totalProfit || 0;
+  const totalCost = stats.totalCost || 0;
+  const countOrders = stats.countOrders || 0;
+  
+  // Calculate order success rate
+  const orderByStatus = stats.orderByStatus || {};
+  const successOrders = (orderByStatus.completed || 0) + (orderByStatus.shipped || 0) + (orderByStatus.paid || 0);
+  const failedOrders = orderByStatus.cancelled || 0;
+  const successRate = countOrders > 0 ? ((successOrders / countOrders) * 100).toFixed(1) : 0;
+  const failedRate = countOrders > 0 ? ((failedOrders / countOrders) * 100).toFixed(1) : 0;
 
   const orderSuccessData = [
-    { name: "Thành công", value: orderRates.successOrders, percent: orderRates.successRate },
-    { name: "Thất bại", value: orderRates.failedOrders, percent: orderRates.failedRate },
+    { name: "Thành công", value: successOrders, percent: successRate },
+    { name: "Thất bại", value: failedOrders, percent: failedRate },
   ];
 
-  // 🔥 Lọc topProducts theo tháng
-  const productData = (() => {
-    if (!selectedMonth) {
-      return stats.topProducts || [];
-    }
-    
-    // Lọc theo tháng (cần backend hỗ trợ topProductsByMonth)
-    return stats.topProductsByMonth?.[selectedMonth] || [];
-  })();
+  // Top products data
+  const productData = stats.topProducts || [];
 
-  // Sản phẩm sắp hết kho
-  const lowStockData = stats.lowStockProducts || [];
-  const criticalStockCount = lowStockData.filter(p => p.onHand < 10).length;
+  // Lượng truy cập theo tháng
+  const visitsByMonth = stats.visitsByMonth || {};
+  const displayedVisits = selectedMonth
+    ? (visitsByMonth[selectedMonth] ?? stats.websiteVisits ?? 0)
+    : (stats.websiteVisits ?? 0);
+
+  // Sản phẩm sắp hết kho (dựa trên displayStock từ lô hàng)
+  const LOW_STOCK_THRESHOLD = 10;
+  const lowStockProducts = stats.lowStockProducts || [];
+  const lowStockData = lowStockProducts.map((item) => ({
+    ...item,
+    displayStock: Number(item.displayStock ?? item.onHand ?? 0),
+  }));
+  const lowStockProductCount = stats.lowStockProductCount || lowStockProducts.length;
+  
+  // Tính tổng số đơn vị sắp hết kho để hiển thị chi tiết
+  const totalLowStockUnits = lowStockData.reduce((sum, p) => sum + p.displayStock, 0);
 
   // 🎨 màu cố định theo trạng thái
   const statusColors = {
@@ -121,71 +87,61 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
       {/* 🔥 Filter Section */}
-      <div className="filter-section" style={{ 
-        marginBottom: '20px', 
-        padding: '16px', 
-        background: 'linear-gradient(135deg, #f8f9fa, #ffffff)',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-        border: '1px solid #e2e8f0'
-      }}>
-        <label style={{ 
-          fontWeight: '700', 
-          marginRight: '12px', 
-          fontSize: '14px',
-          color: '#334155'
-        }}>
-          🗓️ Lọc theo tháng:
-        </label>
-        <select 
-          value={selectedMonth} 
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={{
-            padding: '8px 14px',
-            borderRadius: '8px',
-            border: '2px solid #e2e8f0',
-            fontSize: '14px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            minWidth: '180px'
-          }}
-        >
-          <option value="">Tất cả thời gian</option>
-          {revenueData.map((item) => (
-            <option key={item.period} value={item.period}>
-              {item.period}
-            </option>
-          ))}
-        </select>
+      <div className="filter-section">
+        <div className="filter-group">
+          <label>📅 Bộ lọc:</label>
+          <select 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="month-select"
+          >
+            <option value="">Tất cả thời gian</option>
+            {revenueData.map((item) => (
+              <option key={item.period} value={item.period}>
+                {item.period}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Top Stats */}
       <div className="stats">
         <div className="card highlight green">
           <h3>💰 Doanh Thu</h3>
-          <p className="value">{stats.totalRevenue.toLocaleString()} VNĐ</p>
+          <p className="value">{totalRevenue.toLocaleString()} VNĐ</p>
           <span className="trend up">Tổng doanh thu</span>
+        </div>
+
+        <div className="card highlight profit">
+          <h3>💎 Lợi Nhuận</h3>
+          <p className="value">{totalProfit.toLocaleString()} VNĐ</p>
+          <span className="trend up">
+            Chi phí: {totalCost.toLocaleString()} VNĐ
+          </span>
         </div>
 
         <div className="card highlight blue">
           <h3>📦 Đơn Hàng</h3>
-          <p className="value">{selectedMonth ? orderRates.totalOrders : stats.countOrders}</p>
+          <p className="value">{countOrders}</p>
           <span className="trend up">
-            Thành công: {orderRates.successRate}% | Thất bại: {orderRates.failedRate}%
+            Thành công: {successRate}% | Thất bại: {failedRate}%
           </span>
         </div>
 
         <div className="card highlight purple">
           <h3>👥 Lượng Truy Cập</h3>
-          <p className="value">{(stats.websiteVisits || 0).toLocaleString()}</p>
-          <span className="trend up">Tổng lượt đăng nhập</span>
+          <p className="value">{displayedVisits.toLocaleString()}</p>
+          <span className="trend up">
+            {selectedMonth ? `Trong tháng ${selectedMonth}` : 'Tổng lượt đăng nhập'}
+          </span>
         </div>
 
         <div className="card highlight orange">
           <h3>⚠️ Sắp Hết Kho</h3>
-          <p className="value">{lowStockData.length}</p>
+          <p className="value">{lowStockProductCount}</p>
           <span className="trend warning">
-            {criticalStockCount} sản phẩm dưới 10
+            Lô dưới {LOW_STOCK_THRESHOLD} đơn vị
           </span>
         </div>
       </div>
@@ -194,7 +150,7 @@ const Dashboard = () => {
       <div className="charts">
         {/* Doanh thu theo thời gian */}
         <div className="chart">
-          <h3>📊 Doanh Thu Theo Thời Gian</h3>
+          <h3>Doanh Thu Theo Thời Gian</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={revenueData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
               <XAxis dataKey="period"  />
@@ -219,7 +175,7 @@ const Dashboard = () => {
 
         {/* Tỉ lệ đơn hàng thành công vs thất bại */}
         <div className="chart">
-          <h3>📊 Tỉ Lệ Đơn Hàng (Thành công / Thất bại)</h3>
+          <h3>Tỉ Lệ Đơn Hàng (Thành công / Thất bại)</h3>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -231,7 +187,7 @@ const Dashboard = () => {
                 outerRadius={100}
                 label={({ name, percent }) => `${name}: ${percent}%`}
               >
-                <Cell fill="#3b82f6" />
+                <Cell fill="#10b981" />
                 <Cell fill="#ef4444" />
               </Pie>
               <Tooltip formatter={(v) => `${v} đơn`} />
@@ -242,7 +198,7 @@ const Dashboard = () => {
 
         {/* Sản phẩm sắp hết kho */}
         <div className="chart">
-          <h3>⚠️ Sản Phẩm Sắp Hết Kho (Dưới 20)</h3>
+          <h3>Sản Phẩm Sắp Hết Kho (Dưới {LOW_STOCK_THRESHOLD})</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={lowStockData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <XAxis 
@@ -254,19 +210,16 @@ const Dashboard = () => {
               />
               <YAxis />
               <Tooltip 
-                formatter={(value, name) => {
-                  if (name === 'onHand') return [`Còn: ${value}`, 'Số lượng'];
-                  return [value, name];
-                }}
+                formatter={(value) => [`Còn: ${Number(value).toLocaleString()}`, 'Số lượng khả dụng']}
               />
-              <Bar dataKey="onHand" radius={[8, 8, 0, 0]}>
+              <Bar dataKey="displayStock" radius={[8, 8, 0, 0]}>
                 {lowStockData.map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
-                    fill={entry.onHand < 10 ? '#ef4444' : '#f59e0b'} 
+                    fill={entry.displayStock < LOW_STOCK_THRESHOLD ? '#ef4444' : '#f59e0b'} 
                   />
                 ))}
-                <LabelList dataKey="onHand" position="top" />
+                <LabelList dataKey="displayStock" position="top" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -274,7 +227,7 @@ const Dashboard = () => {
 
         {/* Top sản phẩm */}
         <div className="chart">
-          <h3>📊 Top Sản Phẩm Bán Chạy</h3>
+          <h3>Top Sản Phẩm Bán Chạy</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <XAxis 
@@ -296,6 +249,70 @@ const Dashboard = () => {
       
       {/* Expiry Alert Component */}
       <ExpiryAlert />
+
+      {/* 📋 Recent Orders Table */}
+      <div className="recent-orders-section">
+        <h3>📋 Đơn Hàng Gần Nhất {selectedMonth ? '(Đã lọc theo tháng)' : ''}</h3>
+        <div className="table-container">
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Mã Đơn</th>
+                <th>Khách Hàng</th>
+                <th>Tổng Tiền</th>
+                <th>Chi Phí</th>
+                <th>Lợi Nhuận</th>
+                <th>Trạng Thái</th>
+                <th>Ngày Tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(stats.recentOrders || []).length > 0 ? (
+                (stats.recentOrders || []).map((order) => (
+                  <tr key={order._id}>
+                    <td className="order-number">{order.orderNumber}</td>
+                    <td>
+                      <div className="customer-info">
+                        <span className="name">{order.customer}</span>
+                        {order.email && <span className="email">{order.email}</span>}
+                      </div>
+                    </td>
+                    <td className="amount">{order.totalAmount.toLocaleString()} ₫</td>
+                    <td className="cost">
+                      {order.cost.toLocaleString()} ₫
+                    </td>
+                    <td className={`profit ${order.profit > 0 ? 'positive' : order.profit < 0 ? 'negative' : ''}`}>
+                      {order.profit.toLocaleString()} ₫
+                    </td>
+                    <td>
+                      <span className={`status-badge ${order.status}`}>
+                        {order.status === 'pending' ? '⏳ Chờ' :
+                         order.status === 'paid' ? '💳 Đã thanh toán' :
+                         order.status === 'shipped' ? '🚚 Đang giao' :
+                         order.status === 'completed' ? '✅ Hoàn thành' :
+                         order.status === 'cancelled' ? '❌ Đã hủy' : order.status}
+                      </span>
+                    </td>
+                    <td className="date">
+                      {new Date(order.createdAt).toLocaleDateString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="no-data">Không có đơn hàng nào</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

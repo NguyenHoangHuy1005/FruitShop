@@ -346,6 +346,13 @@ exports.createOrder = async (req, res) => {
                     console.warn(`⚠️ Product ${item.product} not found, using fallback data`);
                 }
                 
+                // Lấy giá nhập từ batch để tính lợi nhuận
+                let importPrice = 0;
+                if (item.batchId) {
+                    const batch = await ImportItem.findById(item.batchId).select('unitPrice').lean();
+                    importPrice = batch?.unitPrice || 0;
+                }
+                
                 items.push({
                     product: item.product,
                     name: product?.name || "Unknown Product",
@@ -355,7 +362,8 @@ exports.createOrder = async (req, res) => {
                     total: finalPrice * quantity,
                     batchId: item.batchId,
                     lockedPrice: lockedPrice,
-                    discountPercent: discountPercent
+                    discountPercent: discountPercent,
+                    importPrice: importPrice
                 });
                 
                 subtotal += finalPrice * quantity;
@@ -876,33 +884,80 @@ exports.adminUpdate = async (req, res) => {
 // Thống kê cho admin
 exports.adminStats = async (req, res) => {
     try {
-        // Lấy tất cả đơn (chỉ completed/paid mới tính doanh thu)
-        const orders = await Order.find().lean();
-
-        const totalRevenue = orders
-        .filter(o => ["paid", "shipped", "completed"].includes(o.status))
-        .reduce((sum, o) => sum + (o.amount?.total || 0), 0);
-
-        const countOrders = orders.length;
-
-        // Gom theo trạng thái
-        const orderByStatus = {};
-        for (const o of orders) {
-        orderByStatus[o.status] = (orderByStatus[o.status] || 0) + 1;
+        // 🔥 Lấy selectedMonth từ query params (YYYY-MM format)
+        const { selectedMonth } = req.query;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        
+        // Lấy tất cả đơn hàng
+        const allOrders = await Order.find().lean();
+        
+        // Filter orders by selected month
+        let filteredOrders = allOrders;
+        if (selectedMonth) {
+            filteredOrders = allOrders.filter(o => {
+                const d = new Date(o.createdAt);
+                const orderMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                return orderMonth === selectedMonth;
+            });
         }
 
-        // 🔥 Gom theo trạng thái và tháng
+        // 🔥 Tính doanh thu và lợi nhuận từ đơn hàng đã lọc
+        let totalRevenue = 0;
+        let totalCost = 0;
+        
+        for (const o of filteredOrders) {
+            if (!["paid", "shipped", "completed"].includes(o.status)) continue;
+            
+            // Doanh thu = amount.total
+            const orderRevenue = o.amount?.total || 0;
+            totalRevenue += orderRevenue;
+            
+            // Tính chi phí từng item
+            for (const item of o.items || []) {
+                const quantity = Number(item.quantity) || 0;
+                let importPrice = Number(item.importPrice) || 0;
+                
+                // Fallback: Nếu đơn hàng cũ không có importPrice, lấy từ batch
+                if (importPrice === 0 && item.batchId) {
+                    try {
+                        const batch = await ImportItem.findById(item.batchId).select('unitPrice').lean();
+                        importPrice = batch?.unitPrice || 0;
+                    } catch (err) {
+                        console.warn(`Cannot fetch batch ${item.batchId}:`, err.message);
+                    }
+                }
+                
+                // Chi phí = giá nhập * số lượng
+                const itemCost = importPrice * quantity;
+                totalCost += itemCost;
+            }
+        }
+        
+        // Lợi nhuận = Doanh thu - Chi phí
+        const totalProfit = totalRevenue - totalCost;
+
+        const countOrders = filteredOrders.length;
+
+        // Gom theo trạng thái (từ filtered orders)
+        const orderByStatus = {};
+        for (const o of filteredOrders) {
+            orderByStatus[o.status] = (orderByStatus[o.status] || 0) + 1;
+        }
+
+        // 🔥 Gom theo trạng thái và tháng (from all orders)
         const orderByStatusAndMonth = {};
-        for (const o of orders) {
+        for (const o of allOrders) {
             const d = new Date(o.createdAt);
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             if (!orderByStatusAndMonth[monthKey]) orderByStatusAndMonth[monthKey] = {};
             orderByStatusAndMonth[monthKey][o.status] = (orderByStatusAndMonth[monthKey][o.status] || 0) + 1;
         }
 
-        // Gom theo tháng (YYYY-MM)
+        // Gom theo tháng (YYYY-MM) - from all orders
         const revenueByMonth = {};
-        for (const o of orders) {
+        for (const o of allOrders) {
         const d = new Date(o.createdAt);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (!revenueByMonth[key]) revenueByMonth[key] = 0;
@@ -911,21 +966,41 @@ exports.adminStats = async (req, res) => {
         }
         }
 
-        // Top sản phẩm (tất cả thời gian)
-        const productMap = {};
-        for (const o of orders) {
-        for (const it of o.items) {
-            productMap[it.name] = (productMap[it.name] || 0) + (it.quantity || 0);
+        // 🔁 Lượng truy cập = tổng loginCount từ User model
+        const User = require("../../auth-services/models/User");
+        const totalLoginCount = await User.aggregate([
+            { $group: { _id: null, total: { $sum: "$loginCount" } } }
+        ]);
+        const websiteVisits = totalLoginCount[0]?.total || 0;
+
+        // Lượng truy cập theo tháng (từ updatedAt của User khi login)
+        const visitsByMonth = {};
+        const userLogins = await User.find(
+            { loginCount: { $gt: 0 } },
+            { updatedAt: 1, loginCount: 1 }
+        ).lean();
+        
+        for (const user of userLogins) {
+            const d = new Date(user.updatedAt);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            visitsByMonth[key] = (visitsByMonth[key] || 0) + (user.loginCount || 0);
         }
+
+        // Top sản phẩm (from filtered orders)
+        const productMap = {};
+        for (const o of filteredOrders) {
+            for (const it of o.items) {
+                productMap[it.name] = (productMap[it.name] || 0) + (it.quantity || 0);
+            }
         }
         const topProducts = Object.entries(productMap)
-        .map(([name, sales]) => ({ name, sales }))
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5);
+            .map(([name, sales]) => ({ name, sales }))
+            .sort((a, b) => b.sales - a.sales)
+            .slice(0, 5);
 
-        // 🔥 Top sản phẩm theo từng tháng
+        // 🔥 Top sản phẩm theo từng tháng (from all orders)
         const topProductsByMonth = {};
-        for (const o of orders) {
+        for (const o of allOrders) {
             const d = new Date(o.createdAt);
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             if (!topProductsByMonth[monthKey]) topProductsByMonth[monthKey] = {};
@@ -945,43 +1020,162 @@ exports.adminStats = async (req, res) => {
                 .slice(0, 5);
         });
 
-        // ✅ Lấy sản phẩm sắp hết kho (onHand < 20)
-        const lowStockProducts = await Stock.find({ onHand: { $lt: 20 } })
-            .populate('product', 'name images price')
-            .sort({ onHand: 1 })
-            .limit(10)
+        // ✅ Lấy sản phẩm sắp hết kho dựa trên tồn kho thực tế từ các lô hàng (displayStock)
+        const LOW_STOCK_THRESHOLD = 10;
+        let lowStockProducts = [];
+        try {
+            const importItems = await ImportItem.find({})
+                .populate('product', 'name image images price unit')
+                .lean();
+
+            if (importItems.length > 0) {
+                const productTotals = new Map();
+
+                for (const batch of importItems) {
+                    const productRef = batch.product?._id || batch.product;
+                    if (!productRef) continue;
+                    const productId = String(productRef);
+                    const qty = Number(batch.quantity) || 0;
+                    const sold = Number(batch.soldQuantity) || 0;
+                    const damaged = Number(batch.damagedQuantity) || 0;
+                    let remaining = Math.max(0, qty - sold - damaged);
+
+                    let daysLeft = null;
+                    if (batch.expiryDate) {
+                        const expiryDate = new Date(batch.expiryDate);
+                        const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
+                        daysLeft = Math.floor((expiryDay - today) / DAY_MS);
+                        if (daysLeft < 0) {
+                            remaining = 0;
+                        }
+                    }
+
+                    const productInfo = batch.product || {};
+                    const primaryImage = Array.isArray(productInfo.image)
+                        ? productInfo.image[0]
+                        : (productInfo.images?.[0] || productInfo.image || batch.productImage || "");
+
+                    const bucket = productTotals.get(productId) || {
+                        productId,
+                        name: productInfo.name || batch.productName || 'N/A',
+                        image: primaryImage,
+                        price: Number(productInfo.price) || 0,
+                        unit: productInfo.unit || 'kg',
+                        displayStock: 0,
+                        batchCount: 0,
+                        expiringBatches: 0,
+                        expiredBatches: 0,
+                    };
+
+                    bucket.displayStock += remaining;
+                    bucket.batchCount += 1;
+                    if (daysLeft !== null) {
+                        if (daysLeft < 0) bucket.expiredBatches += 1;
+                        else if (daysLeft <= 7) bucket.expiringBatches += 1;
+                    }
+
+                    productTotals.set(productId, bucket);
+                }
+
+                lowStockProducts = Array.from(productTotals.values())
+                    .filter((p) => p.displayStock > 0 && p.displayStock < LOW_STOCK_THRESHOLD)
+                    .sort((a, b) => a.displayStock - b.displayStock);
+            }
+        } catch (lowStockErr) {
+            console.error('Low stock aggregation failed:', lowStockErr);
+        }
+
+        if (lowStockProducts.length === 0) {
+            const fallbackItems = await Stock.find({ onHand: { $lt: LOW_STOCK_THRESHOLD, $gt: 0 } })
+                .populate('product', 'name images image price unit')
+                .sort({ onHand: 1 })
+                .limit(10)
+                .lean();
+
+            lowStockProducts = fallbackItems
+                .filter(item => item.product)
+                .map(item => ({
+                    productId: item.product._id,
+                    name: item.product.name || 'N/A',
+                    image: item.product.images?.[0] || item.product.image?.[0] || '',
+                    price: item.product.price || 0,
+                    unit: item.product.unit || 'kg',
+                    displayStock: item.onHand || 0,
+                    batchCount: 0,
+                    expiringBatches: 0,
+                    expiredBatches: 0,
+                }));
+        }
+
+        // 🔥 Lấy 5 đơn hàng gần nhất (từ filtered orders)
+        const sortedOrders = [...filteredOrders]
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5);
+
+        // Populate user info for these orders
+        const orderIds = sortedOrders.map(o => o._id);
+        const populatedOrders = await Order.find({ _id: { $in: orderIds } })
+            .populate('user', 'username email')
             .lean();
 
-        const lowStockFormatted = lowStockProducts.map(s => ({
-            productId: s.product?._id,
-            name: s.product?.name || 'N/A',
-            image: s.product?.images?.[0] || '',
-            price: s.product?.price || 0,
-            onHand: s.onHand,
+        const orderMap = new Map(populatedOrders.map(o => [String(o._id), o]));
+
+        const recentOrdersFormatted = await Promise.all(sortedOrders.map(async (o) => {
+            const populated = orderMap.get(String(o._id)) || o;
+            
+            let orderCost = 0;
+            let orderRevenue = o.amount?.total || 0;
+            
+            for (const item of o.items || []) {
+                const quantity = Number(item.quantity) || 0;
+                let importPrice = Number(item.importPrice) || 0;
+                
+                // Fallback: Nếu đơn hàng cũ không có importPrice, lấy từ batch
+                if (importPrice === 0 && item.batchId) {
+                    try {
+                        const batch = await ImportItem.findById(item.batchId).select('unitPrice').lean();
+                        importPrice = batch?.unitPrice || 0;
+                    } catch (err) {
+                        console.warn(`Cannot fetch batch ${item.batchId}:`, err.message);
+                    }
+                }
+                
+                // Chi phí = giá nhập * số lượng
+                orderCost += importPrice * quantity;
+            }
+            
+            // Lợi nhuận = Doanh thu - Chi phí
+            const orderProfit = orderRevenue - orderCost;
+            
+            return {
+                _id: o._id,
+                orderNumber: `DH${String(o._id).slice(-8).toUpperCase()}`,
+                customer: populated.user?.username || o.guestInfo?.name || 'Khách',
+                email: populated.user?.email || o.guestInfo?.email || '',
+                totalAmount: orderRevenue,
+                cost: orderCost,
+                profit: orderProfit,
+                status: o.status,
+                createdAt: o.createdAt,
+                itemCount: o.items?.length || 0
+            };
         }));
 
-        // ✅ Tổng lượng truy cập website (tổng loginCount của tất cả users)
-        const usersStats = await User.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalLogins: { $sum: "$loginCount" },
-                    userCount: { $sum: 1 }
-                }
-            }
-        ]);
-        const websiteVisits = usersStats.length > 0 ? usersStats[0].totalLogins : 0;
-
         return res.json({
-        totalRevenue,
-        countOrders,
-        orderByStatus,
-        orderByStatusAndMonth,
-        revenueByMonth,
-        topProducts,
-        topProductsByMonth,
-        lowStockProducts: lowStockFormatted,
-        websiteVisits,
+            totalRevenue,
+            totalProfit,
+            totalCost,
+            countOrders,
+            orderByStatus,
+            orderByStatusAndMonth,
+            revenueByMonth,
+            topProducts,
+            topProductsByMonth,
+            lowStockProducts,
+            lowStockProductCount: lowStockProducts.length,
+            visitsByMonth,
+            websiteVisits,
+            recentOrders: recentOrdersFormatted,
         });
     } catch (err) {
         console.error("adminStats error:", err);

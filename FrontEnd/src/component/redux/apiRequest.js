@@ -985,10 +985,12 @@ export const getReceiptDetail = async (id) => {
 };
 
 // tóm tắt thống kê đơn hàng (admin)
-export const getOrderStats = async () => {
+export const getOrderStats = async (selectedMonth = "") => {
     const token = await ensureAccessToken(null);
+    const params = selectedMonth ? { selectedMonth } : {};
     const res = await API.get("/order/stats", {
         headers: { Authorization: `Bearer ${token}` },
+        params,
         validateStatus: () => true,
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);

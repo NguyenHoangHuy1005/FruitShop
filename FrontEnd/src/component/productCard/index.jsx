@@ -132,11 +132,11 @@ export const ProductCard = ({
                 </div>
                 
                     {/* ✅ Hiện tồn khi <= 10 */}
-                    {Number(onHand) > 0 && Number(onHand) <= 10 && (
+                    {/* {Number(onHand) > 0 && Number(onHand) <= 10 && (
                         <div className="stock-hint low">
                             Chỉ còn {Number(onHand)} {(unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"}
                         </div>
-                    )}
+                    )} */}
                 </div>
 
             </div>

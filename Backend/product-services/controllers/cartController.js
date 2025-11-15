@@ -102,6 +102,35 @@ function recalc(cart) {
 
 exports.getCart = async (req, res) => {
     const cart = await getOrCreateCart(req, res);
+    
+    // 🔥 Populate availableStock cho mỗi item từ batch
+    const ImportItem = require("../../admin-services/models/ImportItem");
+    
+    for (const item of cart.items) {
+        if (item.batchId) {
+            try {
+                const batch = await ImportItem.findById(item.batchId);
+                if (batch) {
+                    const displayStock = batch.quantity - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0);
+                    item.availableStock = Math.max(0, displayStock);
+                } else {
+                    item.availableStock = 0;
+                }
+            } catch (err) {
+                console.error('Error fetching batch stock:', err);
+                item.availableStock = 0;
+            }
+        } else {
+            // Fallback to Stock model nếu chưa có batch
+            try {
+                const stock = await Stock.findOne({ product: item.product });
+                item.availableStock = stock?.onHand || 0;
+            } catch (err) {
+                item.availableStock = 0;
+            }
+        }
+    }
+    
     return res.json(cart);
 };
 
@@ -189,18 +218,31 @@ exports.updateItem = async (req, res) => {
         item.discountPercent = pct;
         }
 
-        // ✅ kiểm tồn & chặn vượt
-        const stock = await Stock.findOne({ product: productId }).lean();
-        const onHand = Number(stock?.onHand) || 0;
-
-        if (qty > onHand) {
-        if (onHand === 0) {
-            cart.items = cart.items.filter((i) => i !== item); // hết hàng => xóa khỏi giỏ
+        // ✅ kiểm tồn theo batch displayStock
+        const ImportItem = require("../../admin-services/models/ImportItem");
+        let availableStock = 0;
+        
+        if (item.batchId) {
+            // Có batch => check displayStock
+            const batch = await ImportItem.findById(item.batchId);
+            if (batch) {
+                availableStock = batch.quantity - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0);
+                availableStock = Math.max(0, availableStock);
+            }
         } else {
-            item.quantity = onHand; // hạ về mức tồn
+            // Fallback: check Stock.onHand
+            const stock = await Stock.findOne({ product: productId }).lean();
+            availableStock = Number(stock?.onHand) || 0;
         }
+
+        if (qty > availableStock) {
+            if (availableStock === 0) {
+                cart.items = cart.items.filter((i) => i !== item); // hết hàng => xóa khỏi giỏ
+            } else {
+                item.quantity = availableStock; // hạ về mức tồn
+            }
         } else {
-        item.quantity = qty;
+            item.quantity = qty;
         }
     }
 

@@ -21,6 +21,7 @@ const ProductManagerPage = () => {
     const [latestBatchInfo, setLatestBatchInfo] = useState({}); // Thông tin lô mới nhất cho từng sản phẩm
     const [batchModal, setBatchModal] = useState({ show: false, productId: null, productName: '' });
     const [isLoading, setIsLoading] = useState(true);
+    const [openMenuId, setOpenMenuId] = useState(null); // Track which menu is open
     useEffect(() => {
         const initializePage = async () => {
             try {
@@ -43,6 +44,17 @@ const ProductManagerPage = () => {
         };
         initializePage();
     }, [dispatch]);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (openMenuId && !event.target.closest('.menu-container')) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [openMenuId]);
     // Fetch thông tin lô mới nhất khi products đã được load
     useEffect(() => {
         if (products.length > 0) {
@@ -468,11 +480,34 @@ const ProductManagerPage = () => {
                             </span>
                         </td>
                         <td>
-                            <button className="btn-edit" onClick={() => handleEdit(product)}>Sửa</button>
-                            <button className="btn-delete" onClick={() => handleDelete(product._id)}>Xóa</button>
-                            <button
-                                className={`btn-toggle ${product.published ? 'Tắt' : 'Bật'}`}
-                                onClick={async () => {
+                            <div className="action-cell">
+                                <div className="menu-container">
+                                    <button 
+                                        className="btn-menu"
+                                        onClick={() => setOpenMenuId(openMenuId === product._id ? null : product._id)}
+                                    >
+                                        ⋮
+                                    </button>
+                                    {openMenuId === product._id && (
+                                        <div className="dropdown-menu">
+                                            <button className="menu-item edit" onClick={() => {
+                                                handleEdit(product);
+                                                setOpenMenuId(null);
+                                            }}>
+                                                ✏️ Sửa
+                                            </button>
+                                            <button className="menu-item delete" onClick={() => {
+                                                handleDelete(product._id);
+                                                setOpenMenuId(null);
+                                            }}>
+                                                🗑️ Xóa
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    className={`btn-toggle ${product.published ? 'Tắt' : 'Bật'}`}
+                                    onClick={async () => {
                                     const desired = !product.published;
 
                                     // If trying to enable (bật), validate batch prices first
@@ -555,6 +590,7 @@ const ProductManagerPage = () => {
                             >
                                 {product.published ? 'Tắt' : 'Bật'}
                             </button>
+                            </div>
                         </td>
                         </tr>
                     );

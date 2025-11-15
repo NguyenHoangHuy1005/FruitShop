@@ -7,6 +7,10 @@ const OrderItemSchema = new mongoose.Schema({
     price: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     total: { type: Number, required: true, min: 0 },
+    importPrice: { type: Number, default: 0 }, // Giá nhập để tính lợi nhuận
+    batchId: { type: mongoose.Schema.Types.ObjectId, ref: "ImportItem" }, // Lô hàng nguồn
+    lockedPrice: { type: Number }, // Giá trước khi giảm
+    discountPercent: { type: Number, default: 0 }, // % giảm giá
 }, { _id: false });
 
 

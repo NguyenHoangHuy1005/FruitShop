@@ -82,6 +82,7 @@ const OrdersPage = () => {
     const [reorderLoading, setReorderLoading] = useState(null);
     const [reloadTick, setReloadTick] = useState(0);
     const refreshOnExpiryRef = useRef(false);
+    const pendingOrderIdRef = useRef(null); // Lưu orderId từ notification
 
     const tokenHeader = useMemo(() => {
         // Back-end chấp nhận 'Authorization' hoặc 'token'
@@ -99,18 +100,41 @@ const OrdersPage = () => {
         }
     }, [user?.accessToken]);
     
-    // Xử lý selectedOrderId từ navigation state
+    // Lưu orderId từ navigation state ngay lập tức
     useEffect(() => {
         if (location.state?.selectedOrderId) {
-            setSelectedOrderId(location.state.selectedOrderId);
-            // Clear state sau khi đã sử dụng
+            pendingOrderIdRef.current = location.state.selectedOrderId;
+            console.log('📦 Received orderId from notification:', location.state.selectedOrderId);
+            // Clear state sau khi đã lưu
             window.history.replaceState({}, document.title);
-            // Scroll lên đầu trang để xem chi tiết
-            setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 100);
         }
-    }, [location.state]);
+    }, [location.state?.selectedOrderId]);
+    
+    // Xử lý mở chi tiết đơn hàng sau khi orders đã load
+    useEffect(() => {
+        if (pendingOrderIdRef.current && !loading && orders.length > 0) {
+            const orderId = pendingOrderIdRef.current;
+            console.log('🔍 Orders loaded, checking for orderId:', orderId);
+            console.log('📋 Available orders:', orders.map(o => o._id || o.id));
+            
+            // Kiểm tra xem đơn hàng có tồn tại trong danh sách không
+            const orderExists = orders.some(o => String(o._id || o.id || "") === String(orderId));
+            
+            if (orderExists) {
+                console.log('✅ Order found, opening details');
+                setSelectedOrderId(String(orderId));
+                // Scroll lên đầu trang để xem chi tiết
+                setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 300);
+            } else {
+                console.log('❌ Order not found in list');
+            }
+            
+            // Clear ref sau khi đã xử lý
+            pendingOrderIdRef.current = null;
+        }
+    }, [loading, orders]);
     
     useEffect(() => {
         if (!user?.accessToken) {

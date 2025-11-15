@@ -1,22 +1,27 @@
 import { useState } from "react";
 import { requestGoogleIdToken } from "../../utils/googleIdentity";
+import "./googleButton.scss";
 
 const GoogleButton = ({
     label = "Đăng nhập với Google",
     clientId = "",
     disabled = false,
     onDone,
+    onSuccess,
+    onError,
 }) => {
     const [loading, setLoading] = useState(false);
+    const actionHandler = onSuccess || onDone;
 
     const handleClick = async () => {
         if (!clientId || disabled || loading) return;
         try {
             setLoading(true);
             const credential = await requestGoogleIdToken({ clientId });
-            await onDone?.(credential);
+            await actionHandler?.(credential);
         } catch (error) {
             console.error("Google sign-in error:", error);
+            onError?.(error);
             alert(error?.message || "Đăng nhập Google thất bại.");
         } finally {
             setLoading(false);
@@ -27,6 +32,7 @@ const GoogleButton = ({
         <button
             type="button"
             className="login__google-btn"
+            data-loading={loading ? "true" : "false"}
             onClick={handleClick}
             disabled={disabled || loading || !clientId}
         >

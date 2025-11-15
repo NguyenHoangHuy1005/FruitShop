@@ -14,7 +14,8 @@ $error:  if($error == null, #ef4444, $error);
 
 .login {
     input {
-        width: calc(100% - 32px);
+        width: 100%;
+        box-sizing: border-box;
     }
 
     min-height: 100vh;
@@ -98,13 +99,16 @@ $error:  if($error == null, #ef4444, $error);
     &__form {
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 20px;
+        width: 100%;
+        align-items: stretch;
     }
 
     &__form-group {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        width: 100%;
     }
 
     &__label {
@@ -236,6 +240,52 @@ $error:  if($error == null, #ef4444, $error);
         flex-direction: column;
         gap: 14px;
         margin-top: 4px;
+        width: 100%;
+        align-items: stretch;
+    }
+
+    &__divider {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 18px 0 6px;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.4px;
+        font-weight: 700;
+        color: #94a3b8;
+
+        &::before,
+        &::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0), rgba(148, 163, 184, 0.7), rgba(148, 163, 184, 0));
+        }
+    }
+
+    &__google-wrapper {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    &__google-status {
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        color: color.adjust($main, $lightness: -12%);
+        min-height: 18px;
+        padding: 0 8px;
+        transition: color 0.2s ease;
+
+        &--loading {
+            color: $accent;
+        }
     }
 
     &__alt-actions {

@@ -164,6 +164,7 @@ $accent: #ffb347;
             display: flex;
             flex-direction: column;
             gap: 6px;
+            position: relative;
 
             .old-price {
                 text-decoration: line-through;
@@ -175,6 +176,19 @@ $accent: #ffb347;
                 color: #dc2626;
                 font-weight: 700;
                 font-size: 16px;
+            }
+
+            .discount-tag {
+                display: inline-block;
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                color: #fff;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 8px;
+                border-radius: 8px;
+                letter-spacing: 0.5px;
+                margin-top: 4px;
+                width: fit-content;
             }
         }
 

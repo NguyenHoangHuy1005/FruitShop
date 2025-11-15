@@ -28,34 +28,69 @@ async function upsertProductInventory(productId, onHand = null, session = null) 
       return;
     }
 
-    // Tính số lượng đã bán theo FIFO
+    // Tính số lượng đã bán theo batchId từ orders (ưu tiên) hoặc FIFO
     const Order = require("../models/Order");
     const orders = await Order.find({ 
       'items.product': productId,
-      status: { $in: ['completed', 'shipped', 'delivered'] }
+      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
     }).select('items createdAt').lean();
 
-    // Tính tổng số lượng đã bán
-    const totalSold = orders.reduce((sum, order) => {
-      const productItems = order.items.filter(item => item.product.toString() === productId.toString());
-      return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
-    }, 0);
+    // Calculate sold quantities per batch
+    const batchSoldMap = {};
+    importItems.forEach(batch => {
+      batchSoldMap[batch._id.toString()] = 0;
+    });
 
-    // Sắp xếp lô theo ngày nhập (FIFO)
-    const sortedBatches = importItems.sort((a, b) => 
+    // First pass: allocate sales with explicit batchId
+    const salesWithoutBatch = [];
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.product.toString() === productId.toString()) {
+          if (item.batchId) {
+            const batchId = item.batchId.toString();
+            if (batchSoldMap.hasOwnProperty(batchId)) {
+              batchSoldMap[batchId] += item.quantity;
+            } else {
+              salesWithoutBatch.push({ quantity: item.quantity, date: order.createdAt });
+            }
+          } else {
+            salesWithoutBatch.push({ quantity: item.quantity, date: order.createdAt });
+          }
+        }
+      });
+    });
+
+    // Second pass: allocate remaining sales using FIFO
+    const sortedBatches = [...importItems].sort((a, b) => 
       new Date(a.importDate) - new Date(b.importDate)
     );
-
-    // Phân bổ số lượng đã bán theo FIFO và tính số lượng còn lại
-    let remainingSold = totalSold;
-    let totalInStock = 0; // Chỉ tính lô còn hiệu lực
+    
+    let remainingSold = salesWithoutBatch.reduce((sum, s) => sum + s.quantity, 0);
+    
+    // Allocate remaining sold quantities using FIFO
+    for (const batch of sortedBatches) {
+      if (remainingSold <= 0) break;
+      
+      const batchId = batch._id.toString();
+      const alreadySold = batchSoldMap[batchId] || 0;
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const available = Math.max(0, effectiveQty - alreadySold);
+      
+      const toAllocate = Math.min(remainingSold, available);
+      batchSoldMap[batchId] += toAllocate;
+      remainingSold -= toAllocate;
+    }
+    
+    // Now calculate total in stock
+    let totalInStock = 0;
     const now = new Date();
     const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    let earliestExpiryStatus = "Còn hạn";
+    let earliestExpiryStatus = "Còn hàng"; // Mặc định là "Còn hàng"
 
     for (const batch of sortedBatches) {
+      const batchId = batch._id.toString();
+      const soldFromThisBatch = batchSoldMap[batchId] || 0;
       const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
       const remainingInThisBatch = Math.max(0, effectiveQty - soldFromThisBatch);
       
       // Kiểm tra xem lô có còn hiệu lực không
@@ -76,18 +111,18 @@ async function upsertProductInventory(productId, onHand = null, session = null) 
       if (remainingInThisBatch > 0 && isValidBatch && batch.expiryDate) {
         const expiryDate = new Date(batch.expiryDate);
         
-        if (expiryDate <= oneWeekFromNow && earliestExpiryStatus === "Còn hạn") {
+        if (expiryDate <= oneWeekFromNow && earliestExpiryStatus === "Còn hàng") {
           earliestExpiryStatus = "Sắp hết hạn";
         }
       }
     }
 
     // Xác định trạng thái cuối cùng
-    let finalStatus = "Còn hạn";
+    let finalStatus = "Còn hàng";
     if (totalInStock <= 0) {
       finalStatus = "Hết hàng";
     } else {
-      finalStatus = earliestExpiryStatus;
+      finalStatus = earliestExpiryStatus; // Có thể là "Còn hàng" hoặc "Sắp hết hạn"
     }
 
     // Cập nhật Product với số liệu tính toán từ lô hàng
@@ -262,15 +297,18 @@ exports.stockInWithInvoice = async (req, res) => {
 
     // Xử lý từng dòng + cập nhật tồn
     for (const it of items) {
-      const p = await Product.findById(it.productId).select("name").lean();
+      const p = await Product.findById(it.productId).select("name image").lean();
       if (!p) throw new Error(`Sản phẩm không tồn tại: ${it.productId}`);
 
       const lineTotal = Number(it.quantity) * Number(it.unitPrice);
       totalAmount += lineTotal;
 
+      // Lưu snapshot thông tin sản phẩm để giữ lại khi product bị xóa
       const item = await ImportItem.create([{
         receipt: receiptDoc._id,
         product: it.productId,
+        productName: p.name,
+        productImage: Array.isArray(p.image) ? p.image[0] : p.image,
         quantity: Number(it.quantity),
         unitPrice: Number(it.unitPrice),
         total: lineTotal,
@@ -525,69 +563,10 @@ exports.getBatchesByProduct = async (req, res) => {
     const Order = require("../models/Order");
     const orders = await Order.find({ 
       'items.product': productId,
-      status: { $in: ['completed', 'shipped', 'delivered'] } // Chỉ tính đơn hàng đã hoàn thành
+      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] } // Chỉ tính đơn hàng đã thanh toán/hoàn thành
     }).select('items createdAt').lean();
 
-    // Tính số lượng đã bán theo từng lô (FEFO - First Expired First Out)
-    const calculateSoldQuantities = (importItems, orders) => {
-      // Sắp xếp lô theo hạn sử dụng (gần hết hạn nhất trước)
-      const sortedBatches = [...importItems].sort((a, b) => {
-        // Nếu không có hạn sử dụng, đặt ở cuối
-        if (!a.expiryDate && !b.expiryDate) {
-          return new Date(a.importDate) - new Date(b.importDate); // FIFO cho các lô không có hạn
-        }
-        if (!a.expiryDate) return 1; // a đặt sau
-        if (!b.expiryDate) return -1; // b đặt sau
-        
-        // So sánh theo hạn sử dụng (gần hết hạn trước)
-        return new Date(a.expiryDate) - new Date(b.expiryDate);
-      });
-
-      // Tổng hợp tất cả đơn hàng theo thời gian
-      const allSales = [];
-      orders.forEach(order => {
-        order.items.forEach(item => {
-          if (item.product.toString() === productId) {
-            allSales.push({
-              quantity: item.quantity,
-              date: order.createdAt
-            });
-          }
-        });
-      });
-
-      // Sắp xếp đơn bán theo thời gian
-      allSales.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      // Phân bổ số lượng đã bán theo FEFO
-      const batchSoldQuantities = {};
-      sortedBatches.forEach(batch => {
-        batchSoldQuantities[batch._id.toString()] = 0;
-      });
-
-      let totalSold = 0;
-      allSales.forEach(sale => {
-        totalSold += sale.quantity;
-      });
-
-      // Phân bổ theo FEFO (lô gần hết hạn được bán trước)
-      let remainingSold = totalSold;
-      for (const batch of sortedBatches) {
-        if (remainingSold <= 0) break;
-        
-        const batchId = batch._id.toString();
-        const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-        const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
-        batchSoldQuantities[batchId] = soldFromThisBatch;
-        remainingSold -= soldFromThisBatch;
-      }
-
-      return batchSoldQuantities;
-    };
-
-    const soldQuantities = calculateSoldQuantities(importItems, orders);
-
-    // Format dữ liệu để gửi về frontend
+    // Format dữ liệu để gửi về frontend - sử dụng soldQuantity được lưu trong database
     const batchDetails = importItems.map(item => {
       const now = new Date();
       let status = 'valid';
@@ -604,8 +583,8 @@ exports.getBatchesByProduct = async (req, res) => {
         }
       }
 
-  const batchId = item._id.toString();
-  const soldQuantity = soldQuantities[batchId] || 0;
+  // Sử dụng soldQuantity từ database thay vì tính toán
+  const soldQuantity = item.soldQuantity || 0;
   const damaged = item.damagedQuantity || 0;
   const remainingQuantity = Math.max(0, (item.quantity || 0) - soldQuantity - damaged);
 
@@ -660,13 +639,22 @@ exports.getBatchesByProduct = async (req, res) => {
         if (!b.expiryDate) return -1; // b đặt sau
         
         // FEFO thuần túy: sắp xếp theo hạn sử dụng (gần hết hạn trước)
-        return new Date(a.expiryDate) - new Date(b.expiryDate);
+        const expiryDiff = new Date(a.expiryDate) - new Date(b.expiryDate);
+        // Nếu cùng ngày hết hạn, áp dụng FIFO (lô nhập trước được bán trước)
+        if (expiryDiff === 0) {
+          return new Date(a.importDate) - new Date(b.importDate);
+        }
+        return expiryDiff;
       }
       
-      // Ưu tiên 3: Trong các lô hết hạn, sắp xếp theo ngày hết hạn (hết hạn sớm trước)
+      // Ưu tiên 3: Trong các lô hết hạn, sắp xếp theo ngày hết hạn (hết hạn sớm trước), nếu cùng ngày thì FIFO
       if (a.status === 'expired' && b.status === 'expired') {
         if (a.expiryDate && b.expiryDate) {
-          return new Date(a.expiryDate) - new Date(b.expiryDate);
+          const expiryDiff = new Date(a.expiryDate) - new Date(b.expiryDate);
+          if (expiryDiff === 0) {
+            return new Date(a.importDate) - new Date(b.importDate);
+          }
+          return expiryDiff;
         }
       }
       
@@ -684,14 +672,29 @@ exports.getBatchesByProduct = async (req, res) => {
       batchDetails[activeBatchIndex].isActive = true;
     }
 
+    // Tính tổng hợp các giá trị
+    const totalImported = batchDetails.reduce((sum, batch) => sum + batch.batchQuantity, 0);
+    const totalDamaged = batchDetails.reduce((sum, batch) => sum + (batch.damagedQuantity || 0), 0);
+    const totalExpired = batchDetails.reduce((sum, batch) => {
+      // Chỉ tính số lượng còn lại của các lô đã hết hạn
+      return batch.status === 'expired' ? sum + batch.remainingQuantity : sum;
+    }, 0);
+    const totalRemaining = batchDetails.reduce((sum, batch) => {
+      // Chỉ tính số lượng còn lại của các lô chưa hết hạn
+      return batch.status !== 'expired' ? sum + batch.remainingQuantity : sum;
+    }, 0);
+
     // Trả về dữ liệu với thông tin tổng hợp
     res.json({
       batches: batchDetails,
       summary: {
         totalBatches: batchDetails.length,
-        totalInStock: totalInStock,
+        totalImported: totalImported,
         totalSold: totalSoldFromAllBatches,
-        totalImported: batchDetails.reduce((sum, batch) => sum + batch.batchQuantity, 0)
+        totalDamaged: totalDamaged,
+        totalExpired: totalExpired,
+        totalRemaining: totalRemaining,
+        totalInStock: totalInStock  // Deprecated, use totalRemaining instead
       }
     });
   } catch (error) {
@@ -722,77 +725,25 @@ exports.getBatchDetails = async (req, res) => {
       status: { $in: ['completed', 'shipped', 'delivered'] }
     }).select('items createdAt').lean();
 
-    // Tính số lượng đã bán cho mỗi sản phẩm theo FIFO
-    const calculateAllSoldQuantities = (importItems, orders) => {
-      const soldQuantities = {};
-      
-      // Nhóm lô theo sản phẩm
-      const batchesByProduct = {};
-      importItems.forEach(item => {
-        const productId = item.product?._id?.toString();
-        if (!productId) return;
-        
-        if (!batchesByProduct[productId]) {
-          batchesByProduct[productId] = [];
-        }
-        batchesByProduct[productId].push(item);
-        
-        // Khởi tạo số lượng đã bán = 0
-        soldQuantities[item._id.toString()] = 0;
-      });
-
-      // Tính số lượng đã bán cho mỗi sản phẩm
-      Object.keys(batchesByProduct).forEach(productId => {
-        const productBatches = batchesByProduct[productId].sort((a, b) => 
-          new Date(a.importDate) - new Date(b.importDate)
-        );
-
-        // Tổng hợp đơn bán của sản phẩm này
-        const productSales = [];
-        orders.forEach(order => {
-          order.items.forEach(item => {
-            if (item.product.toString() === productId) {
-              productSales.push({
-                quantity: item.quantity,
-                date: order.createdAt
-              });
-            }
-          });
-        });
-
-        // Tính tổng đã bán
-        const totalSold = productSales.reduce((sum, sale) => sum + sale.quantity, 0);
-
-        // Phân bổ theo FIFO
-        let remainingSold = totalSold;
-        for (const batch of productBatches) {
-          if (remainingSold <= 0) break;
-          
-          const batchId = batch._id.toString();
-          const soldFromThisBatch = Math.min(remainingSold, batch.quantity);
-          soldQuantities[batchId] = soldFromThisBatch;
-          remainingSold -= soldFromThisBatch;
-        }
-      });
-
-      return soldQuantities;
-    };
-
-    const soldQuantities = calculateAllSoldQuantities(importItems, orders);
-
-    // Format dữ liệu để gửi về frontend
+    // Format dữ liệu để gửi về frontend - sử dụng soldQuantity được lưu trong database
     const batchDetails = importItems.map(item => {
-      const batchId = item._id.toString();
-      const soldQuantity = soldQuantities[batchId] || 0;
+      // Sử dụng soldQuantity từ database thay vì tính toán
+      const soldQuantity = item.soldQuantity || 0;
       const damaged = Number(item.damagedQuantity || 0);
       // remaining = original quantity - sold - damaged
       const remainingQuantity = Math.max(0, item.quantity - soldQuantity - damaged);
 
+      // Ưu tiên thông tin đã lưu (snapshot) nếu product bị xóa
+      const productName = item.product?.name || item.productName || 'Unknown';
+      const productImage = item.product?.image?.[0] || item.productImage || null;
+      const isProductDeleted = !item.product; // Product đã bị xóa
+
       return {
         _id: item._id,
-        productId: item.product?._id,
-        productName: item.product?.name || 'Unknown',
-        productImage: item.product?.image?.[0] || null,
+        productId: item.product?._id || null,
+        productName: productName,
+        productImage: productImage,
+        isProductDeleted: isProductDeleted, // Đánh dấu để frontend disable chỉnh sửa
         supplierName: item.receipt?.supplier?.name || 'Unknown',
 
         // Thông tin batch (đã tính chính xác)
@@ -811,12 +762,14 @@ exports.getBatchDetails = async (req, res) => {
       };
     });
 
-    // Sắp xếp theo mức độ ưu tiên: Hết hạn -> Sắp hết hạn (ít ngày trước) -> Còn hạn
+    // Sắp xếp theo FEFO + FIFO - Lô gần hết hạn trước, nếu cùng ngày hết hạn thì lô nhập trước được ưu tiên
     batchDetails.sort((a, b) => {
       const now = new Date();
       
-      // Nếu không có ngày hết hạn, xếp cuối
-      if (!a.expiryDate && !b.expiryDate) return 0;
+      // Nếu không có ngày hết hạn, xếp cuối và áp dụng FIFO
+      if (!a.expiryDate && !b.expiryDate) {
+        return new Date(a.importDate) - new Date(b.importDate);
+      }
       if (!a.expiryDate) return 1;
       if (!b.expiryDate) return -1;
       
@@ -836,15 +789,29 @@ exports.getBatchDetails = async (req, res) => {
       const aStatus = getStatus(aDaysLeft);
       const bStatus = getStatus(bDaysLeft);
       
-      // Sắp xếp theo ưu tiên: Còn hạn -> Sắp hết hạn -> Hết hạn (xuống cuối)
-      const statusPriority = { 'valid': 0, 'expiring': 1, 'expired': 2 };
+      // Sắp xếp theo ưu tiên: Lô hết hạn xuống cuối
+      if (aStatus === 'expired' && bStatus !== 'expired') return 1;
+      if (bStatus === 'expired' && aStatus !== 'expired') return -1;
       
-      if (aStatus !== bStatus) {
-        return statusPriority[aStatus] - statusPriority[bStatus];
+      // Trong các lô chưa hết hạn: sắp xếp theo ngày hết hạn (FEFO), nếu cùng ngày thì FIFO
+      if (aStatus !== 'expired' && bStatus !== 'expired') {
+        const expiryDiff = aExpiry - bExpiry;
+        if (expiryDiff === 0) {
+          return new Date(a.importDate) - new Date(b.importDate);
+        }
+        return expiryDiff;
       }
       
-      // Nếu cùng trạng thái, sắp xếp theo ngày hết hạn (gần nhất trước)
-      return aExpiry - bExpiry;
+      // Trong các lô đã hết hạn: sắp xếp theo ngày hết hạn, nếu cùng ngày thì FIFO
+      if (aStatus === 'expired' && bStatus === 'expired') {
+        const expiryDiff = aExpiry - bExpiry;
+        if (expiryDiff === 0) {
+          return new Date(a.importDate) - new Date(b.importDate);
+        }
+        return expiryDiff;
+      }
+      
+      return 0;
     });
 
     res.json(batchDetails);
@@ -902,73 +869,46 @@ exports.updateBatchQuantity = async (req, res) => {
     const batch = await ImportItem.findById(batchId).lean();
     if (!batch) return res.status(404).json({ message: 'Không tìm thấy lô hàng' });
 
-    // Tính số lượng đã bán phân bổ cho từng lô (giống logic ở getBatchDetails)
-    const importItems = await ImportItem.find({ product: batch.product }).lean();
-    const Order = require("../models/Order");
-    const orders = await Order.find({ status: { $in: ['completed', 'shipped', 'delivered'] } }).select('items createdAt').lean();
+    // Sử dụng soldQuantity được lưu trong database
+    const soldForThisBatch = batch.soldQuantity || 0;
+    const currentDamaged = batch.damagedQuantity || 0;
 
-    // Nhóm lô theo sản phẩm và khởi tạo soldQuantities
-    const batchesByProduct = {};
-    const soldQuantities = {};
-    importItems.forEach(item => {
-      const pid = item.product?._id?.toString() || item.product?.toString();
-      if (!batchesByProduct[pid]) batchesByProduct[pid] = [];
-      batchesByProduct[pid].push(item);
-      soldQuantities[item._id.toString()] = 0;
-    });
+    // newQty là số lượng hiện còn mà admin muốn đặt (không bao gồm đã bán và hư hỏng)
+    // remainingQuantity = quantity - soldQuantity - damagedQuantity
+    // => damagedQuantity = quantity - soldQuantity - newQty
 
-    // Tính tổng số đã bán cho sản phẩm
-    Object.keys(batchesByProduct).forEach(productId => {
-      const productBatches = batchesByProduct[productId].sort((a, b) => new Date(a.importDate) - new Date(b.importDate));
-
-      // Tổng hợp đơn bán của sản phẩm này
-      const productSales = [];
-      orders.forEach(order => {
-        order.items.forEach(item => {
-          if (item.product.toString() === productId) {
-            productSales.push({ quantity: item.quantity, date: order.createdAt });
-          }
-        });
-      });
-
-      const totalSold = productSales.reduce((sum, s) => sum + s.quantity, 0);
-
-      let remainingSold = totalSold;
-      for (const b of productBatches) {
-        if (remainingSold <= 0) break;
-        const soldFromThisBatch = Math.min(remainingSold, b.quantity);
-        soldQuantities[b._id.toString()] = soldFromThisBatch;
-        remainingSold -= soldFromThisBatch;
-      }
-    });
-
-    const soldForThisBatch = soldQuantities[batch._id.toString()] || 0;
-
-    if (newQty > batch.quantity) {
-      return res.status(400).json({ message: 'Không được tăng số lượng lô qua giao diện này. Vui lòng tạo lô mới nếu cần.' });
+    if (newQty > (batch.quantity - soldForThisBatch)) {
+      return res.status(400).json({ message: 'Không thể đặt số lượng còn lại lớn hơn số lượng nhập trừ đi đã bán.' });
     }
 
-    if (newQty === batch.quantity) {
+    const currentRemaining = batch.quantity - soldForThisBatch - currentDamaged;
+    if (newQty === currentRemaining) {
       return res.status(400).json({ message: 'Số lượng không thay đổi.' });
     }
 
-    if (newQty < soldForThisBatch) {
-      return res.status(400).json({ message: `Không thể đặt quantity < đã bán (${soldForThisBatch}).` });
+    if (newQty < 0) {
+      return res.status(400).json({ message: 'Số lượng còn lại không thể âm.' });
     }
 
-    const delta = batch.quantity - newQty; // số lượng bị trừ (hư hỏng/khấu trừ)
+    // Tính số lượng hư hỏng mới
+    const newDamagedQuantity = batch.quantity - soldForThisBatch - newQty;
+    
+    if (newDamagedQuantity < 0) {
+      return res.status(400).json({ message: 'Số lượng không hợp lệ.' });
+    }
 
-    // Update batch quantity and increase damagedQuantity by delta
+    // Update damagedQuantity, giữ nguyên quantity (số lượng nhập ban đầu)
     const updated = await ImportItem.findByIdAndUpdate(
       batchId,
-      { $set: { quantity: newQty }, $inc: { damagedQuantity: delta } },
+      { $set: { damagedQuantity: newDamagedQuantity } },
       { new: true }
     );
 
     // Recompute stock and product inventory
     await upsertProductInventory(String(batch.product));
 
-    return res.json({ ok: true, batch: updated, deducted: delta });
+    const delta = newDamagedQuantity - currentDamaged;
+    return res.json({ ok: true, batch: updated, damagedAdded: delta, newDamagedTotal: newDamagedQuantity });
   } catch (error) {
     console.error('Error updating batch quantity:', error);
     return res.status(500).json({ message: 'Lỗi cập nhật số lượng lô', error: error.message });
@@ -1042,8 +982,12 @@ exports.getLatestBatchInfo = async (req, res) => {
       if (!a.expiryDate) return 1; // Lô không có hạn đặt sau
       if (!b.expiryDate) return -1; // Lô không có hạn đặt sau
       
-      // FEFO: sắp xếp theo hạn sử dụng (gần hết hạn trước)
-      return new Date(a.expiryDate) - new Date(b.expiryDate);
+      // FEFO: sắp xếp theo hạn sử dụng (gần hết hạn trước), nếu cùng ngày thì FIFO
+      const expiryDiff = new Date(a.expiryDate) - new Date(b.expiryDate);
+      if (expiryDiff === 0) {
+        return new Date(a.importDate) - new Date(b.importDate);
+      }
+      return expiryDiff;
     });
 
     // Tính toán số lượng đã bán cho từng lô để tìm lô có hàng
@@ -1094,7 +1038,11 @@ exports.getLatestBatchInfo = async (req, res) => {
       }
       if (!a.expiryDate) return 1;
       if (!b.expiryDate) return -1;
-      return new Date(a.expiryDate) - new Date(b.expiryDate);
+      const expiryDiff = new Date(a.expiryDate) - new Date(b.expiryDate);
+      if (expiryDiff === 0) {
+        return new Date(a.importDate) - new Date(b.importDate);
+      }
+      return expiryDiff;
     });
     
     for (const batch of allBatches) {
@@ -1205,19 +1153,32 @@ exports.getPriceRange = async (req, res) => {
     .lean();
 
     if (validBatches.length === 0) {
-      return res.status(404).json({ 
-        message: 'Không tìm thấy lô hàng nào cho sản phẩm này' 
+      // Trả về giá mặc định từ product thay vì 404
+      const Product = require("../models/Product");
+      const product = await Product.findById(productId).select('price').lean();
+      
+      if (product && product.price) {
+        return res.json({
+          minPrice: product.price,
+          maxPrice: product.price,
+          hasRange: false
+        });
+      }
+      
+      return res.json({ 
+        minPrice: 0,
+        maxPrice: 0,
+        hasRange: false,
+        message: 'Sản phẩm chưa có lô hàng'
       });
     }
 
     // Tính toán số lượng đã bán
     const Order = require("../models/Order");
-    const orders = await Order.find({ 
-      'items.product': productId,
-      status: { $in: ['completed', 'shipped', 'delivered'] }
-    }).select('items').lean();
-
-    const totalSold = orders.reduce((sum, order) => {
+  const orders = await Order.find({
+    'items.product': productId,
+    status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+  }).select('items').lean();    const totalSold = orders.reduce((sum, order) => {
       const productItems = order.items.filter(item => item.product.toString() === productId);
       return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
     }, 0);
@@ -1250,8 +1211,12 @@ exports.getPriceRange = async (req, res) => {
     }
 
     if (availablePrices.length === 0) {
-      return res.status(404).json({ 
-        message: 'Không có lô hàng nào còn số lượng' 
+      // Không có lô nào còn hàng → trả về giá 0 để frontend ẩn giá và hiển thị "Tạm hết hàng"
+      return res.json({ 
+        minPrice: 0,
+        maxPrice: 0,
+        hasRange: false,
+        message: 'Tạm hết hàng'
       });
     }
 
@@ -1260,18 +1225,145 @@ exports.getPriceRange = async (req, res) => {
     const maxPrice = Math.max(...availablePrices);
     
     res.json({
-      success: true,
-      priceRange: {
-        min: minPrice,
-        max: maxPrice,
-        hasMultiplePrices: minPrice !== maxPrice,
-        availablePrices: availablePrices.sort((a, b) => a - b)
-      }
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      hasRange: minPrice !== maxPrice,
+      availablePrices: availablePrices.sort((a, b) => a - b)
     });
     
   } catch (error) {
     console.error('Error getting price range:', error);
     res.status(500).json({ message: 'Lỗi lấy thông tin giá', error: error.message });
+  }
+};
+
+// Public API to get batch info for product detail page (no admin auth required)
+exports.getPublicBatchesByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    if (!productId) {
+      return res.status(400).json({ message: 'Thiếu productId' });
+    }
+
+    // Lấy các ImportItem của sản phẩm cụ thể, chỉ lấy lô còn hiệu lực
+    const now = new Date();
+    const importItems = await ImportItem.find({ 
+      product: productId,
+      $or: [
+        { expiryDate: null }, // Không có hạn sử dụng
+        { expiryDate: { $gt: now } } // Còn hạn
+      ]
+    })
+      .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (importItems.length === 0) {
+      return res.json({
+        batches: [],
+        summary: {
+          totalBatches: 0,
+          totalInStock: 0,
+          activeBatchId: null
+        }
+      });
+    }
+
+    // Lấy thông tin đơn hàng để tính số lượng đã bán (THỰC TẾ từ orders, không dùng soldQuantity cũ)
+    const Order = require("../models/Order");
+    const orders = await Order.find({ 
+      'items.product': productId,
+      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+    }).select('items createdAt').lean();
+
+    // Tính số lượng đã bán cho từng lô theo FEFO
+    const batchSoldMap = {};
+    importItems.forEach(batch => {
+      batchSoldMap[batch._id.toString()] = 0;
+    });
+
+    // Tính tổng số lượng đã bán
+    const totalSold = orders.reduce((sum, order) => {
+      const productItems = order.items.filter(item => item.product.toString() === productId);
+      return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
+    }, 0);
+
+    // Sắp xếp lô theo FEFO để phân bổ số lượng đã bán
+    const sortedForSoldCalc = [...importItems].sort((a, b) => {
+      if (!a.expiryDate && !b.expiryDate) {
+        return new Date(a.importDate) - new Date(b.importDate);
+      }
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+      const expiryDiff = new Date(a.expiryDate) - new Date(b.expiryDate);
+      if (expiryDiff === 0) {
+        return new Date(a.importDate) - new Date(b.importDate);
+      }
+      return expiryDiff;
+    });
+
+    // Phân bổ số lượng đã bán theo FEFO
+    let remainingSold = totalSold;
+    for (const batch of sortedForSoldCalc) {
+      if (remainingSold <= 0) break;
+      const batchId = batch._id.toString();
+      const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
+      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
+      batchSoldMap[batchId] = soldFromThisBatch;
+      remainingSold -= soldFromThisBatch;
+    }
+
+    // Format dữ liệu để gửi về frontend - tính toán THỰC TẾ từ orders
+    const batchDetails = importItems.map(item => {
+      const batchId = item._id.toString();
+      const soldQuantity = batchSoldMap[batchId] || 0;
+      const damaged = item.damagedQuantity || 0;
+      const remainingQuantity = Math.max(0, (item.quantity || 0) - soldQuantity - damaged);
+
+      let daysLeft = null;
+      if (item.expiryDate) {
+        const expiryDate = new Date(item.expiryDate);
+        daysLeft = Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000));
+      }
+
+      return {
+        _id: item._id,
+        remainingQuantity: remainingQuantity,
+        sellingPrice: item.sellingPrice || item.unitPrice,
+        expiryDate: item.expiryDate,
+        daysLeft: daysLeft
+      };
+    });
+
+    // Sắp xếp theo FEFO
+    batchDetails.sort((a, b) => {
+      if (!a.expiryDate && !b.expiryDate) return 0;
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+      return new Date(a.expiryDate) - new Date(b.expiryDate);
+    });
+
+    // Tính tổng số lượng trong kho
+    const totalInStock = batchDetails.reduce((sum, batch) => sum + batch.remainingQuantity, 0);
+
+    // Xác định lô đang được sử dụng (lô đầu tiên còn hàng)
+    const activeBatch = batchDetails.find(batch => batch.remainingQuantity > 0);
+
+    // Chỉ đếm các lô còn hàng (remainingQuantity > 0)
+    const batchesWithStock = batchDetails.filter(batch => batch.remainingQuantity > 0);
+
+    res.json({
+      batches: batchDetails,
+      summary: {
+        totalBatches: batchesWithStock.length, // Chỉ đếm lô còn hàng
+        totalInStock: totalInStock,
+        activeBatchId: activeBatch ? activeBatch._id : null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching public batches by product:', error);
+    res.status(500).json({ message: 'Lỗi lấy thông tin lô hàng', error: error.message });
   }
 };
 

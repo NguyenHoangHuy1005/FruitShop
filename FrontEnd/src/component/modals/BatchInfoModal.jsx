@@ -84,44 +84,45 @@ const BatchInfoModal = ({ productId, productName, onClose, onPriceUpdate }) => {
           };
         });
 
-        // Sort batches so that expired and empty (out-of-stock) batches appear at the end.
-        // Urgent (expiring) batches should show first, then valid, then expired/empty last.
-        const priority = { expiring: 0, valid: 1, expired: 2, empty: 2 };
-        processed.sort((a, b) => {
-          const pa = priority[a.status] ?? 99;
-          const pb = priority[b.status] ?? 99;
-          if (pa !== pb) return pa - pb;
-          const da = (a.daysLeft == null) ? 9999 : a.daysLeft;
-          const db = (b.daysLeft == null) ? 9999 : b.daysLeft;
-          return da - db;
-        });
-
+        // Backend đã sort đúng theo FEFO + FIFO và đánh dấu isActive
+        // KHÔNG sort lại ở frontend để giữ nguyên thứ tự và isActive từ backend
+        // Chỉ cần set processed batches trực tiếp
       setBatches(processed);
 
-      // Always derive totals from processed batches (merge with backend summary if present)
-      const totalBatches = processed.length;
-      const totalImported = processed.reduce((s, x) => s + (Number(x.batchQuantity) || 0), 0);
-      const totalSold = processed.reduce((s, x) => s + (Number(x.soldQuantity) || 0), 0);
-  const totalDamaged = processed.reduce((s, x) => s + (Number(x.damagedQuantity) || 0), 0);
-  const totalExpired = processed.reduce((s, x) => s + (Number(x.expiredQuantity || 0)), 0);
-      // totalRemaining: sum of remainingQuantity only for non-expired batches
-      // Use the previously computed daysLeft/status (date-only) for correctness
-      const totalRemaining = processed.reduce((s, x) => {
-        const remaining = Number(x.remainingQuantity) || 0;
-        if (x.daysLeft == null) return s + remaining; // no expiry date -> include
-        return x.daysLeft > 0 ? s + remaining : s; // only include if strictly > 0 days left
-      }, 0);
+      // Use backend summary if available, otherwise compute from processed batches
+      if (data.summary) {
+        // Backend already computed these values correctly
+        setSummary({
+          totalBatches: data.summary.totalBatches || processed.length,
+          totalImported: data.summary.totalImported || 0,
+          totalSold: data.summary.totalSold || 0,
+          totalDamaged: data.summary.totalDamaged || 0,
+          totalExpired: data.summary.totalExpired || 0,
+          totalRemaining: data.summary.totalRemaining || 0,
+        });
+      } else {
+        // Fallback: compute from processed batches
+        const totalBatches = processed.length;
+        const totalImported = processed.reduce((s, x) => s + (Number(x.batchQuantity) || 0), 0);
+        const totalSold = processed.reduce((s, x) => s + (Number(x.soldQuantity) || 0), 0);
+        const totalDamaged = processed.reduce((s, x) => s + (Number(x.damagedQuantity) || 0), 0);
+        const totalExpired = processed.reduce((s, x) => s + (Number(x.expiredQuantity || 0)), 0);
+        // totalRemaining: sum of remainingQuantity only for non-expired batches
+        const totalRemaining = processed.reduce((s, x) => {
+          const remaining = Number(x.remainingQuantity) || 0;
+          if (x.daysLeft == null) return s + remaining; // no expiry date -> include
+          return x.daysLeft > 0 ? s + remaining : s; // only include if strictly > 0 days left
+        }, 0);
 
-      const derived = {
-        totalBatches,
-        totalImported,
-        totalSold,
-        totalDamaged,
-        totalExpired,
-        totalRemaining,
-      };
-
-      setSummary({ ...(data.summary || {}), ...derived });
+        setSummary({
+          totalBatches,
+          totalImported,
+          totalSold,
+          totalDamaged,
+          totalExpired,
+          totalRemaining,
+        });
+      }
     } catch (error) {
       console.error('Error fetching batches:', error);
       alert('Lỗi khi lấy thông tin lô hàng: ' + error.message);

@@ -4,6 +4,8 @@ import { generatePath, Link } from "react-router-dom";
 import { AiOutlineEye, AiOutlineShoppingCart } from "react-icons/ai";
 import { formatter } from "../../utils/fomater";
 import { ROUTERS } from "../../utils/router";
+import { usePriceRange } from "../../hooks/usePriceRange";
+import PriceDisplay from "../../component/PriceDisplay";
 import { useDispatch } from "react-redux";
 import { addToCart } from "../redux/apiRequest";
 
@@ -27,16 +29,14 @@ export const ProductCard = ({
         return first || "/assets/images/placeholder-product.png";
     }, [image]);
 
-    const finalPrice = useMemo(() => {
-        const pct = Number.isFinite(+discountPercent) ? +discountPercent : 0;
-        return Math.max(0, Math.round((Number(price) || 0) * (100 - pct) / 100));
-    }, [price, discountPercent]);
+    // Use price coming from batches (sellingPrice / unitPrice)
+    const { priceRange, loading: priceLoading } = usePriceRange(id);
 
     // ✅ Chuẩn hóa trạng thái hết hàng và hết hạn
     const isOut = Number(onHand || 0) <= 0;
     const isExpired = status === "Hết hạn";
     const isExpiring = status === "Sắp hết hạn";
-    
+
     // Không thể mua nếu hết hàng hoặc hết hạn
     const cannotBuy = isOut || isExpired;
 
@@ -46,14 +46,14 @@ export const ProductCard = ({
 
     const handleAddToCart = useCallback(
         async (e) => {
-        e?.preventDefault?.();
-        if (!id || busy || cannotBuy) return;
-        try {
-            setBusy(true);
-            await addToCart(id, 1, dispatch);
-        } finally {
-            setBusy(false);
-        }
+            e?.preventDefault?.();
+            if (!id || busy || cannotBuy) return;
+            try {
+                setBusy(true);
+                await addToCart(id, 1, dispatch);
+            } finally {
+                setBusy(false);
+            }
         },
         [id, busy, cannotBuy, dispatch]
     );
@@ -62,17 +62,17 @@ export const ProductCard = ({
         <div className={`featured__item ${cannotBuy ? "is-out" : ""} ${isExpired ? "is-expired" : ""} ${isExpiring ? "is-expiring" : ""}`}>
             <div className="featured__item__pic">
                 <img
-                src={imgUrl}
-                alt={name || "Sản phẩm"}
-                loading="lazy"
-                onError={(ev) => {
-                    ev.currentTarget.src = "/assets/images/placeholder-product.png";
-                }}
+                    src={imgUrl}
+                    alt={name || "Sản phẩm"}
+                    loading="lazy"
+                    onError={(ev) => {
+                        ev.currentTarget.src = "/assets/images/placeholder-product.png";
+                    }}
                 />
 
                 {/* Huy hiệu giảm giá */}
                 {Number(discountPercent) > 0 && (
-                <span className="badge badge--discount">-{Math.floor(discountPercent)}%</span>
+                    <span className="badge badge--discount">-{Math.floor(discountPercent)}%</span>
                 )}
 
                 {/* Huy hiệu trạng thái */}
@@ -81,38 +81,38 @@ export const ProductCard = ({
                 {!isExpired && !isExpiring && isOut && <span className="badge badge--soldout">Hết hàng</span>}
 
                 <ul className="featured__item__pic__hover">
-                <li>
-                    {detailPath ? (
-                    <Link to={detailPath} aria-label="Xem chi tiết">
-                        <AiOutlineEye />
-                    </Link>
-                    ) : (
-                    <span aria-hidden="true">
-                        <AiOutlineEye />
-                    </span>
-                    )}
-                </li>
-                <li>
-                    <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={
-                        isExpired ? "Sản phẩm đã hết hạn" :
-                        isOut ? "Sản phẩm đã hết hàng" : 
-                        "Thêm vào giỏ hàng"
-                    }
-                    title={
-                        isExpired ? "Sản phẩm đã hết hạn" :
-                        isOut ? "Sản phẩm đã hết hàng" : 
-                        "Thêm vào giỏ hàng"
-                    }
-                    onClick={handleAddToCart}
-                    disabled={busy || cannotBuy}
-                    aria-disabled={busy || cannotBuy}
-                    >
-                    <AiOutlineShoppingCart />
-                    </button>
-                </li>
+                    <li>
+                        {detailPath ? (
+                            <Link to={detailPath} aria-label="Xem chi tiết">
+                                <AiOutlineEye />
+                            </Link>
+                        ) : (
+                            <span aria-hidden="true">
+                                <AiOutlineEye />
+                            </span>
+                        )}
+                    </li>
+                    <li>
+                        <button
+                            type="button"
+                            className="icon-btn"
+                            aria-label={
+                                isExpired ? "Sản phẩm đã hết hạn" :
+                                    isOut ? "Sản phẩm đã hết hàng" :
+                                        "Thêm vào giỏ hàng"
+                            }
+                            title={
+                                isExpired ? "Sản phẩm đã hết hạn" :
+                                    isOut ? "Sản phẩm đã hết hàng" :
+                                        "Thêm vào giỏ hàng"
+                            }
+                            onClick={handleAddToCart}
+                            disabled={busy || cannotBuy}
+                            aria-disabled={busy || cannotBuy}
+                        >
+                            <AiOutlineShoppingCart />
+                        </button>
+                    </li>
                 </ul>
             </div>
 
@@ -121,26 +121,26 @@ export const ProductCard = ({
                     {detailPath ? <Link to={detailPath}>{name}</Link> : <span>{name}</span>}
                 </h6>
 
-                {/* Giá */}
-                {Number(discountPercent) > 0 ? (
-                    <div className="price-wrap">
-                    <del className="price-old">{formatter(price)}</del>
-                    <div className="price-new">{formatter(finalPrice)}</div>
-                    </div>
-                ) : (
-                    <h5>{formatter(price)}</h5>
-                )}
+                {/* Giá: ưu tiên từ lô hàng, fallback về giá Product */}
+                <div className="price-section">
+                    <PriceDisplay 
+                        productId={id} 
+                        className="product-detail-price"
+                        fallbackPrice={price}
+                        fallbackDiscount={discountPercent}
+                    />
+                </div>
+                
+                    {/* ✅ Hiện tồn khi <= 10 */}
+                    {Number(onHand) > 0 && Number(onHand) <= 10 && (
+                        <div className="stock-hint low">
+                            Chỉ còn {Number(onHand)} {(unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"}
+                        </div>
+                    )}
+                </div>
 
-                {/* ✅ Hiện tồn khi <= 10 */}
-                {Number(onHand) > 0 && Number(onHand) <= 10 && (
-                    <div className="stock-hint low">
-                        Chỉ còn {Number(onHand)} {(unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"}
-                    </div>
-                )}
             </div>
-
-        </div>
-    );
+            );
 };
 
-export default memo(ProductCard);
+            export default memo(ProductCard);

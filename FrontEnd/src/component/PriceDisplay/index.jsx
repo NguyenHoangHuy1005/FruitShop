@@ -7,7 +7,9 @@ const PriceDisplay = memo(({
   productId, 
   className = "", 
   showLoading = true,
-  showOutOfStock = true 
+  showOutOfStock = true,
+  fallbackPrice = null,  // Giá fallback từ Product model
+  fallbackDiscount = 0   // Discount % từ Product model
 }) => {
   const { priceRange, loading, error } = usePriceRange(productId);
 
@@ -19,7 +21,28 @@ const PriceDisplay = memo(({
     );
   }
 
-  if (!priceRange) {
+  // Nếu không có priceRange từ batch, dùng fallback price từ Product
+  if (!priceRange || (priceRange.min === 0 && priceRange.max === 0)) {
+    // Có fallback price → hiển thị giá từ Product model
+    if (fallbackPrice && fallbackPrice > 0) {
+      const discountPct = Number(fallbackDiscount) || 0;
+      const finalPrice = Math.round(fallbackPrice * (100 - discountPct) / 100);
+      
+      return (
+        <div className={`price-display single fallback ${className}`}>
+          <div className="price-single">
+            {formatter(finalPrice)}
+          </div>
+          {discountPct > 0 && (
+            <div className="price-note">
+              Giá tạm thời (chưa có lô hàng)
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Không có fallback → hiển thị "tạm hết hàng"
     if (showOutOfStock) {
       const displayText = error && error.includes('chưa có lô hàng') 
         ? 'Chưa có lô hàng' 

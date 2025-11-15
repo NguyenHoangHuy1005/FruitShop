@@ -1,8 +1,24 @@
 const crypto = require("crypto");
 const Carts = require("../models/Carts");
 const Product = require("../../admin-services/models/Product");
-//mơi đây nè
 const Stock = require("../models/Stock");
+const Reservation = require("../models/Reservation");
+const { getAvailableBatches, getAvailableQuantity } = require("./reservationController");
+
+// Helper function to get or generate session key
+function getSessionKey(req) {
+    // Priority: x-session-key header > sessionID > generate new
+    const headerKey = req.headers["x-session-key"];
+    if (headerKey) return String(headerKey);
+    
+    const sessionId = req.sessionID;
+    if (sessionId) return String(sessionId);
+    
+    // Generate a fallback session key if none exists
+    const fallbackKey = `guest-${crypto.randomBytes(16).toString('hex')}`;
+    console.warn("⚠️ No session key found in cart, generated fallback:", fallbackKey);
+    return fallbackKey;
+}
 
 // Optional: lấy userId từ JWT
 function getUserIdFromToken(req) {
@@ -28,7 +44,7 @@ function getUserIdFromToken(req) {
 function ensureCartCookie(req, res) {
     let cartKey = req.cookies?.CART_ID;
     if (!cartKey) {
-        cartKey = crypto.randomUUID();
+        cartKey = (typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
         res.cookie("CART_ID", cartKey, {
         httpOnly: true,
         sameSite: "lax",
@@ -90,85 +106,52 @@ exports.getCart = async (req, res) => {
 };
 
 
-// ====== addItem (đã chỉnh giá giảm + kiểm tồn) ======
+// ====== addItem (tích hợp reservation system) ======
 exports.addItem = async (req, res) => {
     const { productId, quantity } = req.body || {};
     const qty = Math.max(1, Number(quantity) || 1);
+
+    // 🔥 Tạo reservation trước
+    const reservationResult = await createCartReservation(req, productId, qty);
+    if (!reservationResult.success) {
+        return res.status(400).json({ message: reservationResult.message });
+    }
 
     const cart = await getOrCreateCart(req, res);
     let product = await Product.findById(productId).lean();
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
 
-    // 🔥 Kiểm tra và reset giảm giá hết hạn
-    const now = new Date();
-    if (product.discountEndDate && new Date(product.discountEndDate) < now && product.discountPercent > 0) {
-        // Reset giảm giá hết hạn
-        await Product.findByIdAndUpdate(productId, {
-            $set: { discountPercent: 0, discountStartDate: null, discountEndDate: null }
-        });
-        product.discountPercent = 0;
-        product.discountStartDate = null;
-        product.discountEndDate = null;
-    }
+    // ✅ Sử dụng giá đã lock từ reservation
+    const finalPrice = reservationResult.lockedPrice;
+    const pct = reservationResult.discountPercent;
 
-    // ✅ giá sau giảm
-    const pct = Number(product.discountPercent) || 0;
-    const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
-
-    // ✅ kiểm tra tồn kho
-    const stock = await Stock.findOne({ product: product._id }).lean();
-    const onHand = Number(stock?.onHand) || 0;
-
-    // số lượng SP này đang có trong giỏ
+    // Tìm item trong giỏ
     const idx = cart.items.findIndex(i => String(i.product) === String(product._id));
-    const currentInCart = idx >= 0 ? (Number(cart.items[idx].quantity) || 0) : 0;
 
-    if (onHand <= 0) {
-        return res.status(400).json({ message: "Sản phẩm đã hết hàng." });
-    }
-
-    const maxAdd = Math.max(0, onHand - currentInCart);
-    if (qty > maxAdd) {
-        if (maxAdd === 0) {
-        return res.status(400).json({ message: "Số lượng trong giỏ đã đạt tối đa theo tồn kho." });
-        }
-        // Giới hạn theo tồn
-        if (idx >= 0) {
-        cart.items[idx].quantity += maxAdd;
-        cart.items[idx].price = finalPrice;
-        cart.items[idx].discountPercent = pct;
-        cart.items[idx].unit = product.unit || "kg"; // ✅ Cập nhật unit
-        } else {
-        cart.items.push({
-            product: product._id,
-            name: product.name,
-            image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
-            price: finalPrice,
-            quantity: maxAdd,
-            total: 0,
-            discountPercent: pct,
-            unit: product.unit || "kg", // ✅ Lưu đơn vị
-        });
-        }
-    } else {
-        // Thêm bình thường
-        if (idx >= 0) {
+    if (idx >= 0) {
         cart.items[idx].quantity += qty;
         cart.items[idx].price = finalPrice;
+        cart.items[idx].lockedPrice = finalPrice;
         cart.items[idx].discountPercent = pct;
-        cart.items[idx].unit = product.unit || "kg"; // ✅ Cập nhật unit
-        } else {
+        cart.items[idx].unit = product.unit || "kg";
+        cart.items[idx].batchId = reservationResult.batchId || null; // ✅ Thêm batchId
+        cart.items[idx].reservationId = reservationResult.reservation._id;
+        cart.items[idx].lockedAt = new Date();
+    } else {
         cart.items.push({
             product: product._id,
             name: product.name,
             image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
             price: finalPrice,
+            lockedPrice: finalPrice,
             quantity: qty,
             total: 0,
             discountPercent: pct,
-            unit: product.unit || "kg", // ✅ Lưu đơn vị
+            unit: product.unit || "kg",
+            batchId: reservationResult.batchId || null, // ✅ Thêm batchId
+            reservationId: reservationResult.reservation._id,
+            lockedAt: new Date()
         });
-        }
     }
 
     recalc(cart);
@@ -234,6 +217,11 @@ exports.removeItem = async (req, res) => {
         const cart = await getOrCreateCart(req, res);
         const before = cart.items.length;
 
+        // Tìm item để lấy reservationId trước khi xóa
+        const itemToRemove = cart.items.find(
+            (i) => String(i.product) === String(productId)
+        );
+
         // ⚡ lọc item ra khỏi mảng
         cart.items = cart.items.filter(
             (i) => String(i.product) !== String(productId)
@@ -241,6 +229,31 @@ exports.removeItem = async (req, res) => {
 
         if (before === cart.items.length) {
             return res.status(404).json({ message: "Item không có trong giỏ." });
+        }
+
+        // 🔥 Release reservation nếu có
+        if (itemToRemove?.reservationId) {
+            try {
+                const reservation = await Reservation.findById(itemToRemove.reservationId);
+                if (reservation && reservation.status === "active") {
+                    // Xóa item khỏi reservation
+                    reservation.items = reservation.items.filter(
+                        item => item.product.toString() !== productId.toString()
+                    );
+                    
+                    if (reservation.items.length === 0) {
+                        // Nếu không còn item nào, release reservation
+                        reservation.status = "released";
+                        reservation.releasedAt = new Date();
+                    }
+                    
+                    await reservation.save();
+                    console.log(`Released reservation for product ${productId}`);
+                }
+            } catch (err) {
+                console.error("Error releasing reservation:", err);
+                // Không throw error, vẫn xóa item khỏi cart
+            }
         }
 
         // tính lại tổng
@@ -274,3 +287,111 @@ exports.clearCart = async (req, res) => {
 
 
 exports.getOrCreateCart = getOrCreateCart;
+
+// ====== Helper: Tạo reservation khi add to cart ======
+async function createCartReservation(req, productId, quantity) {
+    try {
+        const userId = getUserIdFromToken(req);
+        const sessionKey = getSessionKey(req) || req.cookies?.CART_ID;
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return { success: false, message: "Sản phẩm không tồn tại" };
+        }
+
+        // Lấy batch available theo FEFO
+        const batches = await getAvailableBatches(productId);
+        
+        let activeBatch = null;
+        let availableQty = 0;
+        let lockedPrice = product.price || 0;
+        
+        if (batches.length > 0) {
+            // Có ImportItem → dùng batch
+            activeBatch = batches[0];
+            availableQty = await getAvailableQuantity(activeBatch._id);
+            lockedPrice = activeBatch.sellingPrice || activeBatch.unitPrice || product.price;
+            
+            if (availableQty < quantity) {
+                return { 
+                    success: false, 
+                    message: `Chỉ còn ${availableQty} ${product.unit || "kg"} có thể đặt`
+                };
+            }
+        } else {
+            // Chưa có ImportItem → fallback dùng Product.price, không validate stock
+            console.warn(`Product ${productId} chưa có ImportItem, dùng giá fallback`);
+            lockedPrice = product.price || 0;
+            // Không set activeBatch → batchId sẽ là null
+        }
+
+        // Tìm hoặc tạo reservation
+        let reservation = await Reservation.findOne({
+            $or: [
+                { user: userId },
+                { sessionKey: sessionKey }
+            ],
+            type: "cart",
+            status: "active"
+        });
+
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+        const discountPercent = product.discountPercent || 0;
+
+        if (reservation) {
+            const existingItemIndex = reservation.items.findIndex(
+                item => item.product.toString() === productId.toString()
+            );
+
+            if (existingItemIndex >= 0) {
+                reservation.items[existingItemIndex].quantity += quantity;
+                // Cập nhật giá nếu có batch mới
+                if (activeBatch) {
+                    reservation.items[existingItemIndex].batchId = activeBatch._id;
+                    reservation.items[existingItemIndex].lockedPrice = lockedPrice;
+                }
+            } else {
+                reservation.items.push({
+                    product: productId,
+                    batchId: activeBatch?._id || null, // Có thể null nếu chưa có ImportItem
+                    quantity: quantity,
+                    lockedPrice: lockedPrice,
+                    discountPercent: discountPercent,
+                    unit: product.unit || "kg"
+                });
+            }
+            
+            reservation.expiresAt = expiresAt;
+            await reservation.save();
+        } else {
+            reservation = await Reservation.create({
+                user: userId,
+                sessionKey: sessionKey,
+                type: "cart",
+                status: "active",
+                items: [{
+                    product: productId,
+                    batchId: activeBatch?._id || null, // Có thể null nếu chưa có ImportItem
+                    quantity: quantity,
+                    lockedPrice: lockedPrice,
+                    discountPercent: discountPercent,
+                    unit: product.unit || "kg"
+                }],
+                expiresAt: expiresAt
+            });
+        }
+
+        return {
+            success: true,
+            reservation: reservation,
+            batchId: activeBatch?._id || null, // ✅ Thêm batchId
+            lockedPrice: lockedPrice,
+            discountPercent: discountPercent
+        };
+    } catch (error) {
+        console.error("Error in createCartReservation:", error);
+        return { success: false, message: "Lỗi khi tạo reservation" };
+    }
+}
+
+exports.createCartReservation = createCartReservation;

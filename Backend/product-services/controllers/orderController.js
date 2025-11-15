@@ -4,8 +4,26 @@ const Carts = require("../models/Carts");
 const Order = require("../models/Order");
 const Coupon = require("../models/Coupon");
 const Stock = require("../models/Stock");
+const Reservation = require("../models/Reservation");
+const ImportItem = require("../../admin-services/models/ImportItem");
 const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer");
 const { getOrCreateCart } = require("./cartController");
+const { createNotification } = require("../../auth-services/controllers/notificationController");
+
+// Helper function to get or generate session key
+function getSessionKey(req) {
+  // Priority: x-session-key header > sessionID > generate new
+  const headerKey = req.headers["x-session-key"];
+  if (headerKey) return String(headerKey);
+  
+  const sessionId = req.sessionID;
+  if (sessionId) return String(sessionId);
+  
+  // Generate a fallback session key if none exists
+  const fallbackKey = `guest-${crypto.randomBytes(16).toString('hex')}`;
+  console.warn("⚠️ No session key found in order, generated fallback:", fallbackKey);
+  return fallbackKey;
+}
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
 const User = require("../../auth-services/models/User");
@@ -109,16 +127,30 @@ async function calcTotals(cart, couponCode) {
 const restoreInventory = async (orderDoc) => {
     if (!orderDoc) return;
     for (const it of orderDoc.items || []) {
-        await Stock.findOneAndUpdate(
-            { product: it.product },
-            { $inc: { onHand: it.quantity } }
-        );
+        // Nếu có batchId, giảm soldQuantity của batch đó
+        if (it.batchId) {
+            await ImportItem.findOneAndUpdate(
+                { _id: it.batchId },
+                { $inc: { soldQuantity: -it.quantity } }
+            );
+            
+            // Cập nhật trạng thái sản phẩm dựa trên remainingQuantity
+            const batch = await ImportItem.findById(it.batchId).lean();
+            if (batch) {
+                const remaining = Math.max(0, (batch.quantity || 0) - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0));
+                await _updateProductStatus(it.product, remaining);
+            }
+        } else {
+            // Fallback: nếu không có batchId, dùng Stock model cũ
+            await Stock.findOneAndUpdate(
+                { product: it.product },
+                { $inc: { onHand: it.quantity } }
+            );
 
-        const stock = await Stock.findOne({ product: it.product }).lean();
-        const newQty = Math.max(0, Number(stock?.onHand) || 0);
-        
-        // Sử dụng hàm cập nhật trạng thái mới với logic hết hạn
-        await _updateProductStatus(it.product, newQty);
+            const stock = await Stock.findOne({ product: it.product }).lean();
+            const newQty = Math.max(0, Number(stock?.onHand) || 0);
+            await _updateProductStatus(it.product, newQty);
+        }
     }
 };
 
@@ -166,6 +198,7 @@ const autoCancelExpiredOrders = async (extraFilter = {}) => {
 exports.createOrder = async (req, res) => {
     let decremented = [];
     let createdOrder = null;
+    let checkoutReservation = null;
 
     try {
         let userId = null;
@@ -193,6 +226,10 @@ exports.createOrder = async (req, res) => {
             ? req.body.selectedProductIds.map(String)
             : null;
 
+        if (!cart?.items?.length) {
+            return res.status(400).json({ message: "Giỏ hàng đang trống." });
+        }
+
         let workingItems = cart.items;
         if (selectedIds && selectedIds.length > 0) {
             workingItems = cart.items.filter(i => {
@@ -200,89 +237,255 @@ exports.createOrder = async (req, res) => {
                 return selectedIds.includes(pid);
             });
             if (!workingItems.length) {
-                return res.status(400).json({ message: "Không có sản phẩm nào để đặt hàng." });
+                return res.status(400).json({ message: "Không có sản phẩm nào được chọn để đặt hàng." });
             }
         }
 
-
-        if (!cart?.items?.length) {
-            return res.status(400).json({ message: "Giỏ hàng đang trống." });
-        }
+        console.log(`📦 Working items count: ${workingItems.length}`);
 
         // gắn user cho giỏ nếu có
         if (!cart.user && userId) cart.user = userId;
 
-        // Tổng tiền hiện tại từ giỏ
-        const amount = await calcTotals({ items: workingItems }, couponCode);
+        // ===== 1) Tìm hoặc tạo checkout reservation =====
+        const sessionKey = getSessionKey(req);
+        checkoutReservation = await Reservation.findOne({
+            $or: [
+                { user: userId },
+                { sessionKey: sessionKey }
+            ],
+            type: "checkout",
+            status: "active"
+        });
 
-        // ===== 1) Trừ kho nguyên tử từng dòng, rollback nếu thiếu =====
-        for (const line of workingItems) {
-            const qty = Number(line.quantity) || 1;
+        // Nếu không có checkout reservation, tạo mới từ cart
+        if (!checkoutReservation) {
+            console.log("⚠️ Không tìm thấy checkout reservation, tạo mới từ cart items");
+            
+            try {
+                // Tạo checkout reservation từ cart items
+                const checkoutItems = [];
+                for (const cartItem of workingItems) {
+                    console.log(`Processing cart item:`, {
+                        product: cartItem.product,
+                        batchId: cartItem.batchId,
+                        quantity: cartItem.quantity,
+                        lockedPrice: cartItem.lockedPrice,
+                        price: cartItem.price
+                    });
 
-            // yêu cầu đủ tồn: onHand >= qty
-            const updated = await Stock.findOneAndUpdate(
-                { product: line.product, onHand: { $gte: qty } },
-                { $inc: { onHand: -qty } },
+                    const productId = cartItem.product?._id || cartItem.product;
+                    const product = await Product.findById(productId);
+                    if (!product) {
+                        console.warn(`Product ${productId} not found, skipping`);
+                        continue;
+                    }
+
+                    checkoutItems.push({
+                        product: productId,
+                        batchId: cartItem.batchId || null,
+                        quantity: cartItem.quantity || 1,
+                        lockedPrice: cartItem.lockedPrice || cartItem.price || product.price,
+                        discountPercent: cartItem.discountPercent || product.discountPercent || 0,
+                        unit: product.unit || "kg"
+                    });
+                }
+
+                if (checkoutItems.length === 0) {
+                    return res.status(400).json({ 
+                        message: "Không có sản phẩm hợp lệ để đặt hàng.",
+                        code: "NO_VALID_ITEMS"
+                    });
+                }
+
+                console.log(`Creating checkout reservation with ${checkoutItems.length} items`);
+
+                checkoutReservation = await Reservation.create({
+                    user: userId,
+                    sessionKey: sessionKey,
+                    type: "checkout",
+                    status: "active",
+                    items: checkoutItems,
+                    expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 phút
+                });
+
+                console.log("✅ Đã tạo checkout reservation mới:", checkoutReservation._id);
+            } catch (createReservationError) {
+                console.error("❌ Lỗi khi tạo checkout reservation:", createReservationError);
+                throw createReservationError;
+            }
+        }
+
+        // Validate các items trong checkout reservation
+        const reservedProductIds = checkoutReservation.items.map(item => item.product.toString());
+        const orderProductIds = workingItems.map(item => String(item.product?._id || item.product));
+        
+        const allProductsReserved = orderProductIds.every(pid => reservedProductIds.includes(pid));
+        if (!allProductsReserved) {
+            return res.status(400).json({ 
+                message: "Một số sản phẩm không có trong phiên thanh toán",
+                code: "INVALID_RESERVATION"
+            });
+        }
+
+        // Tổng tiền từ reservation (locked prices)
+        let subtotal = 0;
+        const items = [];
+        
+        console.log(`📋 Building order items from ${checkoutReservation.items.length} reservation items`);
+        
+        for (const item of checkoutReservation.items) {
+            try {
+                const lockedPrice = item.lockedPrice || 0;
+                const discountPercent = item.discountPercent || 0;
+                const finalPrice = Math.round(lockedPrice * (100 - discountPercent) / 100);
+                const quantity = item.quantity;
+                
+                const product = await Product.findById(item.product).lean();
+                
+                if (!product) {
+                    console.warn(`⚠️ Product ${item.product} not found, using fallback data`);
+                }
+                
+                items.push({
+                    product: item.product,
+                    name: product?.name || "Unknown Product",
+                    image: product?.image || [],
+                    price: finalPrice,
+                    quantity: quantity,
+                    total: finalPrice * quantity,
+                    batchId: item.batchId,
+                    lockedPrice: lockedPrice,
+                    discountPercent: discountPercent
+                });
+                
+                subtotal += finalPrice * quantity;
+                
+                console.log(`✓ Item: ${product?.name}, qty: ${quantity}, price: ${finalPrice}`);
+            } catch (itemError) {
+                console.error(`❌ Error processing item ${item.product}:`, itemError);
+                throw itemError;
+            }
+        }
+        
+        console.log(`💰 Subtotal: ${subtotal}, Total items: ${items.length}`);
+
+        // ===== 2) Trừ kho từ ImportItem batches =====
+        for (const item of items) {
+            const qty = item.quantity;
+            const batchId = item.batchId;
+
+            // Nếu không có batchId (sản phẩm chưa có ImportItem), bỏ qua trừ kho
+            if (!batchId) {
+                console.warn(`Item ${item.product} không có batchId, bỏ qua trừ kho ImportItem`);
+                // Có thể trừ từ Stock model cũ nếu muốn
+                // const stock = await Stock.findOneAndUpdate(
+                //     { product: item.product, onHand: { $gte: qty } },
+                //     { $inc: { onHand: -qty } },
+                //     { new: true }
+                // );
+                continue;
+            }
+
+            // Tăng soldQuantity thay vì giảm quantity
+            // remainingQuantity = quantity - soldQuantity - damagedQuantity
+            const batch = await ImportItem.findOne({ _id: batchId });
+            
+            if (!batch) {
+                // Rollback các batch đã cập nhật
+                for (const d of decremented) {
+                    if (d.batchId) {
+                        await ImportItem.findOneAndUpdate(
+                            { _id: d.batchId },
+                            { $inc: { soldQuantity: -d.qty } }
+                        );
+                    }
+                }
+                return res.status(409).json({ 
+                    message: `Không tìm thấy lô hàng cho sản phẩm "${item.name}".`,
+                    code: "BATCH_NOT_FOUND"
+                });
+            }
+            
+            // Kiểm tra còn đủ hàng không (quantity - soldQuantity - damagedQuantity >= qty)
+            const remaining = (batch.quantity || 0) - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0);
+            if (remaining < qty) {
+                // Rollback các batch đã cập nhật
+                for (const d of decremented) {
+                    if (d.batchId) {
+                        await ImportItem.findOneAndUpdate(
+                            { _id: d.batchId },
+                            { $inc: { soldQuantity: -d.qty } }
+                        );
+                    }
+                }
+                return res.status(409).json({ 
+                    message: `Sản phẩm "${item.name}" không đủ số lượng trong lô hàng (còn ${remaining}, cần ${qty}).`,
+                    code: "INSUFFICIENT_STOCK"
+                });
+            }
+            
+            // Tăng soldQuantity
+            await ImportItem.findOneAndUpdate(
+                { _id: batchId },
+                { $inc: { soldQuantity: qty } },
                 { new: true }
             );
 
-            if (!updated) {
-                // rollback những gì đã trừ
-                for (const d of decremented) {
-                    await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
-                }
-                return res.status(409).json({ message: `Sản phẩm "${line.name}" không đủ tồn kho.` });
-            }
+            decremented.push({ batchId: batchId, qty: qty, product: item.product });
 
-            decremented.push({ product: line.product, qty });
-
-            // cập nhật trạng thái sản phẩm theo onHand mới với logic hết hạn
+            // Cập nhật trạng thái sản phẩm dựa trên remainingQuantity
             try {
-                const newQty = Math.max(0, Number(updated.onHand) || 0);
-                await _updateProductStatus(line.product, newQty);
-            } catch (_) { }
+                const updatedBatch = await ImportItem.findById(batchId);
+                const remainingQty = Math.max(0, (updatedBatch.quantity || 0) - (updatedBatch.soldQuantity || 0) - (updatedBatch.damagedQuantity || 0));
+                await _updateProductStatus(item.product, remainingQty);
+            } catch (err) {
+                console.error("Error updating product status:", err);
+            }
         }
 
-        // ===== 2) Rebuild items (đảm bảo giá cuối) =====
-        const items = await Promise.all(workingItems.map(async (i) => {
-            const product = await Product.findById(i.product).lean();
-            if (!product) {
-                // fallback nếu product bị xóa
-                const q = Number(i.quantity) || 1;
-                const price = Number(i.price) || 0;
-                return {
-                    product: i.product,
-                    name: i.name,
-                    image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
-                    price,
-                    quantity: q,
-                    total: price * q,
-                };
+        // Tính total với coupon và shipping
+        const SHIPPING_FEE = 0;
+        const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
+        let discount = 0;
+        
+        if (couponCode) {
+            // Apply coupon logic (simplified)
+            const coupon = await Coupon.findOne({ 
+                code: new RegExp(`^${couponCode}$`, "i"), 
+                active: true 
+            }).lean();
+            
+            if (coupon) {
+                const now = new Date();
+                if (now >= coupon.startDate && now <= coupon.endDate) {
+                    if (coupon.discountType === "percent") {
+                        discount = Math.round(subtotal * coupon.value / 100);
+                    } else {
+                        discount = coupon.value;
+                    }
+                }
             }
-            const pct = Number(product.discountPercent) || 0;
-            const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
-            const q = Number(i.quantity) || 1;
-            return {
-                product: product._id,
-                name: product.name,
-                image: Array.isArray(i.image) ? i.image : [i.image].filter(Boolean),
-                price: finalPrice,
-                quantity: q,
-                total: finalPrice * q,
-            };
-        }));
+        }
+        
+        const total = Math.max(0, subtotal + shipping - discount);
+        const amount = { subtotal, shipping, discount, total, totalItems: items.length };
 
         // ===== 3) Tạo đơn =====
         const paymentDeadline = paymentMethod === "COD" ? null : new Date(Date.now() + 10 * 60 * 1000);
+        
+        // COD orders are immediately marked as 'paid' since customer confirmed order
+        // BANK orders remain 'pending' until payment confirmation
+        const initialStatus = paymentMethod === "COD" ? "paid" : "pending";
 
         const order = await Order.create({
             user: userId || cart.user || null,
             customer: { name: customerName, address, phone, email, note: note || "" },
             items,
             amount,
-            status: "pending",
+            status: initialStatus,
             payment: paymentMethod,
             paymentDeadline,
+            paymentCompletedAt: paymentMethod === "COD" ? new Date() : null,
         });
         createdOrder = order;
         
@@ -346,6 +549,14 @@ exports.createOrder = async (req, res) => {
             await Product.bulkWrite(purchaseCount);
         }
 
+        // ===== Confirm checkout reservation =====
+        if (checkoutReservation) {
+            checkoutReservation.status = "confirmed";
+            checkoutReservation.confirmedAt = new Date();
+            checkoutReservation.orderId = order._id;
+            await checkoutReservation.save();
+        }
+
         // ===== 4) Cập nhật giỏ sau khi đặt đơn =====
         const purchasedSet = new Set(workingItems.map(i => String(i.product?._id || i.product)));
         const remaining = cart.items.filter(i => !purchasedSet.has(String(i.product?._id || i.product)));
@@ -357,7 +568,7 @@ exports.createOrder = async (req, res) => {
 
             const newCart = await Carts.create({
                 user: cart.user || null,
-                cartKey: crypto.randomUUID(),
+                cartKey: (typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex'),
                 status: "active",
                 items: [],
                 summary: { totalItems: 0, subtotal: 0 },
@@ -428,25 +639,50 @@ exports.createOrder = async (req, res) => {
             requiresPayment: paymentMethod !== "COD",
         });
     } catch (e) {
-        // hoàn kho những dòng đã trừ
+        // Rollback: giảm soldQuantity từ ImportItem batches
         try {
             for (const d of decremented) {
-            await Stock.findOneAndUpdate({ product: d.product }, { $inc: { onHand: d.qty } });
-            // cập nhật lại Product.onHand + status sau khi hoàn kho với logic hết hạn
-            const stock = await Stock.findOne({ product: d.product }).lean();
-            const newQty = Math.max(0, Number(stock?.onHand) || 0);
-            await _updateProductStatus(d.product, newQty);
+                // Chỉ rollback nếu có batchId
+                if (d.batchId) {
+                    await ImportItem.findOneAndUpdate(
+                        { _id: d.batchId },
+                        { $inc: { soldQuantity: -d.qty } }
+                    );
+                    
+                    // Cập nhật lại trạng thái sản phẩm
+                    const batch = await ImportItem.findById(d.batchId).lean();
+                    if (batch) {
+                        const remaining = Math.max(0, (batch.quantity || 0) - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0));
+                        await _updateProductStatus(d.product, remaining);
+                    }
+                }
             }
-            // nếu đã tạo order nhưng lỗi về sau → xoá order rác
+            
+            // Release checkout reservation nếu có
+            if (checkoutReservation) {
+                checkoutReservation.status = "released";
+                checkoutReservation.releasedAt = new Date();
+                await checkoutReservation.save();
+            }
+            
+            // Xóa order rác nếu đã tạo
             if (createdOrder?._id) {
-            await Order.findByIdAndDelete(createdOrder._id);
+                await Order.findByIdAndDelete(createdOrder._id);
             }
         } catch (rbErr) {
-            console.error("rollback error:", rbErr);
+            console.error("Rollback error:", rbErr);
         }
 
-        console.error("createOrder error:", e);
-        return res.status(500).json({ message: "Tạo đơn thất bại." });
+        console.error("❌❌❌ CREATE ORDER ERROR ❌❌❌");
+        console.error("Error message:", e.message);
+        console.error("Error stack:", e.stack);
+        console.error("Error details:", e);
+        
+        return res.status(500).json({ 
+            message: "Tạo đơn thất bại.", 
+            error: e.message,
+            stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+        });
     }
 };
 

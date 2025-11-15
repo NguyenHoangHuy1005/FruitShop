@@ -4,7 +4,7 @@ import "./style.scss";
 import { memo, useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { placeOrder, validateCoupon } from "../../../component/redux/apiRequest";
+import { placeOrder, validateCoupon, confirmCheckoutReservation } from "../../../component/redux/apiRequest";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTERS } from "../../../utils/router";
 import { setCoupon } from "../../../component/redux/cartSlice";
@@ -51,11 +51,32 @@ const CheckoutPage = () => {
     const [discountValue, setDiscountValue] = useState(Number(derivedDiscount) || 0);
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [couponInsights, setCouponInsights] = useState([]);
+    const [checkoutReservationId, setCheckoutReservationId] = useState(null);
 
     useEffect(() => {
         setForm(repeatFormDefaults);
         setPaymentMethod(repeatOrder?.paymentMethod || "COD");
     }, [repeatFormDefaults, repeatOrder]);
+
+    // Confirm checkout reservation
+    useEffect(() => {
+        if (!selectedProductIds || selectedProductIds.length === 0) return;
+        
+        const confirmReservation = async () => {
+            try {
+                const result = await confirmCheckoutReservation(selectedProductIds);
+                if (result?.success && result?.checkoutReservation?.id) {
+                    setCheckoutReservationId(result.checkoutReservation.id);
+                    console.log('Checkout reservation confirmed:', result.checkoutReservation.id);
+                }
+            } catch (error) {
+                console.error('Failed to confirm checkout reservation:', error);
+                toast.warn('Không thể giữ giá sản phẩm. Vui lòng thử lại.');
+            }
+        };
+        
+        confirmReservation();
+    }, [selectedProductIds]);
 
     useEffect(() => {
         const normalized = (derivedCoupon || "").trim();

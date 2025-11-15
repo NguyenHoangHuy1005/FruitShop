@@ -17,7 +17,22 @@ export const usePriceRange = (productId) => {
 
     getPriceRange(productId)
       .then((data) => {
-        setPriceRange(data.priceRange);
+        console.log('📊 Price range response for product', productId, ':', data);
+        // Backend trả về { minPrice, maxPrice, hasRange, availablePrices }
+        if (data && (data.minPrice !== undefined || data.maxPrice !== undefined)) {
+          const priceData = {
+            min: data.minPrice || 0,
+            max: data.maxPrice || 0,
+            hasMultiplePrices: data.hasRange || false,
+            availablePrices: data.availablePrices || []
+          };
+          console.log('✅ Formatted price range:', priceData);
+          setPriceRange(priceData);
+        } else {
+          console.warn('⚠️ Unexpected response format, trying fallback');
+          // Fallback for old format
+          setPriceRange(data.priceRange || null);
+        }
       })
       .catch((err) => {
         console.error('Error getting price range:', err);

@@ -809,8 +809,8 @@ const StockManagerPage = () => {
                                 <td>
                                     {(() => {
                                         const statusClass = getStatusClass();
-                                        // Hide edit button for expired batches
-                                        if (statusClass === 'expired') return null;
+                                        // Hide edit button for expired batches or deleted products
+                                        if (statusClass === 'expired' || batch.isProductDeleted) return null;
 
                                         return (
                                             <button

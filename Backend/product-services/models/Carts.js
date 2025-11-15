@@ -8,7 +8,11 @@ const CartItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1, default: 1 },
     total:    { type: Number, required: true, min: 0 },
     discountPercent: { type: Number, default: 0 },
-    unit:     { type: String, default: "kg" }, // ✅ Lưu đơn vị
+    unit:     { type: String, default: "kg" },
+    batchId:  { type: mongoose.Schema.Types.ObjectId, ref: "ImportItem", default: null }, // ✅ Thêm batchId
+    reservationId: { type: mongoose.Schema.Types.ObjectId, ref: "Reservation" }, // Link to reservation
+    lockedPrice: { type: Number }, // Giá đã lock tại thời điểm reserve
+    lockedAt: { type: Date } // Thời điểm lock giá
 }, { _id: false });
 
 const CartSchema = new mongoose.Schema({

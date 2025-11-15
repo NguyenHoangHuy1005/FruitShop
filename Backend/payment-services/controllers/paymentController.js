@@ -3,6 +3,7 @@ const axios = require("axios");
 const Order = require("../../product-services/models/Order");
 const Stock = require("../../product-services/models/Stock");
 const Product = require("../../admin-services/models/Product");
+const Reservation = require("../../product-services/models/Reservation");
 const { sendPaymentSuccessMail } = require("../../auth-services/utils/mailer");
 const { _updateProductStatus } = require("../../product-services/controllers/stockController");
 
@@ -27,18 +28,34 @@ const sanitizeOrder = (orderDoc) => {
   };
 };
 
+const ImportItem = require("../../admin-services/models/ImportItem");
+
 const restoreInventory = async (orderDoc) => {
   for (const it of orderDoc.items || []) {
-    await Stock.findOneAndUpdate(
-      { product: it.product },
-      { $inc: { onHand: it.quantity } }
-    );
+    // Nếu có batchId, giảm soldQuantity của batch đó
+    if (it.batchId) {
+      await ImportItem.findOneAndUpdate(
+        { _id: it.batchId },
+        { $inc: { soldQuantity: -it.quantity } }
+      );
+      
+      // Cập nhật trạng thái sản phẩm dựa trên remainingQuantity
+      const batch = await ImportItem.findById(it.batchId).lean();
+      if (batch) {
+        const remaining = Math.max(0, (batch.quantity || 0) - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0));
+        await _updateProductStatus(it.product, remaining);
+      }
+    } else {
+      // Fallback: nếu không có batchId, dùng Stock model cũ
+      await Stock.findOneAndUpdate(
+        { product: it.product },
+        { $inc: { onHand: it.quantity } }
+      );
 
-    const stock = await Stock.findOne({ product: it.product }).lean();
-    const newQty = Math.max(0, Number(stock?.onHand) || 0);
-    
-    // Sử dụng hàm cập nhật trạng thái mới với logic hết hạn
-    await _updateProductStatus(it.product, newQty);
+      const stock = await Stock.findOne({ product: it.product }).lean();
+      const newQty = Math.max(0, Number(stock?.onHand) || 0);
+      await _updateProductStatus(it.product, newQty);
+    }
   }
 };
 
@@ -61,6 +78,25 @@ const ensureNotExpired = async (orderDoc) => {
     cancelReason: "timeout",
   };
   await orderDoc.save();
+
+  // 🔥 Release checkout reservation khi auto-cancel
+  try {
+    const reservation = await Reservation.findOne({
+      user: orderDoc.user,
+      type: "checkout",
+      status: "active"
+    });
+    
+    if (reservation) {
+      reservation.status = "released";
+      reservation.releasedAt = new Date();
+      await reservation.save();
+      console.log('[Auto Cancel] Checkout reservation released:', reservation._id);
+    }
+  } catch (resErr) {
+    console.error('[Auto Cancel] Failed to release reservation:', resErr.message);
+  }
+
   return { order: orderDoc, expired: true };
 };
 
@@ -355,6 +391,28 @@ exports.handleSePayWebhook = async (req, res) => {
 
     console.log('[SEPAY WEBHOOK] Order marked as paid:', order._id);
 
+    // 🔥 Confirm checkout reservation khi payment success
+    try {
+      const reservation = await Reservation.findOne({
+        user: order.user,
+        type: "checkout",
+        status: "active"
+      });
+      
+      if (reservation) {
+        reservation.status = "confirmed";
+        reservation.confirmedAt = new Date();
+        reservation.orderId = order._id;
+        await reservation.save();
+        console.log('[SEPAY WEBHOOK] Checkout reservation confirmed:', reservation._id);
+      } else {
+        console.log('[SEPAY WEBHOOK] No active checkout reservation found for user:', order.user);
+      }
+    } catch (resErr) {
+      console.error('[SEPAY WEBHOOK] Failed to confirm reservation:', resErr.message);
+      // Không throw error, order đã được lưu thành công
+    }
+
     // Gửi thông báo cho user về thanh toán thành công
     if (order.user) {
       const orderIdShort = String(order._id).slice(-8).toUpperCase();
@@ -468,6 +526,24 @@ exports.cancelPayment = async (req, res) => {
       cancelReason: req.body?.reason || "user_cancelled",
     };
     await order.save();
+
+    // 🔥 Release checkout reservation khi cancel payment
+    try {
+      const reservation = await Reservation.findOne({
+        user: order.user,
+        type: "checkout",
+        status: "active"
+      });
+      
+      if (reservation) {
+        reservation.status = "released";
+        reservation.releasedAt = new Date();
+        await reservation.save();
+        console.log('[Payment Cancel] Checkout reservation released:', reservation._id);
+      }
+    } catch (resErr) {
+      console.error('[Payment Cancel] Failed to release reservation:', resErr.message);
+    }
 
     return res.json({ ok: true, order: sanitizeOrder(order) });
   } catch (err) {

@@ -772,8 +772,6 @@ export const confirmEmailChange = async (otp, dispatch) => {
 export const listStock = async () => {
     const token = await ensureAccessToken(null);
     const res = await API.get("/stock", {
-        headers: { Authorization: `Bearer ${token}` },
-        validateStatus: () => true,
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data; // [{ _id, product, onHand, productDoc, ... }]
@@ -783,8 +781,6 @@ export const listStock = async () => {
 export const getStockOne = async (productId) => {
     const token = await ensureAccessToken(null);
     const res = await API.get(`/stock/${productId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        validateStatus: () => true,
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data; // { product, onHand } hoặc null
@@ -995,6 +991,62 @@ export const getLatestBatchInfo = async (productId) => {
 // Lấy range giá từ tất cả lô hàng của sản phẩm (public API)
 export const getPriceRange = async (productId) => {
     const res = await API.get(`/stock/price-range/${productId}`, {
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Lấy thông tin chi tiết các lô hàng cho trang chi tiết sản phẩm (public API)
+export const getPublicBatchesByProduct = async (productId) => {
+    const res = await API.get(`/stock/public-batches/${productId}`, {
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+/* ======================= RESERVATION ======================= */
+
+// Lấy reservation hiện tại của user
+export const getMyReservation = async (type = null) => {
+    const params = type ? { type } : {};
+    const res = await API.get("/reservation/my-reservations", {
+        params,
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Chuyển reservation từ cart sang checkout
+export const confirmCheckoutReservation = async (selectedProductIds = []) => {
+    const res = await API.post("/reservation/confirm-checkout", {
+        selectedProductIds
+    }, {
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Confirm reservation khi payment success
+export const confirmPaymentReservation = async (reservationId, orderId) => {
+    const res = await API.post("/reservation/confirm-payment", {
+        reservationId,
+        orderId
+    }, {
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// Release reservation khi payment fail hoặc cancel
+export const releaseReservation = async (reservationId) => {
+    const res = await API.post("/reservation/release", {
+        reservationId
+    }, {
         validateStatus: () => true,
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);

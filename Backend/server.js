@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const path = require('path');
 const connectDB = require('./auth-services/config/db');
 
@@ -57,7 +59,8 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'token', 'X-Session-Key'],
+  exposedHeaders: ['Set-Cookie'],
   optionsSuccessStatus: 204,
 };
 
@@ -66,6 +69,24 @@ app.options('*', cors(corsOptions));
 
 // === Other middleware ===
 app.use(cookieParser());
+
+// === Session middleware for guest users ===
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'fruitshop-session-secret-change-this-in-production',
+  resave: false,
+  saveUninitialized: true,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI || process.env.MONGO_URL,
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60 // 1 day
+  }),
+  cookie: {
+    secure: false, // set to true if using HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  },
+  name: 'sessionId' // custom session cookie name
+}));
 
 // Simple request logger
 app.use((req, _res, next) => {
@@ -88,6 +109,7 @@ const orderRoutes = require('./product-services/routes/order');
 const stockRoutes = require('./product-services/routes/stock');
 const productRoutes = require('./product-services/routes/product');
 const couponRoutes = require('./product-services/routes/coupon');
+const reservationRoutes = require('./product-services/routes/reservation');
 const paymentRoutes = require('./payment-services/routes/payment');
 // content-services
 const articleRoutes = require('./content-services/routes/article');
@@ -114,6 +136,7 @@ app.use('/api/stock', stockRoutes);
 app.use('/api/product', productRoutes); // user-facing product endpoints
 app.use('/api/coupon', couponRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/reservation', reservationRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/article', articleRoutes);
@@ -132,4 +155,28 @@ app.use((err, req, res, next) => {
 
 // Start server
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  
+  // Start background cleanup job for expired reservations
+  startReservationCleanupJob();
+});
+
+// Background job: cleanup expired reservations every 2 minutes
+function startReservationCleanupJob() {
+  const { cleanupExpiredReservations } = require('./product-services/controllers/reservationController');
+  
+  // Run immediately on startup
+  cleanupExpiredReservations().catch(err => {
+    console.error('[Cleanup Job] Error:', err);
+  });
+  
+  // Then run every 2 minutes
+  setInterval(() => {
+    cleanupExpiredReservations().catch(err => {
+      console.error('[Cleanup Job] Error:', err);
+    });
+  }, 2 * 60 * 1000); // 2 minutes
+  
+  console.log('[Cleanup Job] Started - running every 2 minutes');
+}

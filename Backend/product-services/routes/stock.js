@@ -27,6 +27,7 @@ router.get("/batch-details", auth.requireAdmin, stock.getBatchDetails);
 router.get("/batches/:productId", auth.requireAdmin, stock.getBatchesByProduct);
 router.get("/latest-batch/:productId", auth.requireAdmin, stock.getLatestBatchInfo);
 router.get("/price-range/:productId", stock.getPriceRange); // Public API cho người dùng
+router.get("/public-batches/:productId", stock.getPublicBatchesByProduct); // Public API for user product detail
 router.put("/batch/:batchId/quantity", auth.requireAdmin, stock.updateBatchQuantity);
 
 // route theo productId để cuối cùng

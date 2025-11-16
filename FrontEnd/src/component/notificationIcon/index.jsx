@@ -66,12 +66,28 @@ const NotificationIcon = () => {
         }
     };
 
+    const navigateToOrderDetail = (notification) => {
+        if (!notification?.type?.startsWith("order_")) return false;
+
+        if (notification.relatedId) {
+            navigate("/orders", { state: { selectedOrderId: String(notification.relatedId) } });
+        } else {
+            navigate("/orders");
+        }
+
+        return true;
+    };
+
     const handleNotificationClick = async (notification) => {
         if (!notification.isRead) {
             await handleMarkAsRead(notification._id);
         }
 
         setIsOpen(false);
+
+        if (navigateToOrderDetail(notification)) {
+            return;
+        }
 
         // Chuyển hướng dựa trên loại thông báo
         if (notification.link) {
@@ -111,17 +127,6 @@ const NotificationIcon = () => {
                 console.error('Invalid notification link:', err);
                 navigate(notification.link);
                 return;
-            }
-        } else if (notification.type?.startsWith("order_")) {
-            // Chuyển đến trang orders và tự động mở chi tiết đơn hàng
-            console.log('🔔 Order notification clicked:', {
-                type: notification.type,
-                relatedId: notification.relatedId
-            });
-            if (notification.relatedId) {
-                navigate("/orders", { state: { selectedOrderId: notification.relatedId } });
-            } else {
-                navigate("/orders");
             }
         } else if (notification.type?.startsWith("article_")) {
             navigate("/articles");

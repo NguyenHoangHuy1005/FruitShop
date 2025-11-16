@@ -53,6 +53,19 @@ const NotificationsPage = () => {
     }
   };
 
+  const buildOrderNavigation = (notification) => {
+    if (!notification?.type?.startsWith('order_')) return null;
+
+    if (notification.relatedId) {
+      return {
+        to: '/orders',
+        options: { state: { selectedOrderId: String(notification.relatedId) } }
+      };
+    }
+
+    return { to: '/orders', options: undefined };
+  };
+
   useEffect(() => {
     console.log('NotificationsPage mounted');
     console.log('User:', user);
@@ -171,6 +184,16 @@ const NotificationsPage = () => {
     if (!notification.isRead) {
       markAsRead(notification._id);
     }
+
+    const orderNavigation = buildOrderNavigation(notification);
+    if (orderNavigation) {
+      if (orderNavigation.options) {
+        navigate(orderNavigation.to, orderNavigation.options);
+      } else {
+        navigate(orderNavigation.to);
+      }
+      return;
+    }
     
     // Chuyển hướng dựa trên link hoặc type
     if (notification.link) {
@@ -181,8 +204,6 @@ const NotificationsPage = () => {
       } else {
         navigate(navigation.to);
       }
-    } else if (notification.type?.startsWith('order_')) {
-      navigate('/orders');
     } else if (notification.type?.startsWith('article_')) {
       navigate('/articles');
     }

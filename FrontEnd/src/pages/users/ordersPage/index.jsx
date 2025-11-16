@@ -83,6 +83,7 @@ const OrdersPage = () => {
     const [reloadTick, setReloadTick] = useState(0);
     const refreshOnExpiryRef = useRef(false);
     const pendingOrderIdRef = useRef(null); // Lưu orderId từ notification
+    const orderDetailRef = useRef(null);
 
     const tokenHeader = useMemo(() => {
         // Back-end chấp nhận 'Authorization' hoặc 'token'
@@ -123,10 +124,6 @@ const OrdersPage = () => {
             if (orderExists) {
                 console.log('✅ Order found, opening details');
                 setSelectedOrderId(String(orderId));
-                // Scroll lên đầu trang để xem chi tiết
-                setTimeout(() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 300);
             } else {
                 console.log('❌ Order not found in list');
             }
@@ -135,7 +132,21 @@ const OrdersPage = () => {
             pendingOrderIdRef.current = null;
         }
     }, [loading, orders]);
-    
+
+    useEffect(() => {
+        if (!selectedOrderId) return;
+
+        // Mimic the ScrollToTop behavior but align the view with the detail card itself.
+        const scrollTarget = orderDetailRef.current;
+        if (scrollTarget) {
+            const { top } = scrollTarget.getBoundingClientRect();
+            const absoluteTop = window.scrollY + top - 16;
+            window.scrollTo({ top: Math.max(absoluteTop, 0), behavior: "smooth" });
+        } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    }, [selectedOrderId]);
+
     useEffect(() => {
         if (!user?.accessToken) {
             // Chưa đăng nhập => điều hướng về trang đăng nhập (đang dùng chung trang Admin Login)
@@ -365,12 +376,12 @@ const OrdersPage = () => {
                     const total = selectedOrder?.amount?.total ?? selectedOrder?.amount ?? 0;
                     
                     return (
-                        <div className="order-detail-card">
+                        <div className="order-detail-card" ref={orderDetailRef}>
                             <div className={`order-detail-header header-status-${selectedOrder?.status || "pending"}`}>
                                 <div className="order-detail-header-left">
                                     <h3>Chi tiết đơn hàng #{id.slice(-8).toUpperCase()}</h3>
                                     <span className={`badge-large status-${selectedOrder?.status || "pending"}`}>
-                                        {selectedOrder?.status === "paid" ? "ĐÃ THANH TOÁN" : 
+                                        {selectedOrder?.status === "paid" ? "ĐÃ THANH TOÁN" :
                                          selectedOrder?.status === "cancelled" ? "ĐÃ HỦY" :
                                          selectedOrder?.status === "pending" ? "CHỜ THANH TOÁN" :
                                          selectedOrder?.status?.toUpperCase()}

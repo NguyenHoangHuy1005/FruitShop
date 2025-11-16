@@ -670,26 +670,36 @@ authController.googleLogin = async (req, res) => {
             });
         }
 
-        const user = await User.findOne({ email });
+        let user = await User.findOne({ email });
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "email không đúng hoặc chưa đăng ký",
+            user = await User.create({
+                email,
+                fullname: profile?.name || "",
+                avatar: profile?.picture || "",
+                provider: "google",
+                isVerified: true,
+                verificationToken: null,
+                verificationExpiresAt: null,
             });
-        }
-        if (!user.isVerified) {
-            return res.status(403).json({
-                success: false,
-                message: "tài khoản chưa xác minh email. vui lòng nhập mã OTP.",
-                pendingEmail: user.email,
-            });
+        } else {
+            if (!user.isVerified) {
+                user.isVerified = true;
+                user.verificationToken = null;
+                user.verificationExpiresAt = null;
+            }
+            if (profile?.picture && profile.picture !== user.avatar) {
+                user.avatar = profile.picture;
+            }
+            if (profile?.name && !user.fullname) {
+                user.fullname = profile.name;
+            }
         }
 
         return finalizeLoginSuccess({ req, res, user, remember });
     } catch (error) {
         console.error("googleLogin error:", error?.message || error);
         const status = error?.status || 500;
-        const message = error?.message || "đăng nhập Google thất bại";
+        const message = error?.message || "Đăng nhập Google thất bại";
         return res.status(status).json({ success: false, message });
     }
 };

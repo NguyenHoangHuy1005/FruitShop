@@ -8,6 +8,7 @@ const Supplier = require("../../admin-services/models/Supplier");
 const ImportReceipt = require("../../admin-services/models/ImportReceipt");
 const ImportItem = require("../../admin-services/models/ImportItem");
 const User = require("../../auth-services/models/User");
+const { computeBatchPricing } = require("../utils/batchPricing");
 
 const invoicesDir = path.join(__dirname, "../../admin-services/uploads/invoices");
 fs.mkdirSync(invoicesDir, { recursive: true });
@@ -1131,59 +1132,59 @@ exports.getLatestBatchInfo = async (req, res) => {
   }
 };
 
-// API để lấy range giá từ tất cả các lô còn hàng
+// API de lay range gia tu tat ca cac lo con hang
 exports.getPriceRange = async (req, res) => {
   try {
     const { productId } = req.params;
     
     if (!productId) {
-      return res.status(400).json({ message: 'Thiếu productId' });
+      return res.status(400).json({ message: 'Thieu productId' });
     }
 
-    // Lấy tất cả lô hàng còn hiệu lực
     const now = new Date();
     const validBatches = await ImportItem.find({ 
       product: productId,
       $or: [
-        { expiryDate: null }, // Không có hạn sử dụng
-        { expiryDate: { $gt: now } } // Còn hạn
+        { expiryDate: null },
+        { expiryDate: { $gt: now } }
       ]
     })
-    .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate')
+    .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate discountPercent discountStartDate discountEndDate')
     .lean();
 
+    const product = await Product.findById(productId)
+      .select('price discountPercent discountStartDate discountEndDate')
+      .lean();
+
     if (validBatches.length === 0) {
-      // Trả về giá mặc định từ product thay vì 404
-      const Product = require("../models/Product");
-      const product = await Product.findById(productId).select('price').lean();
-      
-      if (product && product.price) {
-        return res.json({
-          minPrice: product.price,
-          maxPrice: product.price,
-          hasRange: false
-        });
+      if (!product) {
+        return res.status(404).json({ message: 'Khong tim thay san pham' });
       }
-      
+      const fallbackPrice = Number(product.price) || 0;
       return res.json({ 
-        minPrice: 0,
-        maxPrice: 0,
+        minPrice: fallbackPrice,
+        maxPrice: fallbackPrice,
         hasRange: false,
-        message: 'Sản phẩm chưa có lô hàng'
+        availablePrices: fallbackPrice ? [fallbackPrice] : [],
+        priceEntries: [],
+        hasDiscount: false,
+        minBasePrice: fallbackPrice,
+        maxBasePrice: fallbackPrice,
+        metadata: { fallback: true }
       });
     }
 
-    // Tính toán số lượng đã bán
     const Order = require("../models/Order");
-  const orders = await Order.find({
-    'items.product': productId,
-    status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
-  }).select('items').lean();    const totalSold = orders.reduce((sum, order) => {
+    const orders = await Order.find({
+      'items.product': productId,
+      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+    }).select('items').lean();
+
+    const totalSold = orders.reduce((sum, order) => {
       const productItems = order.items.filter(item => item.product.toString() === productId);
       return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
     }, 0);
 
-    // Sắp xếp theo FEFO
     validBatches.sort((a, b) => {
       if (!a.expiryDate && !b.expiryDate) {
         return new Date(a.importDate) - new Date(b.importDate);
@@ -1193,8 +1194,8 @@ exports.getPriceRange = async (req, res) => {
       return new Date(a.expiryDate) - new Date(b.expiryDate);
     });
 
-    // Tìm tất cả lô còn hàng và lấy giá
     const availablePrices = [];
+    const priceEntries = [];
     let remainingSold = totalSold;
     
     for (const batch of validBatches) {
@@ -1203,41 +1204,55 @@ exports.getPriceRange = async (req, res) => {
       const remainingInBatch = Math.max(0, effectiveQty - soldFromThisBatch);
       
       if (remainingInBatch > 0) {
-        const price = batch.sellingPrice || batch.unitPrice;
-        availablePrices.push(price);
+        const pricing = computeBatchPricing(batch, product);
+        availablePrices.push(pricing.finalPrice);
+        priceEntries.push({
+          batchId: batch._id,
+          remainingQuantity: remainingInBatch,
+          basePrice: pricing.basePrice,
+          finalPrice: pricing.finalPrice,
+          discountPercent: pricing.discountPercent,
+          discountSource: pricing.discountSource,
+          discountActive: pricing.discountActive,
+        });
       }
       
       remainingSold -= soldFromThisBatch;
     }
 
     if (availablePrices.length === 0) {
-      // Không có lô nào còn hàng → trả về giá 0 để frontend ẩn giá và hiển thị "Tạm hết hàng"
+      const fallbackPrice = Number(product?.price) || 0;
       return res.json({ 
-        minPrice: 0,
-        maxPrice: 0,
+        minPrice: fallbackPrice,
+        maxPrice: fallbackPrice,
         hasRange: false,
-        message: 'Tạm hết hàng'
+        availablePrices: fallbackPrice ? [fallbackPrice] : [],
+        priceEntries: [],
+        hasDiscount: false,
+        message: 'San pham tam het hang'
       });
     }
 
-    // Tính min/max giá
     const minPrice = Math.min(...availablePrices);
     const maxPrice = Math.max(...availablePrices);
+    const basePrices = priceEntries.map(entry => entry.basePrice).filter(p => Number(p) > 0);
     
     res.json({
-      minPrice: minPrice,
-      maxPrice: maxPrice,
+      minPrice,
+      maxPrice,
       hasRange: minPrice !== maxPrice,
-      availablePrices: availablePrices.sort((a, b) => a - b)
+      availablePrices: availablePrices.sort((a, b) => a - b),
+      priceEntries,
+      hasDiscount: priceEntries.some(entry => Number(entry.discountPercent) > 0),
+      minBasePrice: basePrices.length ? Math.min(...basePrices) : minPrice,
+      maxBasePrice: basePrices.length ? Math.max(...basePrices) : maxPrice,
     });
     
   } catch (error) {
     console.error('Error getting price range:', error);
-    res.status(500).json({ message: 'Lỗi lấy thông tin giá', error: error.message });
+    res.status(500).json({ message: 'Loi lay thong tin gia', error: error.message });
   }
 };
-
-// Public API to get batch info for product detail page (no admin auth required)
 exports.getPublicBatchesByProduct = async (req, res) => {
   try {
     const { productId } = req.params;

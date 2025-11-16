@@ -3,80 +3,116 @@ import { formatter } from '../../utils/fomater';
 import { usePriceRange } from '../../hooks/usePriceRange';
 import './PriceDisplay.scss';
 
-const PriceDisplay = memo(({ 
-  productId, 
-  className = "", 
+const formatRange = (min, max) => {
+  if (min === max) return formatter(min);
+  return `${formatter(min)} - ${formatter(max)}`;
+};
+
+const PriceDisplay = memo(({
+  productId,
+  className = '',
   showLoading = true,
   showOutOfStock = true,
-  fallbackPrice = null,  // Giá fallback từ Product model
-  fallbackDiscount = 0   // Discount % từ Product model
+  fallbackPrice = null,
+  fallbackDiscount = 0,
 }) => {
   const { priceRange, loading, error } = usePriceRange(productId);
 
-  if (loading && showLoading) {
+  if (loading && !priceRange) {
+    if (!(fallbackPrice && fallbackPrice > 0)) {
+      if (!showLoading) return null;
+
+      return (
+        <div className={['price-display', 'loading', className].filter(Boolean).join(' ')}>
+          <span className="loading-text">Đang tải giá...</span>
+        </div>
+      );
+    }
+  }
+
+  if (priceRange) {
+    const {
+      minFinal,
+      maxFinal,
+      minBase,
+      maxBase,
+      hasMultiplePrices,
+    } = priceRange;
+
+    const hasDiscount = minBase > minFinal;
+    const useRange = hasMultiplePrices && maxFinal !== minFinal;
+
     return (
-      <div className={`price-display loading ${className}`}>
-        <span className="loading-text">Đang tải giá...</span>
+      <div
+        className={[
+          'price-display',
+          useRange ? 'range' : 'single',
+          hasDiscount ? 'has-discount' : '',
+          className,
+        ].filter(Boolean).join(' ')}
+      >
+        {hasDiscount && (
+          <div className="price-original">
+            {formatRange(minBase, maxBase)}
+          </div>
+        )}
+        <div className="price-current">
+          {formatRange(minFinal, maxFinal)}
+        </div>
+        {useRange && (
+          <div className="price-note">
+            Giá tùy theo lô hàng còn
+          </div>
+        )}
       </div>
     );
   }
 
-  // Nếu không có priceRange từ batch, dùng fallback price từ Product
-  if (!priceRange || (priceRange.min === 0 && priceRange.max === 0)) {
-    // Có fallback price → hiển thị giá từ Product model
-    if (fallbackPrice && fallbackPrice > 0) {
-      const discountPct = Number(fallbackDiscount) || 0;
-      const finalPrice = Math.round(fallbackPrice * (100 - discountPct) / 100);
-      
-      return (
-        <div className={`price-display single fallback ${className}`}>
-          <div className="price-single">
-            {formatter(finalPrice)}
-          </div>
-          {discountPct > 0 && (
-            <div className="price-note">
-              Giá tạm thời (chưa có lô hàng)
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    // Không có fallback → hiển thị "tạm hết hàng"
-    if (showOutOfStock) {
-      const displayText = error && error.includes('chưa có lô hàng') 
-        ? 'Chưa có lô hàng' 
-        : 'Tạm hết hàng';
-      
-      return (
-        <div className={`price-display out-of-stock ${className}`}>
-          <span className="out-of-stock-text">{displayText}</span>
-        </div>
-      );
-    }
-    return null;
-  }
+  if (fallbackPrice && fallbackPrice > 0) {
+    const discountPct = Number(fallbackDiscount) || 0;
+    const hasDiscount = discountPct > 0;
+    const finalPrice = hasDiscount
+      ? Math.max(0, Math.round(fallbackPrice * (100 - discountPct) / 100))
+      : fallbackPrice;
 
-  if (priceRange.hasMultiplePrices) {
     return (
-      <div className={`price-display range ${className}`}>
-        <div className="price-range">
-          {formatter(priceRange.min)} - {formatter(priceRange.max)}
+      <div
+        className={[
+          'price-display',
+          'single',
+          'fallback',
+          hasDiscount ? 'has-discount' : '',
+          className,
+        ].filter(Boolean).join(' ')}
+      >
+        {hasDiscount && (
+          <div className="price-original">
+            {formatter(fallbackPrice)}
+          </div>
+        )}
+        <div className="price-current">
+          {formatter(finalPrice)}
         </div>
         <div className="price-note">
-          Giá tùy theo lô hàng có sẵn
+          Giá tạm thời (chưa có lô hàng)
         </div>
       </div>
     );
   }
 
-  return (
-    <div className={`price-display single ${className}`}>
-      <div className="price-single">
-        {formatter(priceRange.min)}
+  if (showOutOfStock) {
+    const displayText = error?.includes('lô hàng')
+      ? 'Chưa có lô hàng'
+      : 'Tạm hết hàng';
+
+    return (
+      <div className={['price-display', 'out-of-stock', className].filter(Boolean).join(' ')}>
+        <span className="out-of-stock-text">{displayText}</span>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 });
 
 PriceDisplay.displayName = 'PriceDisplay';

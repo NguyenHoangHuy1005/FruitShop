@@ -1,9 +1,11 @@
 const crypto = require("crypto");
 const Carts = require("../models/Carts");
 const Product = require("../../admin-services/models/Product");
+const ImportItem = require("../../admin-services/models/ImportItem");
 const Stock = require("../models/Stock");
 const Reservation = require("../models/Reservation");
 const { getAvailableBatches, getAvailableQuantity } = require("./reservationController");
+const { computeBatchPricing } = require("../utils/batchPricing");
 
 // Helper function to get or generate session key
 function getSessionKey(req) {
@@ -92,7 +94,11 @@ async function getOrCreateCart(req, res) {
 function recalc(cart) {
     let totalItems = 0, subtotal = 0;
     for (const it of cart.items) {
-        it.total = it.price * it.quantity;
+        const basePrice = Number(it.lockedPrice ?? it.price ?? 0);
+        const pct = Number(it.discountPercent) || 0;
+        const finalPrice = pct > 0 ? Math.max(0, Math.round(basePrice * (100 - pct) / 100)) : basePrice;
+        it.price = finalPrice;
+        it.total = finalPrice * it.quantity;
         totalItems += it.quantity;
         subtotal += it.total;
     }
@@ -104,7 +110,6 @@ exports.getCart = async (req, res) => {
     const cart = await getOrCreateCart(req, res);
     
     // 🔥 Populate availableStock cho mỗi item từ batch
-    const ImportItem = require("../../admin-services/models/ImportItem");
     
     for (const item of cart.items) {
         if (item.batchId) {
@@ -151,16 +156,17 @@ exports.addItem = async (req, res) => {
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
 
     // ✅ Sử dụng giá đã lock từ reservation
-    const finalPrice = reservationResult.lockedPrice;
-    const pct = reservationResult.discountPercent;
+    const lockedPrice = Number(reservationResult.lockedPrice) || 0;
+    const pct = Number(reservationResult.discountPercent) || 0;
+    const unitPrice = pct > 0 ? Math.max(0, Math.round(lockedPrice * (100 - pct) / 100)) : lockedPrice;
 
     // Tìm item trong giỏ
     const idx = cart.items.findIndex(i => String(i.product) === String(product._id));
 
     if (idx >= 0) {
         cart.items[idx].quantity += qty;
-        cart.items[idx].price = finalPrice;
-        cart.items[idx].lockedPrice = finalPrice;
+        cart.items[idx].price = unitPrice;
+        cart.items[idx].lockedPrice = lockedPrice;
         cart.items[idx].discountPercent = pct;
         cart.items[idx].unit = product.unit || "kg";
         cart.items[idx].batchId = reservationResult.batchId || null; // ✅ Thêm batchId
@@ -171,8 +177,8 @@ exports.addItem = async (req, res) => {
             product: product._id,
             name: product.name,
             image: Array.isArray(product.image) ? product.image.filter(Boolean) : [product.image].filter(Boolean),
-            price: finalPrice,
-            lockedPrice: finalPrice,
+            price: unitPrice,
+            lockedPrice: lockedPrice,
             quantity: qty,
             total: 0,
             discountPercent: pct,
@@ -211,15 +217,18 @@ exports.updateItem = async (req, res) => {
     } else {
         // ✅ giá mới nhất
         const product = await Product.findById(productId).lean();
-        if (product) {
-        const pct = Number(product.discountPercent) || 0;
-        const finalPrice = Math.max(0, Math.round((Number(product.price) || 0) * (100 - pct) / 100));
-        item.price = finalPrice;
-        item.discountPercent = pct;
+        let pricing = { basePrice: Number(product?.price) || 0, finalPrice: Number(product?.price) || 0, discountPercent: Number(product?.discountPercent) || 0 };
+        if (item.batchId) {
+            const batch = await ImportItem.findById(item.batchId).lean();
+            if (batch) {
+                pricing = computeBatchPricing(batch, product);
+            }
         }
+        item.lockedPrice = pricing.basePrice;
+        item.price = pricing.finalPrice;
+        item.discountPercent = pricing.discountPercent || 0;
 
         // ✅ kiểm tồn theo batch displayStock
-        const ImportItem = require("../../admin-services/models/ImportItem");
         let availableStock = 0;
         
         if (item.batchId) {
@@ -346,13 +355,11 @@ async function createCartReservation(req, productId, quantity) {
         
         let activeBatch = null;
         let availableQty = 0;
-        let lockedPrice = product.price || 0;
         
         if (batches.length > 0) {
             // Có ImportItem → dùng batch
             activeBatch = batches[0];
             availableQty = await getAvailableQuantity(activeBatch._id);
-            lockedPrice = activeBatch.sellingPrice || activeBatch.unitPrice || product.price;
             
             if (availableQty < quantity) {
                 return { 
@@ -363,11 +370,14 @@ async function createCartReservation(req, productId, quantity) {
         } else {
             // Chưa có ImportItem → fallback dùng Product.price, không validate stock
             console.warn(`Product ${productId} chưa có ImportItem, dùng giá fallback`);
-            lockedPrice = product.price || 0;
             // Không set activeBatch → batchId sẽ là null
         }
 
         // Tìm hoặc tạo reservation
+        const pricing = computeBatchPricing(activeBatch || {}, product);
+        const lockedPrice = pricing.basePrice;
+        const discountPercent = pricing.discountPercent || 0;
+
         let reservation = await Reservation.findOne({
             $or: [
                 { user: userId },
@@ -378,20 +388,19 @@ async function createCartReservation(req, productId, quantity) {
         });
 
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
-        const discountPercent = product.discountPercent || 0;
-
         if (reservation) {
             const existingItemIndex = reservation.items.findIndex(
                 item => item.product.toString() === productId.toString()
             );
 
-            if (existingItemIndex >= 0) {
-                reservation.items[existingItemIndex].quantity += quantity;
-                // Cập nhật giá nếu có batch mới
-                if (activeBatch) {
-                    reservation.items[existingItemIndex].batchId = activeBatch._id;
-                    reservation.items[existingItemIndex].lockedPrice = lockedPrice;
-                }
+            if (existingItemIndex >= 0) {
+                const existing = reservation.items[existingItemIndex];
+                existing.quantity += quantity;
+                existing.lockedPrice = lockedPrice;
+                existing.discountPercent = discountPercent;
+                if (activeBatch) {
+                    existing.batchId = activeBatch._id;
+                }
             } else {
                 reservation.items.push({
                     product: productId,

@@ -1335,593 +1335,237 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
 }
 
-// Modal gia hạn mã giảm giá
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    backdrop-filter: blur(4px);
-}
-
-.modal-content.extend-modal {
-    background: white;
-    border-radius: 16px;
-    padding: 32px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-
-    h3 {
-        font-size: 22px;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 24px;
-        text-align: center;
-
-        .code {
-            color: $product-main;
-            background: #e6f7f4;
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-        }
-    }
-
-    .meta {
-        background: #f8f9fa;
-        padding: 16px;
-        border-radius: 12px;
-        margin-bottom: 24px;
-        border-left: 4px solid $product-main;
-
-        div {
-            font-size: 14px;
-            color: #64748b;
-            margin-bottom: 8px;
-
-            &:last-child {
-                margin-bottom: 0;
-            }
-
-            b {
-                color: #1e293b;
-                font-weight: 600;
-            }
-        }
-    }
-
-    .form-grid {
-        display: grid;
-        gap: 20px;
-        margin-bottom: 28px;
-
-        label {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #1e293b;
-
-            &.reactivate {
-                flex-direction: row;
-                align-items: center;
-                gap: 10px;
-                padding: 12px;
-                background: #fff7ed;
-                border-radius: 8px;
-                border: 2px solid #fed7aa;
-
-                input[type="checkbox"] {
-                    width: 20px;
-                    height: 20px;
-                    cursor: pointer;
-                }
-            }
-
-            input[type="number"],
-            input[type="date"] {
-                padding: 12px 14px;
-                border: 2px solid #e2e8f0;
-                border-radius: 10px;
-                font-size: 14px;
-                transition: all 0.25s ease;
-
-                &:focus {
-                    outline: none;
-                    border-color: $product-main;
-                    box-shadow: 0 0 0 3px rgba(0, 136, 116, 0.15);
-                }
-            }
-        }
-    }
-
-    .actions {
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-        padding-top: 20px;
-        border-top: 2px solid #f1f5f9;
-
-        button {
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            border: none;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-
-            &.btn-edit-products {
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                margin-right: auto;
-
-                &:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-                }
-            }
-
-            &.btn-cancel {
-                background: #f1f5f9;
-                color: #64748b;
-
-                &:hover {
-                    background: #e2e8f0;
-                    color: #475569;
-                }
-            }
-
-            &.btn-save {
-                background: linear-gradient(135deg, $product-main, #00b89b);
-                color: white;
-
-                &:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 14px rgba(0, 136, 116, 0.35);
-                }
-
-                &:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
-                    transform: none;
-                }
-            }
-
-            &:active:not(:disabled) {
-                transform: translateY(0);
-            }
-        }
-    }
-}
-
-/* Bulk Discount Functionality Styles */
-// Button giảm giá hàng loạt
-.btn-bulk-discount {
-  background: linear-gradient(135deg, #ff9800, #f57c00);
-  color: white;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
-    background: linear-gradient(135deg, #f57c00, #ff9800);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
-}
-
-// Modal giảm giá hàng loạt
-.bulk-discount-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.3s ease;
-
-  .bulk-discount-content {
-    background: white;
-    padding: 32px;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 800px;
-    max-height: 85vh;
-    overflow-y: auto;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    animation: slideIn 0.3s ease;
-    position: relative;
-
-    .bulk-discount-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid #f0f0f0;
-
-      h3 {
-        margin: 0;
-        color: #333;
-        font-size: 24px;
-        font-weight: 700;
-        background: linear-gradient(135deg, #ff9800, #f57c00);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .close-btn {
-        background: none;
-        border: none;
-        font-size: 28px;
-        color: #999;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 50%;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-
-        &:hover {
-          background: #f5f5f5;
-          color: #666;
-          transform: rotate(90deg);
-        }
-      }
-    }
-
-    .bulk-discount-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-
-      .form-section {
-        h4 {
-          margin-bottom: 16px;
-          color: #444;
-          font-size: 18px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-
-          svg {
-            color: #ff9800;
-            width: 20px;
-            height: 20px;
-          }
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-
-          label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #555;
-            font-size: 14px;
-          }
-
-          input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-            background: #fafafa;
-
-            &:focus {
-              outline: none;
-              border-color: #ff9800;
-              box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
-              background: white;
-            }
-          }
-
-          .date-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-          }
-        }
-      }
-
-      .products-section {
-        grid-column: 1 / -1;
-
-        .products-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 16px;
-          max-height: 400px;
-          overflow-y: auto;
-          padding: 16px;
-          border: 2px solid #f0f0f0;
-          border-radius: 12px;
-          background: #fafafa;
-
-          .product-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            background: white;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            position: relative;
-
-            &:hover {
-              border-color: #ff9800;
-              box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
-              transform: translateY(-2px);
-            }
-
-            &.selected {
-              border-color: #ff9800;
-              background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-              box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2);
-
-              &::after {
-                content: '✓';
-                position: absolute;
-                top: -8px;
-                right: -8px;
-                background: #ff9800;
-                color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 14px;
-                font-weight: bold;
-                box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
-              }
-            }
-
-            input[type="checkbox"] {
-              margin-right: 12px;
-              width: 18px;
-              height: 18px;
-              accent-color: #ff9800;
-            }
-
-            .product-info {
-              flex: 1;
-
-              .product-name {
-                font-weight: 600;
-                color: #333;
-                font-size: 14px;
-                margin-bottom: 4px;
-                line-height: 1.3;
-              }
-
-              .product-price {
-                color: #ff9800;
-                font-size: 13px;
-                font-weight: 600;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    .bulk-discount-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 2px solid #f0f0f0;
-
-      button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        min-width: 120px;
-
-        &.cancel {
-          background: #f5f5f5;
-          color: #666;
-
-          &:hover {
-            background: #e0e0e0;
-            color: #444;
-          }
-        }
-
-        &.confirm {
-          background: linear-gradient(135deg, #ff9800, #f57c00);
-          color: white;
-          box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
-
-          &:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
-          }
-
-          &:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-          }
-        }
-
-        &:active:not(:disabled) {
-          transform: translateY(0);
-        }
-      }
-
-
-    }
-
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-// CSS cho ô hiển thị số lượng
-.quantity-cell {
+// Modal giam gia hang loat
+.modal-content.bulk-discount-modal {
+  width: min(920px, 96vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-
-  .stock-amount {
-    color: #28a745;
-    font-size: 14px;
-  }
-
-  .sold-info {
-    color: #6c757d;
-    font-size: 10px;
-    font-style: italic;
-  }
+  gap: 20px;
 }
 
-// CSS cho loading overlay
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+.modal-content.bulk-discount-modal h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: 0.5px;
+}
+
+.modal-content.bulk-discount-modal .discount-input-group,
+.modal-content.bulk-discount-modal .date-range-group,
+.modal-content.bulk-discount-modal .search-box {
+  width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-content.bulk-discount-modal label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.modal-content.bulk-discount-modal input[type="number"],
+.modal-content.bulk-discount-modal input[type="date"],
+.modal-content.bulk-discount-modal .search-box input {
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  padding: 12px 16px;
+  font-size: 14px;
+  background: #f8fafc;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modal-content.bulk-discount-modal input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  background: #fff;
+}
+
+.modal-content.bulk-discount-modal .discount-input-group input {
+  font-size: 32px;
+  font-weight: 700;
+  color: #111827;
+  text-align: center;
+}
+
+.modal-content.bulk-discount-modal .date-range-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.modal-content.bulk-discount-modal .date-field small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.modal-content.bulk-discount-modal .selection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  z-index: 9999;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
 
-  .loading-content {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    max-width: 400px;
+.modal-content.bulk-discount-modal .toolbar-buttons {
+  display: flex;
+  gap: 10px;
+}
 
-    p {
-      margin: 15px 0 0 0;
-      color: #495057;
-      font-size: 14px;
-      font-weight: 500;
-    }
+.modal-content.bulk-discount-modal .btn-select-all,
+.modal-content.bulk-discount-modal .btn-deselect-all {
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  color: #1e3a8a;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
 
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid $product-main;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-    }
+.modal-content.bulk-discount-modal .btn-select-all:hover,
+.modal-content.bulk-discount-modal .btn-deselect-all:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+}
+
+.modal-content.bulk-discount-modal .search-box input {
+  padding-left: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2374b9ff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-4.35-4.35m0 0a7.5 7.5 0 10-10.607 0 7.5 7.5 0 0010.607 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+}
+
+.modal-content.bulk-discount-modal .products-list {
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.modal-content.bulk-discount-modal .product-item {
+  display: grid;
+  grid-template-columns: auto 1fr repeat(3, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.modal-content.bulk-discount-modal .product-item:hover {
+  border-color: #fb923c;
+  box-shadow: 0 6px 14px rgba(251, 146, 60, 0.15);
+}
+
+.modal-content.bulk-discount-modal .product-item.selected {
+  border-color: #f97316;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+}
+
+.modal-content.bulk-discount-modal .product-item input {
+  justify-self: start;
+  transform: scale(1.15);
+}
+
+.modal-content.bulk-discount-modal .product-item .name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.modal-content.bulk-discount-modal .product-item .family {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.modal-content.bulk-discount-modal .product-item .price {
+  font-weight: 600;
+  color: #059669;
+}
+
+.modal-content.bulk-discount-modal .product-item .discount {
+  font-weight: 700;
+  color: #f97316;
+}
+
+.modal-content.bulk-discount-modal .product-item .discount.has-discount {
+  color: #c2410c;
+}
+
+.modal-content.bulk-discount-modal .selection-count {
+  font-size: 13px;
+  color: #475569;
+}
+
+.modal-content.bulk-discount-modal .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.modal-content.bulk-discount-modal .actions .btn-cancel {
+  border: 1px solid #cbd5f5;
+  background: transparent;
+  color: #0f172a;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-content.bulk-discount-modal .actions .btn-apply {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 28px;
+  background: linear-gradient(120deg, #f97316, #facc15);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modal-content.bulk-discount-modal .actions .btn-apply:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(249, 115, 22, 0.4);
+}
+
+@media (max-width: 768px) {
+  .modal-content.bulk-discount-modal {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .modal-content.bulk-discount-modal .product-item {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .modal-content.bulk-discount-modal .discount-input-group input {
+    font-size: 24px;
   }
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
 
-/* CSS cho nút "Áp dụng giảm giá" với độ ưu tiên cao nhất */
-.bulk-discount-modal .bulk-discount-actions .btn-apply,
-.bulk-discount-modal .actions .btn-apply {
-  padding: 12px 24px !important;
-  border-radius: 8px !important;
-  border: none !important;
-  background: linear-gradient(135deg, #2c3e50, #008874) !important;
-  color: white !important;
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3) !important;
-  font-weight: 600 !important;
-  font-size: 14px !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease !important;
-  min-width: 120px !important;
-}
-
-.bulk-discount-modal .bulk-discount-actions .btn-apply:hover,
-.bulk-discount-modal .actions .btn-apply:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 16px rgba(40, 167, 69, 0.4) !important;
-  background: linear-gradient(135deg, #20c997, #28a745) !important;
-}
-
-.bulk-discount-modal .bulk-discount-actions .btn-apply:disabled,
-.bulk-discount-modal .actions .btn-apply:disabled {
-  opacity: 0.6 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-}
-
-.bulk-discount-modal .bulk-discount-actions .btn-apply:active:not(:disabled),
-.bulk-discount-modal .actions .btn-apply:active:not(:disabled) {
-  transform: translateY(0) !important;
-}

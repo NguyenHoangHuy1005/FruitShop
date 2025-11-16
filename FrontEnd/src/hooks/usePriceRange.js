@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getPriceRange } from '../component/redux/apiRequest';
 
+const normalizeNumber = (value, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 export const usePriceRange = (productId) => {
   const [priceRange, setPriceRange] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -9,6 +14,7 @@ export const usePriceRange = (productId) => {
   useEffect(() => {
     if (!productId) {
       setLoading(false);
+      setPriceRange(null);
       return;
     }
 
@@ -17,31 +23,49 @@ export const usePriceRange = (productId) => {
 
     getPriceRange(productId)
       .then((data) => {
-        console.log('📊 Price range response for product', productId, ':', data);
-        // Backend trả về { minPrice, maxPrice, hasRange, availablePrices }
         if (data && (data.minPrice !== undefined || data.maxPrice !== undefined)) {
-          const priceData = {
-            min: data.minPrice || 0,
-            max: data.maxPrice || 0,
-            hasMultiplePrices: data.hasRange || false,
-            availablePrices: data.availablePrices || []
-          };
-          console.log('✅ Formatted price range:', priceData);
-          setPriceRange(priceData);
+          const minFinal = normalizeNumber(data.minPrice);
+          const maxFinal = normalizeNumber(
+            data.maxPrice !== undefined ? data.maxPrice : data.minPrice,
+            minFinal
+          );
+          const minBase = normalizeNumber(
+            data.minBasePrice !== undefined ? data.minBasePrice : data.minPrice,
+            minFinal
+          );
+          const maxBase = normalizeNumber(
+            data.maxBasePrice !== undefined ? data.maxBasePrice : data.maxPrice,
+            maxFinal
+          );
+
+          setPriceRange({
+            minFinal,
+            maxFinal,
+            minBase,
+            maxBase,
+            hasMultiplePrices: Boolean(data.hasRange),
+            priceEntries: Array.isArray(data.priceEntries) ? data.priceEntries : [],
+            availablePrices: data.availablePrices || [],
+            hasDiscount: Boolean(
+              data.hasDiscount ||
+              (minBase > minFinal)
+            ),
+          });
         } else {
-          console.warn('⚠️ Unexpected response format, trying fallback');
-          // Fallback for old format
-          setPriceRange(data.priceRange || null);
+          console.warn('Unexpected price range response, using fallback shape');
+          setPriceRange(data?.priceRange || null);
         }
       })
       .catch((err) => {
-        console.error('Error getting price range:', err);
-        // Nếu không tìm thấy lô hàng, không phải là lỗi nghiêm trọng
-        if (err.message.includes('Không tìm thấy lô hàng') || err.message.includes('Không có lô hàng')) {
+        const message = err?.message || 'Không thể lấy giá';
+        console.error('Error getting price range:', message);
+
+        if (message.includes('Không tìm thấy lô hàng') || message.includes('Không có lô hàng')) {
           setError('Sản phẩm chưa có lô hàng nào');
         } else {
-          setError(err.message);
+          setError(message);
         }
+
         setPriceRange(null);
       })
       .finally(() => {

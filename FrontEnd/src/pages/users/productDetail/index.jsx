@@ -128,6 +128,9 @@ const ProductDetail = () => {
                     {/* Hình ảnh sản phẩm */}
                     <div className="col-lg-6 product__detail__pic">
                         <div className="main">
+                            {pct > 0 && (
+                                <span className="discount-pill">-{pct}%</span>
+                            )}
                             <img
                                 src={mainImg || "/assets/images/placeholder-product.png"}
                                 alt={product.name}
@@ -159,11 +162,6 @@ const ProductDetail = () => {
                                 fallbackPrice={product.price}
                                 fallbackDiscount={pct}
                             />
-                            {pct > 0 && (
-                                <div className="discount-badge-detail">
-                                    <span className="discount-tag-large">-{pct}%</span>
-                                </div>
-                            )}
                         </div>
 
                         {/* ✅ Đơn vị tính */}

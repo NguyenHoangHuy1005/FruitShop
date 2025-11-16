@@ -493,34 +493,19 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                             line-height: 1.4;
                         }
 
-                        .price-wrap {
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-
-                            .price-old {
-                                font-size: 14px;
-                                color: #888;
-                                text-decoration: line-through;
-                            }
-
-                            .price-new {
+                        .price-display {
+                            .price-current {
                                 font-size: 16px;
-                                font-weight: 700;
-                                color: #d70018;
+                                color: #059669;
                             }
 
-                            .discount {
-                                font-size: 14px;
-                                font-weight: 600;
-                                color: #d70018;
+                            .price-original {
+                                font-size: 13px;
                             }
-                        }
 
-                        h5 {
-                            font-size: 16px;
-                            font-weight: 700;
-                            color: #d70018;
+                            .price-note {
+                                font-size: 11px;
+                            }
                         }
                     }
 

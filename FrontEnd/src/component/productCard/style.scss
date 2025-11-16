@@ -138,45 +138,22 @@
         font-weight: 700;
         margin-top: 10px;
         }
-        .price-wrap {
-            display: flex;
-            align-items: baseline;
-            justify-content: center;
-            gap: 8px;
+        .price-section {
             margin-top: 10px;
 
-            .price-old {
-                color: #9ca3af;
-                font-size: 14px;
-                text-decoration: line-through;
-                text-decoration-thickness: 1px;
-                text-decoration-color: #9ca3af;
+            .price-display {
+                align-items: center;
+
+                .price-current {
+                    font-size: 18px;
+                    color: map.get(theme.$theme-colors, "normal-text");
+                }
+
+                .price-original {
+                    font-size: 13px;
+                    color: #9ca3af;
+                }
             }
-            .price-new {
-                color: map.get(theme.$theme-colors, "normal-text");
-                font-weight: 700;
-                font-size: 18px;
-            }
-        }
-        .price-block {
-            margin-top: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 28px;
-        }
-        .price-loading {
-            color: #6b7280;
-            font-size: 14px;
-        }
-        .price-unavailable {
-            color: #9ca3af;
-            font-size: 14px;
-        }
-        .price-range, .price-single {
-            color: map.get(theme.$theme-colors, "normal-text");
-            font-weight: 700;
-            font-size: 18px;
         }
         .stock-hint {
             margin-top: 6px;

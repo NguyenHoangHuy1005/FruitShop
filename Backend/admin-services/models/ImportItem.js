@@ -8,9 +8,12 @@ const ImportItemSchema = new mongoose.Schema({
     productImage: { type: String },
     quantity: { type: Number, required: true }, // Số lượng nhập ban đầu (KHÔNG THAY ĐỔI)
     soldQuantity: { type: Number, default: 0 }, // Số lượng đã bán (tăng khi thanh toán thành công)
-    damagedQuantity: { type: Number, default: 0 }, // Số lượng bị trừ/huỷ/hư hỏng
+    damagedQuantity: { type: Number, default: 0 }, // Số lượng bị trả/huỷ/hư hỏng
     unitPrice: { type: Number, required: true },
     sellingPrice: { type: Number }, // Giá bán của lô hàng này (nếu không set thì bằng unitPrice)
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    discountStartDate: { type: Date, default: null },
+    discountEndDate: { type: Date, default: null },
     total: { type: Number, required: true },
     importDate: { type: Date, default: Date.now }, // Ngày nhập hàng
     expiryDate: { type: Date }, // Hạn sử dụng (optional)

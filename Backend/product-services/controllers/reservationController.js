@@ -3,6 +3,7 @@ const ImportItem = require("../../admin-services/models/ImportItem");
 const Product = require("../models/Product");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { computeBatchPricing } = require("../utils/batchPricing");
 
 // Helper function to extract userId from token without requiring auth middleware
 function extractUserId(req) {
@@ -82,8 +83,9 @@ exports.reserveForCart = async (req, res) => {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
 
     // Lấy giá và discount hiện tại
-    const lockedPrice = activeBatch.sellingPrice || activeBatch.unitPrice;
-    const discountPercent = product.discountPercent || 0;
+    const pricing = computeBatchPricing(activeBatch, product);
+    const lockedPrice = pricing.basePrice;
+    const discountPercent = pricing.discountPercent || 0;
 
     if (reservation) {
       // Kiểm tra xem sản phẩm đã có trong reservation chưa
@@ -377,7 +379,7 @@ async function getAvailableBatches(productId) {
       { expiryDate: { $gt: now } }
     ]
   })
-    .select("quantity damagedQuantity unitPrice sellingPrice importDate expiryDate")
+    .select("quantity damagedQuantity unitPrice sellingPrice importDate expiryDate discountPercent discountStartDate discountEndDate")
     .lean();
 
   // Tính số lượng đã bán theo FEFO để xác định lô còn hàng

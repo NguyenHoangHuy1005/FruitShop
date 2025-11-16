@@ -19,6 +19,7 @@ import { ROUTERS } from "../../../../utils/router";
 import { formatter } from "../../../../utils/fomater";
 import { useDispatch, useSelector } from "react-redux";
 import NotificationIcon from "../../../../component/notificationIcon";
+import PriceDisplay from "../../../../component/PriceDisplay";
 
 export const categories = ["Trái cây", "Rau củ", "Giỏ quà tặng", "Hoa trái cây", "Thực phẩm khô"];
 
@@ -521,38 +522,30 @@ const Header = () => {
 
                   {results.length > 0 && (
                     <ul className="search-results">
-                      {results.map((item) => {
-                        const discountPercent = item.discountPercent || 0;
-                        const finalPrice =
-                          discountPercent > 0
-                            ? Math.round(item.price - (item.price * discountPercent) / 100)
-                            : item.price;
-
-                        return (
-                          <li key={item._id}>
-                            <Link
-                              to={`/product/detail/${item._id}`}
-                              onClick={() => {
-                                setResults([]);   // ẩn thanh gợi ý
-                                setKeyword("");   // xóa luôn từ khóa (nếu muốn)
-                              }}
-                            >
-                              <img src={item.image} alt={item.name} />
-                              <div className="info">
-                                <span className="name">{item.name}</span>
-                                {discountPercent > 0 ? (
-                                  <div className="price-wrap">
-                                    <del className="price-old">{formatter(item.price)}</del>
-                                    <div className="price-new">{formatter(finalPrice)}</div>
-                                  </div>
-                                ) : (
-                                  <h5>{formatter(item.price)}</h5>
-                                )}
-                              </div>
-                            </Link>
-                          </li>
-                        );
-                      })}
+                      {results.map((item) => (
+                        <li key={item._id}>
+                          <Link
+                            to={`/product/detail/${item._id}`}
+                            onClick={() => {
+                              setResults([]);
+                              setKeyword("");
+                            }}
+                          >
+                            <img src={item.image} alt={item.name} />
+                            <div className="info">
+                              <span className="name">{item.name}</span>
+                              <PriceDisplay
+                                productId={item._id}
+                                className="search-price"
+                                fallbackPrice={item.price}
+                                fallbackDiscount={item.discountPercent}
+                                showOutOfStock={false}
+                                showLoading={false}
+                              />
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
                     </ul>
 
                   )}

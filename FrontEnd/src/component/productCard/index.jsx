@@ -125,7 +125,7 @@ export const ProductCard = ({
                 <div className="price-section">
                     <PriceDisplay 
                         productId={id} 
-                        className="product-detail-price"
+                        className="product-card-price"
                         fallbackPrice={price}
                         fallbackDiscount={discountPercent}
                     />

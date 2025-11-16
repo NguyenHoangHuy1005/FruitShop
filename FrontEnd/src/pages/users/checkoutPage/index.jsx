@@ -28,6 +28,10 @@ const CheckoutPage = () => {
         (it) => !selectedProductIds || selectedProductIds.includes(getId(it))
     );
 
+    const totalItemsCount = itemsToShow.reduce(
+        (sum, it) => sum + (Number(it.quantity) || 0),
+        0
+    );
     const subtotal = itemsToShow.reduce(
         (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0
     );
@@ -313,7 +317,9 @@ const CheckoutPage = () => {
                     <div className="checkout__panel checkout__panel--summary">
                         <div className="checkout__panel__header">
                             <h2>Đơn hàng</h2>
-                            <span className="checkout__order__count">{itemsToShow.length} sản phẩm</span>
+                            <span className="checkout__order__count">
+                                {(totalItemsCount || itemsToShow.length)} sản phẩm
+                            </span>
                         </div>
                         <div className="checkout__coupon">
                             <div className="checkout__coupon__intro">

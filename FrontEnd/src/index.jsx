@@ -9,6 +9,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import "@fontsource/be-vietnam-pro/400.css";
 import "@fontsource/be-vietnam-pro/500.css";
 import "@fontsource/be-vietnam-pro/700.css";
+import ChatWidget from "./component/chat/ChatWidget";
 
 import SplashScreen from "../src/component/modals/SplashScreen";
 
@@ -16,7 +17,7 @@ import SplashScreen from "../src/component/modals/SplashScreen";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// 🔥 Import API instance để set token
+// dY"? Import API instance ?`??? set token
 import { API } from "./component/redux/apiRequest";
 
 function MainApp() {
@@ -27,12 +28,12 @@ function MainApp() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 🔥 Khôi phục token vào axios header khi app khởi động
+  // dY"? KhA'i ph???c token vA?o axios header khi app kh??Yi ?`??Tng
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (token) {
       API.defaults.headers.common.Authorization = `Bearer ${token}`;
-      console.log("✅ Token restored to axios:", token.substring(0, 20) + "...");
+      console.log("?o. Token restored to axios:", token.substring(0, 20) + "...");
     }
   }, []);
 
@@ -42,7 +43,7 @@ function MainApp() {
         <BrowserRouter>
           {loading ? <SplashScreen /> : <RouterCustom />}
 
-          {/* ✅ Thêm ToastContainer toàn cục */}
+          {/* ?o. ThA?m ToastContainer toA?n c???c */}
           <ToastContainer
             position="top-center"
             autoClose={1000}
@@ -51,8 +52,9 @@ function MainApp() {
             closeOnClick
             pauseOnHover
             draggable
-            theme="colored"   //  nền có màu theo type (warning = vàng, error = đỏ)
+            theme="colored"   //  n???n cA3 mA?u theo type (warning = vA?ng, error = ?`???)
           />
+          <ChatWidget />
         </BrowserRouter>
       </PersistGate>
     </Provider>

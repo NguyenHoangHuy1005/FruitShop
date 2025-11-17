@@ -117,6 +117,7 @@ const reviewRoutes = require('./content-services/routes/review');
 const commentRoutes = require('./content-services/routes/comment');
 // auth-services
 const notificationRoutes = require('./auth-services/routes/notification');
+const chatRoutes = require('./auth-services/routes/chat');
 
 // Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -125,6 +126,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoute);
 app.use('/api/user', userRoute);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // ---- Admin ----
 app.use('/api', uploadRoutes);

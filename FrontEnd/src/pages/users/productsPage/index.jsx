@@ -54,8 +54,6 @@ const ProductsPage = () => {
         };
     }, [products]);
 
-    if (!products || !products.length) return <p>Đang tải sản phẩm...</p>;
-
     // ✅ Hàm chuẩn hóa string (tìm kiếm không dấu, không phân biệt hoa thường)
     const normalizeString = (str) =>
         (str || "")
@@ -115,14 +113,16 @@ const ProductsPage = () => {
     const categoryParam = queryParams.get("category"); // dùng đúng 1 biến
 
     // ✅ Lấy danh sách họ từ sản phẩm đã lọc theo category
-    const availableFamilies = [
-        ...new Set(
-            products
-                .filter((p) => !categoryParam || p.category === categoryParam)
-                .map((p) => p.family)
-                .filter(Boolean) // Loại bỏ giá trị rỗng
-        ),
-    ].sort();
+    const availableFamilies = useMemo(() => {
+        return [
+            ...new Set(
+                products
+                    .filter((p) => !categoryParam || p.category === categoryParam)
+                    .map((p) => p.family)
+                    .filter(Boolean) // Loại bỏ giá trị rỗng
+            ),
+        ].sort();
+    }, [products, categoryParam]);
 
     const filteredProducts = useMemo(() => {
         const snapshotCache = new Map();
@@ -137,8 +137,6 @@ const ProductsPage = () => {
         };
 
         const normalizedSearch = normalizeString(searchTerm);
-
-<<<<<<< HEAD
         const filtered = products.filter((p) => {
             const snapshot = resolveSnapshot(p);
             const finalPrice = snapshot.min;
@@ -150,59 +148,59 @@ const ProductsPage = () => {
             return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
         });
 
-        const sorted = filtered.sort((a, b) => {
-            const snapA = resolveSnapshot(a);
-            const snapB = resolveSnapshot(b);
+const sorted = filtered.sort((a, b) => {
+    const snapA = resolveSnapshot(a) || {};
+    const snapB = resolveSnapshot(b) || {};
 
-            switch (sortType) {
-                case "Trạng thái ưu tiên": {
-                    const statusPriority = {
-                        "Hết hạn": 0,
-                        "Sắp hết hạn": 1,
-                        "Còn hạn": 2,
-                        "Còn hàng": 3,
-                        "Hết hàng": 4,
-                    };
-                    const aPriority = statusPriority[a.status] ?? 5;
-                    const bPriority = statusPriority[b.status] ?? 5;
+    const statusPriority = {
+        "Hết hạn": 0,
+        "Sắp hết hạn": 1,
+        "Còn hạn": 2,
+        "Còn hàng": 3,
+        "Hết hàng": 4,
+    };
 
-                    if (aPriority !== bPriority) {
-                        return aPriority - bPriority;
-                    }
-                    return (a.name || "").localeCompare(b.name || "");
-=======
-        switch (sortType) {
-            case "Mặc định":
-                // Sắp xếp theo trạng thái ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
-                const statusPriority = {
-                    'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
-                    'Sắp hết hạn': 1,  // Cao
-                    'Còn hạn': 2,      // Trung bình
-                    'Còn hàng': 3,     // Thấp (legacy)
-                    'Hết hàng': 4      // Thấp nhất
-                };
-                
-                const aPriority = statusPriority[a.status] ?? 5;
-                const bPriority = statusPriority[b.status] ?? 5;
-                
-                if (aPriority !== bPriority) {
-                    return aPriority - bPriority;
->>>>>>> 306da834eed5c74bb145c81c0b23eca1e26ab33e
-                }
-                case "Mới nhất":
-                    return new Date(b.createdAt) - new Date(a.createdAt);
-                case "Giá thấp đến cao":
-                    return snapA.min - snapB.min;
-                case "Giá cao đến thấp":
-                    return snapB.max - snapA.max;
-                case "Bán chạy nhất":
-                    return (b.purchaseCount || 0) - (a.purchaseCount || 0);
-                case "Đang giảm giá":
-                    return (snapB.hasDiscount ? 1 : 0) - (snapA.hasDiscount ? 1 : 0);
-                default:
-                    return 0;
+    switch (sortType) {
+        case "Trạng thái ưu tiên": {
+            const aPriority = statusPriority[a?.status] ?? 5;
+            const bPriority = statusPriority[b?.status] ?? 5;
+
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority;
             }
-        });
+            return (a?.name || "").localeCompare(b?.name || "");
+        }
+
+        case "Mặc định": {
+            // Mặc định = sắp xếp theo trạng thái ưu tiên, nếu bằng thì theo tên
+            const aPriority = statusPriority[a?.status] ?? 5;
+            const bPriority = statusPriority[b?.status] ?? 5;
+
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority;
+            }
+            return (a?.name || "").localeCompare(b?.name || "");
+        }
+
+        case "Mới nhất":
+            return new Date(b?.createdAt) - new Date(a?.createdAt);
+
+        case "Giá thấp đến cao":
+            return (snapA.min ?? 0) - (snapB.min ?? 0);
+
+        case "Giá cao đến thấp":
+            return (snapB.max ?? 0) - (snapA.max ?? 0);
+
+        case "Bán chạy nhất":
+            return (b?.purchaseCount || 0) - (a?.purchaseCount || 0);
+
+        case "Đang giảm giá":
+            return (snapB.hasDiscount ? 1 : 0) - (snapA.hasDiscount ? 1 : 0);
+
+        default:
+            return 0;
+    }
+});
 
         return sorted;
     }, [
@@ -227,6 +225,18 @@ const ProductsPage = () => {
 
     // ✅ Danh mục cố định là string
     const categories = ["Trái cây", "Rau củ", "Giỏ quà tặng", "Hoa trái cây", "Thực phẩm khô"];
+
+    // Kiểm tra sau khi tất cả hooks đã được gọi
+    if (!products || !products.length) {
+        return (
+            <>
+                <Breadcrumb paths={[{ label: "Danh sách sản phẩm" }]} />
+                <div className="container">
+                    <p>Đang tải sản phẩm...</p>
+                </div>
+            </>
+        );
+    }
 
     return (
         <>

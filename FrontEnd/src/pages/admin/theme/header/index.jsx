@@ -159,8 +159,8 @@ const HeaderAd = ({ children, ...props }) => {
           {open && (
             <div className="dropdown-menu">
               <button className="dropdown-item" onClick={handleLogout}>
-                <RiLogoutBoxFill style={{ marginRight: "8px" }} />
-                Logout
+                <RiLogoutBoxFill style={{ marginRight: "10px" }} />
+                Log out
               </button>
             </div>
           )}

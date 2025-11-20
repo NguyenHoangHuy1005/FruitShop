@@ -672,8 +672,24 @@ authController.googleLogin = async (req, res) => {
 
         let user = await User.findOne({ email });
         if (!user) {
+            // Tạo username duy nhất từ email hoặc googleSub
+            const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
+            let username = baseUsername;
+            let counter = 1;
+            
+            // Kiểm tra username đã tồn tại chưa, nếu có thì thêm số
+            while (await User.findOne({ username })) {
+                username = `${baseUsername}${counter}`;
+                counter++;
+            }
+
+            // Tạo phone giả để tránh duplicate null
+            const fakePhone = `0xxxxxxxxx`;
+
             user = await User.create({
                 email,
+                username, // Thêm username tự động
+                phone: fakePhone, // Thêm phone tự động để tránh null
                 fullname: profile?.name || "",
                 avatar: profile?.picture || "",
                 provider: "google",
@@ -807,8 +823,24 @@ authController.googleVerifyOtp = async (req, res) => {
             });
         }
 
+        // Tạo username duy nhất từ email
+        const baseUsername = pending.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
+        let username = baseUsername;
+        let counter = 1;
+        
+        // Kiểm tra username đã tồn tại chưa, nếu có thì thêm số
+        while (await User.findOne({ username })) {
+            username = `${baseUsername}${counter}`;
+            counter++;
+        }
+
+        // Tạo phone giả từ timestamp để tránh duplicate null
+        const fakePhone = `0${Date.now().toString().slice(-9)}`;
+
         await User.create({
             email: pending.email,
+            username, // Thêm username tự động
+            phone: fakePhone, // Thêm phone tự động để tránh null
             provider: "google",
             isVerified: true,
         });

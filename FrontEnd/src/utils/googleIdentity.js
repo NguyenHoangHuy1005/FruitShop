@@ -105,7 +105,12 @@ export const requestGoogleIdToken = async ({ clientId }) => {
             if (!pendingRequest) return;
             if (notification?.isDismissedMoment?.()) {
                 const reason = explainPromptNotification(notification);
-                pendingRequest.reject(new Error(reason || "Người dùng đã đóng cửa sổ đăng nhập Google."));
+                // Xử lý trường hợp user đóng popup
+                if (reason === "suppressed_by_user" || reason.includes("suppressed")) {
+                    pendingRequest.reject(new Error("Bạn đã hủy đăng nhập Google."));
+                } else {
+                    pendingRequest.reject(new Error(reason || "Người dùng đã đóng cửa sổ đăng nhập Google."));
+                }
                 pendingRequest = null;
             } else if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
                 const reason = explainPromptNotification(notification);

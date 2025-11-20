@@ -22,22 +22,31 @@ const ProductManagerPage = () => {
     const [batchModal, setBatchModal] = useState({ show: false, productId: null, productName: '' });
     const [isLoading, setIsLoading] = useState(true);
     const [openMenuId, setOpenMenuId] = useState(null); // Track which menu is open
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(50); // 🔥 Hiển thị 50 items mỗi trang
     useEffect(() => {
         const initializePage = async () => {
             try {
                 setIsLoading(true);
-                // Đồng bộ tồn kho trước khi load dữ liệu
-                console.log('Đang đồng bộ tồn kho từ các lô hàng...');
-                await syncInventoryFromBatches();
-                // Sau đó load dữ liệu sản phẩm và lô hàng
-                await getAllProduct(dispatch, true);
-                await fetchAllProductBatches();
-                console.log('Tải dữ liệu hoàn tất');
+                const startTime = performance.now();
+                console.log('🚀 Bắt đầu tải dữ liệu sản phẩm...');
+                
+                // 🔥 Load song song tất cả dữ liệu
+                const [productsResult, batchesResult] = await Promise.all([
+                    getAllProduct(dispatch, true).catch(err => {
+                        console.error('Error loading products:', err);
+                        return null;
+                    }),
+                    fetchAllProductBatches().catch(err => {
+                        console.error('Error loading batches:', err);
+                        return {};
+                    })
+                ]);
+                
+                const endTime = performance.now();
+                console.log(`✅ Tải dữ liệu hoàn tất trong ${(endTime - startTime).toFixed(0)}ms`);
             } catch (error) {
                 console.error('Error initializing product manager page:', error);
-                // Vẫn load dữ liệu dù sync thất bại
-                getAllProduct(dispatch, true);
-                fetchAllProductBatches();
             } finally {
                 setIsLoading(false);
             }
@@ -72,54 +81,55 @@ const ProductManagerPage = () => {
                 throw new Error('Không thể lấy thông tin lô hàng');
             }
             const allBatches = await response.json();
-            // Nhóm các lô theo productId và tính tổng hợp
-            const batchesByProduct = {};
-            allBatches.forEach(batch => {
-                if (!batchesByProduct[batch.productId]) {
-                    batchesByProduct[batch.productId] = {
+            
+            // 🔥 Tối ưu: Sử dụng reduce thay vì forEach
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            
+            const batchesByProduct = allBatches.reduce((acc, batch) => {
+                const productId = batch.productId;
+                if (!acc[productId]) {
+                    acc[productId] = {
                         batches: [],
                         totalInStock: 0,
                         totalSold: 0,
                         totalExpiredQuantity: 0,
-                        // include 'empty' for batches with 0 remaining
                         statusCount: { expired: 0, expiring: 0, valid: 0, empty: 0 }
                     };
                 }
-                batchesByProduct[batch.productId].batches.push(batch);
-                // we'll add remaining quantities into totals after determining batch status
-                batchesByProduct[batch.productId].totalSold += batch.soldQuantity || 0;
-                // Tính trạng thái lô (dùng so sánh theo ngày - bỏ phần time để tránh sai lệch timezone)
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const MS_PER_DAY = 24 * 60 * 60 * 1000;
+                
+                // Tính status và daysLeft
                 const remaining = Number(batch.remainingQuantity || 0);
                 let status = 'valid';
                 let daysLeft = null;
-                // If no remaining units, mark as empty (do not count as expired)
+                
                 if (remaining <= 0) {
                     status = 'empty';
                 } else if (batch.expiryDate) {
                     const expiryDate = new Date(batch.expiryDate);
                     const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
                     daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
-                    if (daysLeft <= 0) {
-                        status = 'expired';
-                    } else if (daysLeft <= 7) {
-                        status = 'expiring';
-                    }
+                    if (daysLeft <= 0) status = 'expired';
+                    else if (daysLeft <= 7) status = 'expiring';
                 }
-                // persist computed properties onto the batch object so callers can rely on them
+                
                 batch.status = status;
                 batch.daysLeft = daysLeft;
-
-                batchesByProduct[batch.productId].statusCount[status]++;
+                
+                acc[productId].batches.push(batch);
+                acc[productId].totalSold += batch.soldQuantity || 0;
+                acc[productId].statusCount[status]++;
+                
                 if (status === 'expired') {
-                    batchesByProduct[batch.productId].totalExpiredQuantity += remaining;
+                    acc[productId].totalExpiredQuantity += remaining;
                 } else {
-                    // only count remaining stock for non-expired batches
-                    batchesByProduct[batch.productId].totalInStock += remaining;
+                    acc[productId].totalInStock += remaining;
                 }
-            });
+                
+                return acc;
+            }, {});
+            
             setProductBatches(batchesByProduct);
             return batchesByProduct;
         } catch (error) {
@@ -131,86 +141,76 @@ const ProductManagerPage = () => {
     const fetchAllLatestBatchInfo = async (batchesMap) => {
         try {
             const latestBatchData = {};
-            // Lấy thông tin lô mới nhất cho từng sản phẩm
-            const fetchPromises = products.map(async (product) => {
-                try {
-                    // If we already have batch details fetched on the client, derive latest info locally
-                    const localBatches = (batchesMap && batchesMap[product._id]) ? batchesMap[product._id].batches : productBatches[product._id]?.batches;
-                    if (localBatches && localBatches.length > 0) {
-                        // Find FEFO active batch from local batches
-                        const now = new Date();
-                        // sort similar to backend: expiry soon first, null expiry last, then importDate
-                        const sorted = [...localBatches].sort((a, b) => {
-                            if (!a.expiryDate && !b.expiryDate) return new Date(a.importDate) - new Date(b.importDate);
-                            if (!a.expiryDate) return 1;
-                            if (!b.expiryDate) return -1;
-                            return new Date(a.expiryDate) - new Date(b.expiryDate);
-                        });
-                        // compute total sold based on remaining/sold in local batches if available
-                        // local batch items already include remainingQuantity, soldQuantity and status in our batch-details API
-                        // We'll pick the first non-expired batch with remainingQuantity > 0
-                        let active = null;
-                        for (const b of sorted) {
-                            const remaining = (b.remainingQuantity ?? b.batchQuantity ?? b.quantity ?? 0);
-                            const isExpired = (b.status === 'expired') || false;
-                            if (remaining > 0 && !isExpired) { active = b; break; }
-                        }
-                        if (active) {
-                            // compute summary totals from local data
-                            const totalInStock = (batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].totalInStock ?? 0) : (productBatches[product._id].totalInStock ?? 0);
-                            const totalSold = (batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].totalSold ?? 0) : (productBatches[product._id].totalSold ?? 0);
-                            // determine status using date-only comparison
-                            const now = new Date();
-                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                            const MS_PER_DAY = 24 * 60 * 60 * 1000;
-                            let computedStatus = active.status || 'valid';
-                            if (!active.status && active.expiryDate) {
-                                const expiryDate = new Date(active.expiryDate);
-                                const expiryDay = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), expiryDate.getDate());
-                                const daysLeft = Math.floor((expiryDay - today) / MS_PER_DAY);
-                                if (daysLeft <= 0) computedStatus = 'expired';
-                                else if (daysLeft <= 7) computedStatus = 'expiring';
-                            }
-                            latestBatchData[product._id] = {
-                                latestBatch: {
-                                    _id: active._id,
-                                    productId: active.productId || product._id,
-                                    productName: active.productName || product.name,
-                                    supplierName: active.supplierName || (active.receipt && active.receipt.supplier?.name) || 'Unknown',
-                                    unitPrice: active.unitPrice ?? active.importPrice ?? 0,
-                                    sellingPrice: active.sellingPrice ?? active.unitPrice ?? 0,
-                                    batchQuantity: active.batchQuantity ?? active.quantity ?? 0,
-                                    remainingInThisBatch: active.remainingQuantity ?? 0,
-                                    soldFromThisBatch: active.soldQuantity ?? 0,
-                                    importDate: active.importDate,
-                                    expiryDate: active.expiryDate,
-                                    status: computedStatus
-                                },
-                                summary: {
-                                     totalInStock,
-                                     totalSold,
-                                     totalBatches: ((batchesMap && batchesMap[product._id]) ? (batchesMap[product._id].batches.length) : (productBatches[product._id]?.batches.length || 0))
-                                }
-                            };
-                            return;
-                        }
-                        // if no active found locally, fall through to API call below
+            const productsNeedingAPI = [];
+            
+            // 🔥 Ư u tiên xử lý từ dữ liệu local
+            products.forEach((product) => {
+                const localBatches = (batchesMap && batchesMap[product._id]) ? batchesMap[product._id].batches : productBatches[product._id]?.batches;
+                
+                if (localBatches && localBatches.length > 0) {
+                    // Find FEFO active batch from local batches
+                    const sorted = [...localBatches].sort((a, b) => {
+                        if (!a.expiryDate && !b.expiryDate) return new Date(a.importDate) - new Date(b.importDate);
+                        if (!a.expiryDate) return 1;
+                        if (!b.expiryDate) return -1;
+                        return new Date(a.expiryDate) - new Date(b.expiryDate);
+                    });
+                    
+                    // Pick first non-expired batch with remaining quantity
+                    let active = null;
+                    for (const b of sorted) {
+                        const remaining = (b.remainingQuantity ?? b.batchQuantity ?? b.quantity ?? 0);
+                        const isExpired = (b.status === 'expired') || false;
+                        if (remaining > 0 && !isExpired) { active = b; break; }
                     }
-                    // Fallback: call backend API for authoritative latest-batch info
-                    const data = await getLatestBatchInfo(product._id);
-                    latestBatchData[product._id] = data;
-                } catch (error) {
-                    latestBatchData[product._id] = {
-                        latestBatch: null,
-                        summary: {
-                            totalInStock: product.onHand || 0,
-                            totalSold: 0,
-                            totalBatches: 0
-                        }
-                    };
+                    if (active) {
+                        const batchData = batchesMap?.[product._id] ?? productBatches[product._id];
+                        latestBatchData[product._id] = {
+                            latestBatch: {
+                                _id: active._id,
+                                productId: active.productId || product._id,
+                                productName: active.productName || product.name,
+                                supplierName: active.supplierName || (active.receipt?.supplier?.name) || 'Unknown',
+                                unitPrice: active.unitPrice ?? active.importPrice ?? 0,
+                                sellingPrice: active.sellingPrice ?? active.unitPrice ?? 0,
+                                batchQuantity: active.batchQuantity ?? active.quantity ?? 0,
+                                remainingInThisBatch: active.remainingQuantity ?? 0,
+                                soldFromThisBatch: active.soldQuantity ?? 0,
+                                importDate: active.importDate,
+                                expiryDate: active.expiryDate,
+                                status: active.status || 'valid'
+                            },
+                            summary: {
+                                totalInStock: batchData?.totalInStock ?? 0,
+                                totalSold: batchData?.totalSold ?? 0,
+                                totalBatches: batchData?.batches.length ?? 0
+                            }
+                        };
+                    } else {
+                        productsNeedingAPI.push(product);
+                    }
+                } else {
+                    productsNeedingAPI.push(product);
                 }
             });
-            await Promise.all(fetchPromises);
+            
+            // 🔥 Chỉ gọi API cho những sản phẩm thực sự cần
+            if (productsNeedingAPI.length > 0) {
+                console.log(`📞 Fetching API for ${productsNeedingAPI.length} products...`);
+                const apiPromises = productsNeedingAPI.map(async (product) => {
+                    try {
+                        const data = await getLatestBatchInfo(product._id);
+                        latestBatchData[product._id] = data;
+                    } catch (error) {
+                        latestBatchData[product._id] = {
+                            latestBatch: null,
+                            summary: { totalInStock: product.onHand || 0, totalSold: 0, totalBatches: 0 }
+                        };
+                    }
+                });
+                await Promise.all(apiPromises);
+            }
+            
             setLatestBatchInfo(latestBatchData);
             
         } catch (error) {
@@ -343,6 +343,19 @@ const ProductManagerPage = () => {
         });
         return result;
     }, [products, searchTerm]);
+    
+    // 🔥 Pagination logic
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    const paginatedProducts = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredProducts.slice(startIndex, endIndex);
+    }, [filteredProducts, currentPage, itemsPerPage]);
+    
+    // Reset to page 1 when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
 
     return (
         <div className="container">
@@ -374,6 +387,12 @@ const ProductManagerPage = () => {
                 value={searchTerm}
                 onChange={handleSearch}
                 />
+                <div className="product-stats">
+                    <span>📦 Tổng: <b>{filteredProducts.length}</b> sản phẩm</span>
+                    {filteredProducts.length !== products.length && (
+                        <span>🔍 Đang hiển thị: <b>{paginatedProducts.length}</b></span>
+                    )}
+                </div>
             </div>
             {/* ===== Bảng sản phẩm ===== */}
             <table className="product-table">
@@ -393,8 +412,8 @@ const ProductManagerPage = () => {
                 </tr>
                 </thead>
                 <tbody>
-                {filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => {
+                {paginatedProducts.length > 0 ? (
+                    paginatedProducts.map((product) => {
                     const imgSrc = Array.isArray(product.image)
                         ? product.image[0] || "/placeholder.png"
                         : product.image || "/placeholder.png";
@@ -482,30 +501,7 @@ const ProductManagerPage = () => {
                         <td>
                             <div className="action-cell">
                                 <div className="menu-container">
-                                    <button 
-                                        className="btn-menu"
-                                        onClick={() => setOpenMenuId(openMenuId === product._id ? null : product._id)}
-                                    >
-                                        ⋮
-                                    </button>
-                                    {openMenuId === product._id && (
-                                        <div className="dropdown-menu">
-                                            <button className="menu-item edit" onClick={() => {
-                                                handleEdit(product);
-                                                setOpenMenuId(null);
-                                            }}>
-                                                ✏️ Sửa
-                                            </button>
-                                            <button className="menu-item delete" onClick={() => {
-                                                handleDelete(product._id);
-                                                setOpenMenuId(null);
-                                            }}>
-                                                🗑️ Xóa
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                <button
+                                    <button
                                     className={`btn-toggle ${product.published ? 'Tắt' : 'Bật'}`}
                                     onClick={async () => {
                                     const desired = !product.published;
@@ -590,6 +586,30 @@ const ProductManagerPage = () => {
                             >
                                 {product.published ? 'Tắt' : 'Bật'}
                             </button>
+                                    <button 
+                                        className="btn-menu"
+                                        onClick={() => setOpenMenuId(openMenuId === product._id ? null : product._id)}
+                                    >
+                                        ⋮
+                                    </button>
+                                    {openMenuId === product._id && (
+                                        <div className="dropdown-menu">
+                                            <button className="menu-item edit" onClick={() => {
+                                                handleEdit(product);
+                                                setOpenMenuId(null);
+                                            }}>
+                                                ✏️ Sửa
+                                            </button>
+                                            <button className="menu-item delete" onClick={() => {
+                                                handleDelete(product._id);
+                                                setOpenMenuId(null);
+                                            }}>
+                                                🗑️ Xóa
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            
                             </div>
                         </td>
                         </tr>
@@ -602,6 +622,47 @@ const ProductManagerPage = () => {
                 )}
                 </tbody>
             </table>
+            
+            {/* 🔥 Pagination */}
+            {totalPages > 1 && (
+                <div className="pagination">
+                    <button 
+                        onClick={() => setCurrentPage(1)} 
+                        disabled={currentPage === 1}
+                        className="page-btn"
+                    >
+                        ⏮ Đầu
+                    </button>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                        disabled={currentPage === 1}
+                        className="page-btn"
+                    >
+                        ◀ Trước
+                    </button>
+                    <span className="page-info">
+                        Trang <b>{currentPage}</b> / <b>{totalPages}</b>
+                        <span className="page-range">
+                            ({((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredProducts.length)} / {filteredProducts.length})
+                        </span>
+                    </span>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                        disabled={currentPage === totalPages}
+                        className="page-btn"
+                    >
+                        Sau ▶
+                    </button>
+                    <button 
+                        onClick={() => setCurrentPage(totalPages)} 
+                        disabled={currentPage === totalPages}
+                        className="page-btn"
+                    >
+                        Cuối ⏭
+                    </button>
+                </div>
+            )}
+            
             {/* ===== Modal sản phẩm ===== */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>

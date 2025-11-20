@@ -5,7 +5,7 @@ $main: map.get(theme.$theme-colors, "main");
 
 .expiry-alert-container {
     position: fixed;
-    top: 20px;
+    top: 0px;
     right: 20px;
     z-index: 1000;
     animation: slideInRight 0.5s ease;
@@ -74,7 +74,31 @@ $main: map.get(theme.$theme-colors, "main");
         }
     }
     
-    .expiring-items {
+    .expiring-items-scroll {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+        
+        /* Custom scrollbar */
+        &::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        &::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 3px;
+        }
+        
+        &::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+            
+            &:hover {
+                background: #9ca3af;
+            }
+        }
+        
         .expiry-item {
             display: flex;
             justify-content: space-between;
@@ -125,6 +149,11 @@ $main: map.get(theme.$theme-colors, "main");
                 }
             }
             
+            &:hover {
+                transform: translateX(-4px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+            
             .item-info {
                 flex: 1;
                 
@@ -160,14 +189,6 @@ $main: map.get(theme.$theme-colors, "main");
                     background: rgba(255, 255, 255, 0.8);
                 }
             }
-        }
-        
-        .more-items {
-            text-align: center;
-            color: #6b7280;
-            font-size: 12px;
-            font-style: italic;
-            padding: 8px 0;
         }
     }
     
@@ -224,7 +245,7 @@ $main: map.get(theme.$theme-colors, "main");
 // Responsive
 @media (max-width: 640px) {
     .expiry-alert-container {
-        top: 10px;
+        top: 100px;
         right: 10px;
         left: 10px;
         

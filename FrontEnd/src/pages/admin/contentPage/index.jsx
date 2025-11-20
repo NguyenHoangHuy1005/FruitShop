@@ -606,9 +606,10 @@ const ContentManagementPage = () => {
 
   return (
     <div className="container">
+      <h2>QUẢN LÝ NỘI DUNG</h2>
       <div className="content-management-page">
       <div className="page-header">
-        <h1>Quản lý nội dung</h1>
+        
         {activeTab === "articles" && !showCreateForm && (
           <button
             className="btn-create"

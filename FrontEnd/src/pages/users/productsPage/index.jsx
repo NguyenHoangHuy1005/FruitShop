@@ -16,7 +16,7 @@ const ProductsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
-    const [sortType, setSortType] = useState("Trạng thái ưu tiên");
+    const [sortType, setSortType] = useState("Mặc định");
     const [selectedFamily, setSelectedFamily] = useState(""); // ✅ Lọc theo họ
     const [priceVersion, setPriceVersion] = useState(0);
 
@@ -138,6 +138,7 @@ const ProductsPage = () => {
 
         const normalizedSearch = normalizeString(searchTerm);
 
+<<<<<<< HEAD
         const filtered = products.filter((p) => {
             const snapshot = resolveSnapshot(p);
             const finalPrice = snapshot.min;
@@ -169,6 +170,24 @@ const ProductsPage = () => {
                         return aPriority - bPriority;
                     }
                     return (a.name || "").localeCompare(b.name || "");
+=======
+        switch (sortType) {
+            case "Mặc định":
+                // Sắp xếp theo trạng thái ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
+                const statusPriority = {
+                    'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
+                    'Sắp hết hạn': 1,  // Cao
+                    'Còn hạn': 2,      // Trung bình
+                    'Còn hàng': 3,     // Thấp (legacy)
+                    'Hết hàng': 4      // Thấp nhất
+                };
+                
+                const aPriority = statusPriority[a.status] ?? 5;
+                const bPriority = statusPriority[b.status] ?? 5;
+                
+                if (aPriority !== bPriority) {
+                    return aPriority - bPriority;
+>>>>>>> 306da834eed5c74bb145c81c0b23eca1e26ab33e
                 }
                 case "Mới nhất":
                     return new Date(b.createdAt) - new Date(a.createdAt);
@@ -198,7 +217,7 @@ const ProductsPage = () => {
     ]);
 
     const sorts = [
-        "Trạng thái ưu tiên",
+        "Mặc định",
         "Mới nhất", 
         "Giá thấp đến cao",
         "Giá cao đến thấp",

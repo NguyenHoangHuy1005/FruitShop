@@ -19,4 +19,9 @@ const ImportItemSchema = new mongoose.Schema({
     expiryDate: { type: Date }, // Hạn sử dụng (optional)
 }, { timestamps: true });
 
+// 🔥 Thêm indexes để tối ưu queries
+ImportItemSchema.index({ product: 1, expiryDate: 1, importDate: 1 }); // For FEFO/FIFO queries
+ImportItemSchema.index({ receipt: 1 }); // For receipt lookups
+ImportItemSchema.index({ createdAt: -1 }); // For sorting by creation time
+
 module.exports = mongoose.model("ImportItem", ImportItemSchema);

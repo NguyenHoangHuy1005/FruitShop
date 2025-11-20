@@ -42,6 +42,44 @@ const markHasRefresh = () => { try { localStorage.setItem(HAS_REFRESH_KEY, "1");
 const clearHasRefresh = () => { try { localStorage.removeItem(HAS_REFRESH_KEY); } catch {} };
 const maybeHasRefresh = () => (localStorage.getItem(HAS_REFRESH_KEY) === "1");
 
+const CHAT_SEEN_PREFIXES = ["CHAT_SEEN_USER:", "CHAT_SEEN_ADMIN:"];
+
+const snapshotChatSeenEntries = () => {
+    if (typeof window === "undefined" || typeof localStorage === "undefined") {
+        return [];
+    }
+    try {
+        const entries = [];
+        for (let i = 0; i < localStorage.length; i += 1) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            if (CHAT_SEEN_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+                entries.push([key, localStorage.getItem(key) ?? ""]);
+            }
+        }
+        return entries;
+    } catch (error) {
+        console.warn("Snapshot chat seen entries fail:", error);
+        return [];
+    }
+};
+
+const restoreChatSeenEntries = (entries) => {
+    if (typeof window === "undefined" || typeof localStorage === "undefined") {
+        return;
+    }
+    if (!entries?.length) return;
+    try {
+        entries.forEach(([key, value]) => {
+            if (key && typeof value === "string") {
+                localStorage.setItem(key, value);
+            }
+        });
+    } catch (error) {
+        console.warn("Restore chat seen entries fail:", error);
+    }
+};
+
 // ensureAccessToken
 export const ensureAccessToken = async (maybeToken, dispatch, navigate, isAdmin = false) => {
     if (maybeToken) return maybeToken;
@@ -295,8 +333,10 @@ export const logout = async (dispatch, navigate, accessToken, id) => {
         ok = false;
         console.error("Logout error:", error?.response?.data || error?.message);
     } finally {
-        // Dọn client triệt để
+        // Dọn client triệt để nhưng giữ lại trạng thái đã đọc chat
+        const preservedChatSeen = snapshotChatSeenEntries();
         try { localStorage.clear(); } catch (error) { console.warn("Clear localStorage fail:", error); }
+        restoreChatSeenEntries(preservedChatSeen);
         try { sessionStorage.clear(); } catch (error) { console.warn("Clear sessionStorage fail:", error); }
         clearHasRefresh();
         try {

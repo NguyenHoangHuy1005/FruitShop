@@ -9,6 +9,7 @@ import { MdOutlineEmojiEmotions } from "react-icons/md";
 import ReactionModal from "../../../component/reactionModal";
 import ReactionBar from "../../../component/reactionBar";
 import Breadcrumb from "../theme/breadcrumb";
+import { uploadImageFile, uploadArticleImage } from "../../../component/redux/apiRequest";
 import "./style.scss";
 const ArticleDetailPage = () => {
   const { id } = useParams();
@@ -38,11 +39,21 @@ const ArticleDetailPage = () => {
     category: "",
     image: "",
   });
+  const [imageUpload, setImageUpload] = useState({
+    uploading: false,
+    error: "",
+  });
   const highlightTimeoutRef = useRef(null);
   const lastScrolledCommentRef = useRef(null);
   const highlightStateClearedRef = useRef(false);
   const [stateHighlightTarget, setStateHighlightTarget] = useState(null);
   const commentInputId = "article-comment-input";
+
+  useEffect(() => {
+    if (!isEditing) {
+      setImageUpload({ uploading: false, error: "" });
+    }
+  }, [isEditing]);
 
   const scrollToElement = useCallback((elementId) => {
     if (!elementId) return false;
@@ -569,6 +580,54 @@ const ArticleDetailPage = () => {
     );
   };
 
+  const handleEditImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+
+    if (!/^image\//.test(file.type)) {
+      toast.error("Vui lòng chọn đúng định dạng ảnh");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh tối đa 5MB");
+      return;
+    }
+
+    if (!currentUser?.accessToken) {
+      toast.error("Vui lòng đăng nhập lại để tải ảnh");
+      return;
+    }
+
+    try {
+      setImageUpload({ uploading: true, error: "" });
+      let uploadedUrl = "";
+
+      if (article?._id) {
+        const result = await uploadArticleImage(file, article._id, {
+          token: currentUser?.accessToken,
+        });
+        uploadedUrl = result.image;
+        setArticle((prev) => (prev ? { ...prev, image: uploadedUrl } : prev));
+      } else {
+        uploadedUrl = await uploadImageFile(file, {
+          token: currentUser?.accessToken,
+        });
+      }
+
+      setEditFormData((prev) => ({ ...prev, image: uploadedUrl }));
+      toast.success("Đã cập nhật ảnh bìa");
+      setImageUpload({ uploading: false, error: "" });
+    } catch (error) {
+      console.error("Error uploading cover image:", error);
+      const message =
+        error?.response?.data?.message || error.message || "Upload ảnh thất bại";
+      setImageUpload({ uploading: false, error: message });
+      toast.error(message);
+    }
+  };
+
   const handleEditArticle = async (e) => {
     e.preventDefault();
 
@@ -741,7 +800,10 @@ const ArticleDetailPage = () => {
                 {canEditArticle() && (
                   <button
                     className="btn-edit-article"
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setImageUpload({ uploading: false, error: "" });
+                      setIsEditing(true);
+                    }}
                   >
                     <FaEdit /> Chỉnh sửa bài viết
                   </button>
@@ -804,15 +866,42 @@ const ArticleDetailPage = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>URL Ảnh bìa *</label>
-                  <input
-                    type="url"
-                    value={editFormData.image}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, image: e.target.value })
-                    }
-                    required
-                  />
+                  <label>Ảnh bìa *</label>
+                  <div className="image-input-field">
+                    <input
+                      type="url"
+                      value={editFormData.image}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, image: e.target.value })
+                      }
+                      required
+                    />
+                    <span className="input-divider">hoặc</span>
+                    <label
+                      className={`upload-btn ${
+                        imageUpload.uploading ? "disabled" : ""
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditImageUpload}
+                        disabled={imageUpload.uploading}
+                      />
+                      {imageUpload.uploading ? "Đang tải..." : "Chọn ảnh"}
+                    </label>
+                  </div>
+                  <small className="helper-text">
+                    Dán URL hoặc tải ảnh trực tiếp (tối đa 5MB).
+                  </small>
+                  {imageUpload.error && (
+                    <small className="error-text">{imageUpload.error}</small>
+                  )}
+                  {editFormData.image && (
+                    <div className="image-preview">
+                      <img src={editFormData.image} alt="Xem trước ảnh bìa" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">

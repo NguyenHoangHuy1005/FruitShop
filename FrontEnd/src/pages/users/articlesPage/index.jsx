@@ -7,6 +7,7 @@ import Breadcrumb from "../theme/breadcrumb";
 import { AiOutlineArrowRight, AiOutlinePlus } from "react-icons/ai";
 import { BiTimeFive } from "react-icons/bi";
 import { FaEye } from "react-icons/fa";
+import { uploadImageFile } from "../../../component/redux/apiRequest";
 import "./style.scss";
 
 const ArticlesPage = () => {
@@ -22,6 +23,10 @@ const ArticlesPage = () => {
     excerpt: "",
     category: "Mẹo chọn hàng",
     image: "",
+  });
+  const [imageUpload, setImageUpload] = useState({
+    uploading: false,
+    error: "",
   });
 
   // Dùng Redux thay vì localStorage
@@ -73,6 +78,49 @@ const ArticlesPage = () => {
       }
     } catch (error) {
       console.error("Error fetching my articles:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!showCreateForm) {
+      setImageUpload({ uploading: false, error: "" });
+    }
+  }, [showCreateForm]);
+
+  const handleArticleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+
+    if (!/^image\//.test(file.type)) {
+      toast.error("Vui lòng chọn đúng định dạng ảnh");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh tối đa 5MB");
+      return;
+    }
+
+    if (!currentUser?.accessToken) {
+      toast.error("Vui lòng đăng nhập lại để tải ảnh");
+      return;
+    }
+
+    try {
+      setImageUpload({ uploading: true, error: "" });
+      const uploadedUrl = await uploadImageFile(file, {
+        token: currentUser.accessToken,
+      });
+      setFormData((prev) => ({ ...prev, image: uploadedUrl }));
+      toast.success("Tải ảnh thành công");
+      setImageUpload({ uploading: false, error: "" });
+    } catch (error) {
+      console.error("Error uploading article cover:", error);
+      const message =
+        error?.response?.data?.message || error.message || "Upload ảnh thất bại";
+      setImageUpload({ uploading: false, error: message });
+      toast.error(message);
     }
   };
 
@@ -230,16 +278,43 @@ const ArticlesPage = () => {
               </div>
 
               <div className="form-group">
-                <label>URL Ảnh bìa *</label>
-                <input
-                  type="url"
-                  value={formData.image}
-                  onChange={(e) =>
-                    setFormData({ ...formData, image: e.target.value })
-                  }
-                  placeholder="https://example.com/image.jpg"
-                  required
-                />
+                <label>Ảnh bìa *</label>
+                <div className="image-input-field">
+                  <input
+                    type="url"
+                    value={formData.image}
+                    onChange={(e) =>
+                      setFormData({ ...formData, image: e.target.value })
+                    }
+                    placeholder="https://example.com/image.jpg"
+                    required
+                  />
+                  <span className="input-divider">hoặc</span>
+                  <label
+                    className={`upload-btn ${
+                      imageUpload.uploading ? "disabled" : ""
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleArticleImageUpload}
+                      disabled={imageUpload.uploading}
+                    />
+                    {imageUpload.uploading ? "Đang tải..." : "Chọn ảnh"}
+                  </label>
+                </div>
+                <small className="helper-text">
+                  Dán URL hoặc tải ảnh trực tiếp (tối đa 5MB).
+                </small>
+                {imageUpload.error && (
+                  <small className="error-text">{imageUpload.error}</small>
+                )}
+                {formData.image && (
+                  <div className="image-preview">
+                    <img src={formData.image} alt="Xem trước ảnh bìa" />
+                  </div>
+                )}
               </div>
 
               <div className="form-group">

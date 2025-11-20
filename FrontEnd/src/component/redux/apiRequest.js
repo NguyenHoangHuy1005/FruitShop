@@ -866,6 +866,65 @@ export const uploadAvatar = async (file, dispatch) => {
     return { avatar: cloudinaryUrl, message: "Upload avatar thành công" };
 };
 
+export const uploadImageFile = async (file, { token, dispatch } = {}) => {
+    if (!file) {
+        throw new Error("Không có file ảnh được cung cấp");
+    }
+
+    const ensuredToken = await ensureAccessToken(token, dispatch);
+    if (!ensuredToken) {
+        throw new Error("Không tìm thấy token xác thực");
+    }
+
+    const form = new FormData();
+    form.append("images", file);
+
+    const uploadRes = await API.post("/upload", form, {
+        headers: {
+            Authorization: `Bearer ${ensuredToken}`,
+            "Content-Type": "multipart/form-data",
+        },
+        validateStatus: () => true,
+    });
+
+    if (uploadRes.status !== 200 || !uploadRes.data?.urls?.[0]) {
+        throw new Error(uploadRes.data?.message || "Upload ảnh thất bại");
+    }
+
+    return uploadRes.data.urls[0];
+};
+
+export const uploadArticleImage = async (file, articleId, { token, dispatch } = {}) => {
+    if (!articleId) {
+        throw new Error("Thiếu thông tin bài viết để cập nhật ảnh");
+    }
+
+    const ensuredToken = await ensureAccessToken(token, dispatch);
+    if (!ensuredToken) {
+        throw new Error("Không tìm thấy token xác thực để cập nhật ảnh bài viết");
+    }
+
+    const imageUrl = await uploadImageFile(file, { token: ensuredToken, dispatch });
+
+    const updateRes = await API.patch(
+        `/article/${articleId}`,
+        { image: imageUrl },
+        {
+            headers: { Authorization: `Bearer ${ensuredToken}` },
+            validateStatus: () => true,
+        }
+    );
+
+    if (updateRes.status !== 200) {
+        throw new Error(updateRes.data?.message || `Cập nhật ảnh bài viết thất bại (${updateRes.status})`);
+    }
+
+    return {
+        image: imageUrl,
+        article: updateRes.data?.article || updateRes.data,
+        message: "Đã cập nhật ảnh bài viết",
+    };
+};
 
 export const requestEmailChange = async (newEmail) => {
     const token = await ensureAccessToken(null);

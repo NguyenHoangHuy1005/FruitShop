@@ -13,6 +13,7 @@ import {
   FaEdit,
 } from "react-icons/fa";
 import ReactionBar from "../../../component/reactionBar";
+import { uploadImageFile, uploadArticleImage } from "../../../component/redux/apiRequest";
 import "./style.scss";
 
 const ContentManagementPage = () => {
@@ -58,6 +59,14 @@ const ContentManagementPage = () => {
     category: "Mẹo chọn hàng",
     image: "",
   });
+  const [createImageUpload, setCreateImageUpload] = useState({
+    uploading: false,
+    error: "",
+  });
+  const [editImageUpload, setEditImageUpload] = useState({
+    uploading: false,
+    error: "",
+  });
 
   useEffect(() => {
     if (activeTab === "articles") fetchArticles();
@@ -65,6 +74,18 @@ const ContentManagementPage = () => {
     else if (activeTab === "reviews") fetchReviews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, articleFilter, commentFilter, reviewFilter, reviewSortBy, reviewSortOrder]);
+
+  useEffect(() => {
+    if (!showCreateForm) {
+      setCreateImageUpload({ uploading: false, error: "" });
+    }
+  }, [showCreateForm]);
+
+  useEffect(() => {
+    if (!showEditForm) {
+      setEditImageUpload({ uploading: false, error: "" });
+    }
+  }, [showEditForm]);
 
   const getAuthHeaders = () => {
     console.log("🔑 Admin Token:", accessToken ? "Token exists" : "No token");
@@ -168,6 +189,7 @@ const ContentManagementPage = () => {
       category: article.category || "Mẹo chọn hàng",
       image: article.image || "",
     });
+    setEditImageUpload({ uploading: false, error: "" });
     setShowEditForm(true);
     // scroll to top of page so admin sees the form
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -485,6 +507,57 @@ const ContentManagementPage = () => {
     }
   };
 
+  const handleArticleImageUpload = async (event, mode = "create") => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = "";
+
+    if (!/^image\//.test(file.type)) {
+      toast.error("Vui lòng chọn đúng định dạng ảnh");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh tối đa 5MB");
+      return;
+    }
+
+    if (!accessToken) {
+      toast.error("Vui lòng đăng nhập lại để tải ảnh");
+      return;
+    }
+
+    const setUploadState =
+      mode === "edit" ? setEditImageUpload : setCreateImageUpload;
+    const updateForm =
+      mode === "edit" ? setEditFormData : setFormData;
+
+    try {
+      setUploadState({ uploading: true, error: "" });
+      let uploadedUrl = "";
+
+      if (mode === "edit" && editArticle?._id) {
+        const result = await uploadArticleImage(file, editArticle._id, {
+          token: accessToken,
+        });
+        uploadedUrl = result.image;
+        fetchArticles();
+      } else {
+        uploadedUrl = await uploadImageFile(file, { token: accessToken });
+      }
+
+      updateForm((prev) => ({ ...prev, image: uploadedUrl }));
+      toast.success("Tải ảnh thành công");
+      setUploadState({ uploading: false, error: "" });
+    } catch (error) {
+      console.error("Error uploading article image:", error);
+      const message =
+        error?.response?.data?.message || error.message || "Upload ảnh thất bại";
+      setUploadState({ uploading: false, error: message });
+      toast.error(message);
+    }
+  };
+
   const handleSubmitArticle = async (e) => {
     e.preventDefault();
 
@@ -580,16 +653,43 @@ const ContentManagementPage = () => {
             </div>
 
             <div className="form-group">
-              <label>URL Ảnh bìa *</label>
-              <input
-                type="url"
-                value={formData.image}
-                onChange={(e) =>
-                  setFormData({ ...formData, image: e.target.value })
-                }
-                placeholder="https://example.com/image.jpg"
-                required
-              />
+              <label>Ảnh bìa *</label>
+              <div className="image-input-field">
+                <input
+                  type="url"
+                  value={formData.image}
+                  onChange={(e) =>
+                    setFormData({ ...formData, image: e.target.value })
+                  }
+                  placeholder="https://example.com/image.jpg"
+                  required
+                />
+                <span className="input-divider">hoặc</span>
+                <label
+                  className={`upload-btn ${
+                    createImageUpload.uploading ? "disabled" : ""
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleArticleImageUpload(e, "create")}
+                    disabled={createImageUpload.uploading}
+                  />
+                  {createImageUpload.uploading ? "Đang tải..." : "Chọn ảnh"}
+                </label>
+              </div>
+              <small className="helper-text">
+                Dán URL hoặc tải ảnh trực tiếp (tối đa 5MB).
+              </small>
+              {createImageUpload.error && (
+                <small className="error-text">{createImageUpload.error}</small>
+              )}
+              {formData.image && (
+                <div className="image-preview">
+                  <img src={formData.image} alt="Xem trước ảnh bìa" />
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -672,13 +772,40 @@ const ContentManagementPage = () => {
               </div>
 
               <div className="form-group">
-                <label>URL Ảnh bìa</label>
-                <input
-                  type="url"
-                  value={editFormData.image}
-                  onChange={(e) => setEditFormData({ ...editFormData, image: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                />
+                <label>Ảnh bìa</label>
+                <div className="image-input-field">
+                  <input
+                    type="url"
+                    value={editFormData.image}
+                    onChange={(e) => setEditFormData({ ...editFormData, image: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <span className="input-divider">hoặc</span>
+                  <label
+                    className={`upload-btn ${
+                      editImageUpload.uploading ? "disabled" : ""
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleArticleImageUpload(e, "edit")}
+                      disabled={editImageUpload.uploading}
+                    />
+                    {editImageUpload.uploading ? "Đang tải..." : "Chọn ảnh"}
+                  </label>
+                </div>
+                <small className="helper-text">
+                  Dán URL hoặc tải ảnh trực tiếp (tối đa 5MB).
+                </small>
+                {editImageUpload.error && (
+                  <small className="error-text">{editImageUpload.error}</small>
+                )}
+                {editFormData.image && (
+                  <div className="image-preview">
+                    <img src={editFormData.image} alt="Xem trước ảnh bìa" />
+                  </div>
+                )}
               </div>
 
               <div className="form-group">

@@ -145,6 +145,7 @@ exports.addItem = async (req, res) => {
     const { productId, quantity } = req.body || {};
     const qty = Math.max(1, Number(quantity) || 1);
 
+    let finalQuantity = qty;
     // 🔥 Tạo reservation trước
     const reservationResult = await createCartReservation(req, productId, qty);
     if (!reservationResult.success) {
@@ -191,6 +192,7 @@ exports.addItem = async (req, res) => {
 
     recalc(cart);
     await cart.save();
+    await syncReservationQuantity(req, productId, finalQuantity);
     return res.json(cart);
 };
 
@@ -214,6 +216,7 @@ exports.updateItem = async (req, res) => {
 
     if (qty === 0) {
         cart.items = cart.items.filter((i) => i !== item);
+        finalQuantity = 0;
     } else {
         // ✅ giá mới nhất
         const product = await Product.findById(productId).lean();
@@ -247,11 +250,14 @@ exports.updateItem = async (req, res) => {
         if (qty > availableStock) {
             if (availableStock === 0) {
                 cart.items = cart.items.filter((i) => i !== item); // hết hàng => xóa khỏi giỏ
+                finalQuantity = 0;
             } else {
                 item.quantity = availableStock; // hạ về mức tồn
+                finalQuantity = availableStock;
             }
         } else {
             item.quantity = qty;
+            finalQuantity = qty;
         }
     }
 
@@ -393,14 +399,22 @@ async function createCartReservation(req, productId, quantity) {
                 item => item.product.toString() === productId.toString()
             );
 
-            if (existingItemIndex >= 0) {
-                const existing = reservation.items[existingItemIndex];
-                existing.quantity += quantity;
-                existing.lockedPrice = lockedPrice;
-                existing.discountPercent = discountPercent;
-                if (activeBatch) {
-                    existing.batchId = activeBatch._id;
-                }
+            if (existingItemIndex >= 0) {
+
+                const existing = reservation.items[existingItemIndex];
+
+                existing.quantity += quantity;
+
+                existing.lockedPrice = lockedPrice;
+
+                existing.discountPercent = discountPercent;
+
+                if (activeBatch) {
+
+                    existing.batchId = activeBatch._id;
+
+                }
+
             } else {
                 reservation.items.push({
                     product: productId,
@@ -446,3 +460,42 @@ async function createCartReservation(req, productId, quantity) {
 }
 
 exports.createCartReservation = createCartReservation;
+
+
+async function syncReservationQuantity(req, productId, quantity) {
+    try {
+        const userId = getUserIdFromToken(req);
+        const sessionKey = getSessionKey(req);
+
+        const reservation = await Reservation.findOne({
+            $or: [
+                { user: userId },
+                { sessionKey: sessionKey },
+            ],
+            type: "cart",
+            status: "active",
+        });
+
+        if (!reservation) return;
+
+        const idx = reservation.items.findIndex(
+            (item) => item.product.toString() === String(productId)
+        );
+        if (idx === -1) return;
+
+        if (quantity <= 0) {
+            reservation.items.splice(idx, 1);
+            if (reservation.items.length === 0) {
+                reservation.status = "released";
+                reservation.releasedAt = new Date();
+            }
+        } else {
+            reservation.items[idx].quantity = quantity;
+            reservation.items[idx].updatedAt = new Date();
+        }
+
+        await reservation.save();
+    } catch (error) {
+        console.error("syncReservationQuantity error:", error);
+    }
+}

@@ -2,7 +2,6 @@ import { memo, useCallback, useMemo, useState } from "react";
 import "./style.scss";
 import { generatePath, Link } from "react-router-dom";
 import { AiOutlineEye, AiOutlineShoppingCart } from "react-icons/ai";
-import { formatter } from "../../utils/fomater";
 import { ROUTERS } from "../../utils/router";
 import { usePriceRange } from "../../hooks/usePriceRange";
 import PriceDisplay from "../../component/PriceDisplay";
@@ -16,10 +15,10 @@ export const ProductCard = ({
     price = 0,
     category,
     image,
-    status,                 // "Còn hàng" | "Hết hàng" (BE) hoặc "out_of_stock"
-    discountPercent = 0,    // từ BE (0..100)
-    onHand = 0,             // ✅ THÊM: tồn kho
-    unit = "sp",            // ✅ Đơn vị tính (kg, cái, bó, sp...)
+    status,
+    discountPercent = 0,
+    onHand = 0,
+    unit = "sp",
 }) => {
     const dispatch = useDispatch();
     const detailPath = id ? generatePath(ROUTERS.USER.PRODUCT, { id }) : null;
@@ -29,18 +28,17 @@ export const ProductCard = ({
         return first || "/assets/images/placeholder-product.png";
     }, [image]);
 
-    // Use price coming from batches (sellingPrice / unitPrice)
-    const { priceRange, loading: priceLoading } = usePriceRange(id);
+    const { priceRange, loading: priceLoading, error: priceError } = usePriceRange(id);
 
-    // ✅ Chuẩn hóa trạng thái hết hàng và hết hạn
-    const isOut = Number(onHand || 0) <= 0;
+    const derivedBatchSoldOut = !priceLoading && (
+        (priceRange && priceRange.hasAvailableBatch === false) ||
+        (!priceRange && priceError?.toLowerCase?.().includes("lô hàng"))
+    );
+
+    const isOut = Number(onHand || 0) <= 0 || derivedBatchSoldOut;
     const isExpired = status === "Hết hạn";
     const isExpiring = status === "Sắp hết hạn";
-
-    // Không thể mua nếu hết hàng hoặc hết hạn
     const cannotBuy = isOut || isExpired;
-
-
 
     const [busy, setBusy] = useState(false);
 
@@ -70,12 +68,10 @@ export const ProductCard = ({
                     }}
                 />
 
-                {/* Huy hiệu giảm giá */}
                 {Number(discountPercent) > 0 && (
                     <span className="badge badge--discount">-{Math.floor(discountPercent)}%</span>
                 )}
 
-                {/* Huy hiệu trạng thái */}
                 {isExpired && <span className="badge badge--expired">Hết hạn</span>}
                 {!isExpired && isExpiring && <span className="badge badge--expiring">Sắp hết hạn</span>}
                 {!isExpired && !isExpiring && isOut && <span className="badge badge--soldout">Hết hàng</span>}
@@ -87,7 +83,7 @@ export const ProductCard = ({
                                 <AiOutlineEye />
                             </Link>
                         ) : (
-                            <span aria-hidden="true">
+                            <span className="icon-btn is-disabled" aria-hidden="true">
                                 <AiOutlineEye />
                             </span>
                         )}
@@ -95,7 +91,7 @@ export const ProductCard = ({
                     <li>
                         <button
                             type="button"
-                            className="icon-btn"
+                            className={`icon-btn${cannotBuy ? " is-disabled" : ""}`}
                             aria-label={
                                 isExpired ? "Sản phẩm đã hết hạn" :
                                     isOut ? "Sản phẩm đã hết hàng" :
@@ -121,26 +117,17 @@ export const ProductCard = ({
                     {detailPath ? <Link to={detailPath}>{name}</Link> : <span>{name}</span>}
                 </h6>
 
-                {/* Giá: ưu tiên từ lô hàng, fallback về giá Product */}
                 <div className="price-section">
-                    <PriceDisplay 
-                        productId={id} 
+                    <PriceDisplay
+                        productId={id}
                         className="product-card-price"
                         fallbackPrice={price}
                         fallbackDiscount={discountPercent}
                     />
                 </div>
-                
-                    {/* ✅ Hiện tồn khi <= 10 */}
-                    {/* {Number(onHand) > 0 && Number(onHand) <= 10 && (
-                        <div className="stock-hint low">
-                            Chỉ còn {Number(onHand)} {(unit || "").toLowerCase().trim() === "kg" ? "kg" : "sp"}
-                        </div>
-                    )} */}
-                </div>
-
             </div>
-            );
+        </div>
+    );
 };
 
-            export default memo(ProductCard);
+export default memo(ProductCard);

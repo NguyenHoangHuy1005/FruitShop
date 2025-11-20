@@ -24,6 +24,15 @@ const CheckoutPage = () => {
         ? String(it.product._id || it.product.id || it.product)
         : String(it.product);
 
+    useEffect(() => {
+        if (user) return;
+        toast.info("Vui lòng đăng nhập để tiếp tục thanh toán.");
+        navigate(ROUTERS.ADMIN.LOGIN, {
+            replace: true,
+            state: { from: ROUTERS.USER.CHECKOUT },
+        });
+    }, [user, navigate]);
+
     const itemsToShow = (cart?.items || []).filter(
         (it) => !selectedProductIds || selectedProductIds.includes(getId(it))
     );
@@ -55,7 +64,8 @@ const CheckoutPage = () => {
     const [discountValue, setDiscountValue] = useState(Number(derivedDiscount) || 0);
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [couponInsights, setCouponInsights] = useState([]);
-    const [checkoutReservationId, setCheckoutReservationId] = useState(null);
+    const initialReservationId = location.state?.checkoutReservationId || null;
+    const [checkoutReservationId, setCheckoutReservationId] = useState(initialReservationId);
 
     useEffect(() => {
         setForm(repeatFormDefaults);
@@ -64,6 +74,8 @@ const CheckoutPage = () => {
 
     // Confirm checkout reservation
     useEffect(() => {
+        if (!user) return;
+        if (checkoutReservationId) return;
         if (!selectedProductIds || selectedProductIds.length === 0) return;
         
         const confirmReservation = async () => {
@@ -75,12 +87,13 @@ const CheckoutPage = () => {
                 }
             } catch (error) {
                 console.error('Failed to confirm checkout reservation:', error);
-                toast.warn('Không thể giữ giá sản phẩm. Vui lòng thử lại.');
+                toast.warn(error?.message || 'Không thể giữ giá sản phẩm. Vui lòng thử lại.');
+                navigate(ROUTERS.USER.SHOPPINGCART, { replace: true });
             }
         };
         
         confirmReservation();
-    }, [selectedProductIds]);
+    }, [selectedProductIds, user, checkoutReservationId, navigate]);
 
     useEffect(() => {
         const normalized = (derivedCoupon || "").trim();
@@ -224,8 +237,15 @@ const CheckoutPage = () => {
             alert("Chưa có sản phẩm nào để đặt hàng.");
             return;
         }
+        if (!user) {
+            toast.warn("Vui lòng đăng nhập để tiếp tục thanh toán.");
+            navigate(ROUTERS.ADMIN.LOGIN, {
+                state: { from: ROUTERS.USER.CHECKOUT },
+            });
+            return;
+        }
         const result = await placeOrder(
-            { ...form, couponCode: couponCode?.trim(), selectedProductIds, paymentMethod },
+            { ...form, couponCode: couponCode?.trim(), selectedProductIds, paymentMethod, checkoutReservationId },
             user?.accessToken,
             dispatch
         );
@@ -239,6 +259,10 @@ const CheckoutPage = () => {
             navigate(ROUTERS.USER.ORDERS, { replace: true });
         }
     };
+
+    if (!user) {
+        return null;
+    }
 
     return (
         <>

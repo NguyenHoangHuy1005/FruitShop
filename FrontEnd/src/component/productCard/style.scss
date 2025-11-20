@@ -99,9 +99,11 @@
                     }
                 }
 
-                .icon-btn[disabled] {
+                .icon-btn[disabled],
+                .icon-btn.is-disabled {
                     opacity: 0.5;
                     pointer-events: none;
+                    cursor: not-allowed;
                 }
 
                 svg {

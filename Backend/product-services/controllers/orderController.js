@@ -210,7 +210,7 @@ exports.createOrder = async (req, res) => {
             } catch (_) { }
         }
 
-        const { name, fullName, address, phone, email, note, couponCode } = req.body || {};
+        const { name, fullName, address, phone, email, note, couponCode, checkoutReservationId } = req.body || {};
         const paymentMethodRaw = (req.body?.paymentMethod || req.body?.payment || "").toString().toUpperCase();
         const allowedMethods = ["COD", "BANK", "VNPAY"];
         const paymentMethod = allowedMethods.includes(paymentMethodRaw) ? paymentMethodRaw : "COD";
@@ -248,14 +248,30 @@ exports.createOrder = async (req, res) => {
 
         // ===== 1) Tìm hoặc tạo checkout reservation =====
         const sessionKey = getSessionKey(req);
-        checkoutReservation = await Reservation.findOne({
-            $or: [
-                { user: userId },
-                { sessionKey: sessionKey }
-            ],
-            type: "checkout",
-            status: "active"
-        });
+
+        if (checkoutReservationId) {
+            const ownerFilter = userId ? { user: userId } : { sessionKey };
+            checkoutReservation = await Reservation.findOne({
+                _id: checkoutReservationId,
+                type: "checkout",
+                status: "active",
+                ...ownerFilter,
+            });
+            if (!checkoutReservation) {
+                console.warn("⚠️ Provided checkoutReservationId is invalid or expired:", checkoutReservationId);
+            }
+        }
+
+        if (!checkoutReservation) {
+            checkoutReservation = await Reservation.findOne({
+                $or: [
+                    { user: userId },
+                    { sessionKey: sessionKey }
+                ],
+                type: "checkout",
+                status: "active"
+            });
+        }
 
         // Nếu không có checkout reservation, tạo mới từ cart
         if (!checkoutReservation) {

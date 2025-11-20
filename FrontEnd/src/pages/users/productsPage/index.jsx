@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import { useLocation, Link } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
@@ -6,6 +6,7 @@ import { ROUTERS } from "../../../utils/router";
 import { useDispatch, useSelector } from "react-redux";
 import { ProductCard } from "../../../component/productCard";
 import { getAllProduct } from "../../../component/redux/apiRequest";
+import { peekPriceRange, prefetchPriceRange } from "../../../hooks/usePriceRange";
 
 const ProductsPage = () => {
     const dispatch = useDispatch();
@@ -17,6 +18,7 @@ const ProductsPage = () => {
     const [maxPrice, setMaxPrice] = useState("");
     const [sortType, setSortType] = useState("Trạng thái ưu tiên");
     const [selectedFamily, setSelectedFamily] = useState(""); // ✅ Lọc theo họ
+    const [priceVersion, setPriceVersion] = useState(0);
 
     // Lấy sản phẩm từ Redux
     const products = useSelector(
@@ -28,11 +30,35 @@ const ProductsPage = () => {
         getAllProduct(dispatch);
     }, [dispatch]);
 
+    // Prefetch price range data for visible products so filters can use it
+    useEffect(() => {
+        let mounted = true;
+        const ids = products
+            .map((p) => p?._id)
+            .filter(Boolean)
+            .slice(0, 60);
+
+        ids.forEach((productId) => {
+            if (peekPriceRange(productId) !== undefined) return;
+            prefetchPriceRange(productId)
+                .then(() => {
+                    if (mounted) {
+                        setPriceVersion((v) => v + 1);
+                    }
+                })
+                .catch(() => {});
+        });
+
+        return () => {
+            mounted = false;
+        };
+    }, [products]);
+
     if (!products || !products.length) return <p>Đang tải sản phẩm...</p>;
 
     // ✅ Hàm chuẩn hóa string (tìm kiếm không dấu, không phân biệt hoa thường)
     const normalizeString = (str) =>
-        str
+        (str || "")
             .toLowerCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
@@ -41,6 +67,47 @@ const ProductsPage = () => {
     const getFinalPrice = (p) => {
         const pct = Number(p.discountPercent) || 0;
         return Math.max(0, Math.round((p.price || 0) * (100 - pct) / 100));
+    };
+
+    const getPriceSnapshot = (product) => {
+        const fallbackPrice = getFinalPrice(product);
+        const cached = peekPriceRange(product?._id);
+
+        if (cached === undefined) {
+            return {
+                min: fallbackPrice,
+                max: fallbackPrice,
+                hasDiscount: Number(product.discountPercent) > 0,
+                hasAvailableBatch: Number(product.onHand || 0) > 0,
+            };
+        }
+
+        if (cached === null) {
+            return {
+                min: fallbackPrice,
+                max: fallbackPrice,
+                hasDiscount: Number(product.discountPercent) > 0,
+                hasAvailableBatch: false,
+            };
+        }
+
+        const entries = Array.isArray(cached.priceEntries) ? cached.priceEntries : [];
+        const minFinal = Number.isFinite(cached.minFinal) ? cached.minFinal : fallbackPrice;
+        const maxFinal = Number.isFinite(cached.maxFinal) ? cached.maxFinal : minFinal;
+        const hasBatchDiscount =
+            cached.hasDiscount ||
+            entries.some((entry) => Number(entry?.discountPercent) > 0);
+        const hasAvailableBatch =
+            cached.hasAvailableBatch !== false
+                ? Boolean(cached.hasAvailableBatch)
+                : entries.some((entry) => Number(entry?.remainingQuantity || 0) > 0);
+
+        return {
+            min: minFinal,
+            max: maxFinal,
+            hasDiscount: hasBatchDiscount || Number(product.discountPercent) > 0,
+            hasAvailableBatch,
+        };
     };
 
     // ✅ Lấy query category từ URL
@@ -57,57 +124,78 @@ const ProductsPage = () => {
         ),
     ].sort();
 
-    // Filter theo tìm kiếm, giá, danh mục, họ
-    let filteredProducts = products.filter((p) => {
-        const finalPrice = getFinalPrice(p);
-        const matchesSearch = normalizeString(p.name).includes(normalizeString(searchTerm));
-        const matchesMin = minPrice === "" || finalPrice >= Number(minPrice);
-        const matchesMax = maxPrice === "" || finalPrice <= Number(maxPrice);
-        const matchesCategory = !categoryParam || p.category === categoryParam;
-        const matchesFamily = !selectedFamily || p.family === selectedFamily; // ✅ Lọc họ
-        return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
-    });
+    const filteredProducts = useMemo(() => {
+        const snapshotCache = new Map();
+        const resolveSnapshot = (product) => {
+            const key = product?._id || product?.id;
+            if (snapshotCache.has(key)) {
+                return snapshotCache.get(key);
+            }
+            const snapshot = getPriceSnapshot(product);
+            snapshotCache.set(key, snapshot);
+            return snapshot;
+        };
 
-    // Sắp xếp sản phẩm
-    filteredProducts = filteredProducts.sort((a, b) => {
-        const priceA = getFinalPrice(a);
-        const priceB = getFinalPrice(b);
+        const normalizedSearch = normalizeString(searchTerm);
 
-        switch (sortType) {
-            case "Trạng thái ưu tiên":
-                // Sắp xếp theo trạng thái ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
-                const statusPriority = {
-                    'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
-                    'Sắp hết hạn': 1,  // Cao
-                    'Còn hạn': 2,      // Trung bình
-                    'Còn hàng': 3,     // Thấp (legacy)
-                    'Hết hàng': 4      // Thấp nhất
-                };
-                
-                const aPriority = statusPriority[a.status] ?? 5;
-                const bPriority = statusPriority[b.status] ?? 5;
-                
-                if (aPriority !== bPriority) {
-                    return aPriority - bPriority;
+        const filtered = products.filter((p) => {
+            const snapshot = resolveSnapshot(p);
+            const finalPrice = snapshot.min;
+            const matchesSearch = normalizeString(p.name).includes(normalizedSearch);
+            const matchesMin = minPrice === "" || finalPrice >= Number(minPrice);
+            const matchesMax = maxPrice === "" || finalPrice <= Number(maxPrice);
+            const matchesCategory = !categoryParam || p.category === categoryParam;
+            const matchesFamily = !selectedFamily || p.family === selectedFamily;
+            return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
+        });
+
+        const sorted = filtered.sort((a, b) => {
+            const snapA = resolveSnapshot(a);
+            const snapB = resolveSnapshot(b);
+
+            switch (sortType) {
+                case "Trạng thái ưu tiên": {
+                    const statusPriority = {
+                        "Hết hạn": 0,
+                        "Sắp hết hạn": 1,
+                        "Còn hạn": 2,
+                        "Còn hàng": 3,
+                        "Hết hàng": 4,
+                    };
+                    const aPriority = statusPriority[a.status] ?? 5;
+                    const bPriority = statusPriority[b.status] ?? 5;
+
+                    if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                    }
+                    return (a.name || "").localeCompare(b.name || "");
                 }
-                
-                // Nếu cùng trạng thái, sắp xếp theo tên
-                return (a.name || "").localeCompare(b.name || "");
-                
-            case "Mới nhất":
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            case "Giá thấp đến cao":
-                return priceA - priceB;
-            case "Giá cao đến thấp":
-                return priceB - priceA;
-            case "Bán chạy nhất":
-                return (b.purchaseCount || 0) - (a.purchaseCount || 0);
-            case "Đang giảm giá":
-                return (Number(b.discountPercent) || 0) - (Number(a.discountPercent) || 0);
-            default:
-                return 0;
-        }
-    });
+                case "Mới nhất":
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                case "Giá thấp đến cao":
+                    return snapA.min - snapB.min;
+                case "Giá cao đến thấp":
+                    return snapB.max - snapA.max;
+                case "Bán chạy nhất":
+                    return (b.purchaseCount || 0) - (a.purchaseCount || 0);
+                case "Đang giảm giá":
+                    return (snapB.hasDiscount ? 1 : 0) - (snapA.hasDiscount ? 1 : 0);
+                default:
+                    return 0;
+            }
+        });
+
+        return sorted;
+    }, [
+        products,
+        searchTerm,
+        minPrice,
+        maxPrice,
+        categoryParam,
+        selectedFamily,
+        sortType,
+        priceVersion,
+    ]);
 
     const sorts = [
         "Trạng thái ưu tiên",

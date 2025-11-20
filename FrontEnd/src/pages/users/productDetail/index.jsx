@@ -1,6 +1,6 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import "./style.scss";
 import {
@@ -23,9 +23,11 @@ const ProductDetail = () => {
     const dispatch = useDispatch();
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const products = useSelector((s) => s.product.products?.allProducts || []);
     const product = products.find((p) => String(p._id) === String(id));
+    const currentUser = useSelector((s) => s.auth?.login?.currentUser);
 
     // state viewCount phải fetch lại nếu không dữ liệu sẽ bị cũ vì không thêm vào apirequest
     // lượt mua lấy từ redux vì đã thêm vào hàm tạo order nên sẽ được cập nhật, dữ liệu luôn mới
@@ -37,6 +39,49 @@ const ProductDetail = () => {
     const [showQuantityModal, setShowQuantityModal] = useState(false);
     const [isBuyNowMode, setIsBuyNowMode] = useState(false);
     const [selectedQuantity, setSelectedQuantity] = useState(1);
+
+    const derivedBatchState = useMemo(() => {
+        const batches = Array.isArray(batchInfo?.batches) ? batchInfo.batches : [];
+        const summary = batchInfo?.summary || {};
+        const availableBatches = batches.filter((batch) => Number(batch?.remainingQuantity) > 0);
+        const summaryActiveId = summary.activeBatchId;
+        let active = null;
+
+        if (summaryActiveId) {
+            active =
+                availableBatches.find(
+                    (batch) => String(batch._id) === String(summaryActiveId)
+                ) || null;
+        }
+        if (!active) {
+            active = availableBatches[0] || null;
+        }
+
+        const quantity = Number(active?.remainingQuantity) || 0;
+        const hasResolvedBatchInfo = !loadingBatches && Array.isArray(batchInfo?.batches);
+        const hasStockFromBatch = Boolean(active && quantity > 0);
+        const fallbackStock =
+            hasResolvedBatchInfo
+                ? false
+                : Boolean(
+                      (Number(product?.onHand) || 0) > 0 ||
+                          (product?.status || "").includes("Còn hàng")
+                  );
+        const hasStock = hasResolvedBatchInfo ? hasStockFromBatch : fallbackStock;
+        const isOutOfStock = hasResolvedBatchInfo ? !hasStockFromBatch : false;
+        const derivedStatus = isOutOfStock
+            ? "Hết hàng"
+            : product?.status || (hasStock ? "Còn hàng" : "Không rõ");
+
+        return {
+            activeBatch: active,
+            activeBatchQuantity: quantity,
+            availableBatchCount: availableBatches.length,
+            hasStock,
+            isOutOfStock,
+            derivedStatus,
+        };
+    }, [batchInfo, loadingBatches, product?.onHand, product?.status]);
 
     // Refresh product list on mount / id change so `product.onHand` is up-to-date
     useEffect(() => {
@@ -99,21 +144,85 @@ const ProductDetail = () => {
         .slice(0, 8);
 
     // Tổng số lượng tồn tính từ batch info
-    const totalInStock = batchInfo?.summary?.totalInStock || 0;
-    
-    // Determine if we should show quantity buttons
-    // Show buttons only if there's exactly 1 batch
-    const totalBatches = batchInfo?.summary?.totalBatches || 0;
-    const showQuantityButtons = totalBatches === 1;
-    
-    // Get active batch info (the first batch with remaining quantity)
-    const activeBatch = batchInfo?.batches?.find(b => b.remainingQuantity > 0);
-    const activeBatchQuantity = activeBatch?.remainingQuantity || 0;
-    
-    // Fallback: if no batch info loaded, use product.onHand or status
-    const hasStock = totalBatches > 0 
-        ? activeBatchQuantity > 0 
-        : (product?.onHand > 0 || product?.status?.includes("Còn hàng"));
+    const {
+        activeBatch,
+        activeBatchQuantity,
+        availableBatchCount,
+        hasStock,
+        isOutOfStock,
+        derivedStatus,
+    } = derivedBatchState;
+    const totalBatches =
+        batchInfo?.summary?.totalBatches ?? availableBatchCount ?? 0;
+    const showQuantityButtons = totalBatches === 1 && hasStock && !isOutOfStock;
+    const disablePurchase = !hasStock || isOutOfStock;
+    const normalizedStatus = (derivedStatus || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    const statusClassName = isOutOfStock
+        ? "out-stock"
+        : normalizedStatus.includes("con hang")
+        ? "in-stock"
+        : normalizedStatus.includes("sap")
+        ? "low-stock"
+        : "";
+    const maxSelectableQuantity = Math.max(1, activeBatchQuantity || 0);
+
+    useEffect(() => {
+        setSelectedQuantity((prev) => {
+            if (prev > maxSelectableQuantity) return maxSelectableQuantity;
+            if (prev < 1) return 1;
+            return prev;
+        });
+    }, [maxSelectableQuantity]);
+
+    const normalizeQuantity = (value) => Math.max(1, Number(value) || 1);
+
+    const ensurePurchasableQuantity = (value) => {
+        if (disablePurchase) {
+            alert("Sản phẩm hiện đã hết hàng!");
+            return null;
+        }
+
+        const qty = normalizeQuantity(value);
+        if (activeBatch && activeBatchQuantity > 0 && qty > activeBatchQuantity) {
+            alert(
+                `Lô hiện tại chỉ còn ${activeBatchQuantity} ${
+                    product.unit || "kg"
+                }. Vui lòng giảm số lượng!`
+            );
+            return null;
+        }
+        return qty;
+    };
+
+    const handleAddToCartAction = async (value) => {
+        const qty = ensurePurchasableQuantity(value);
+        if (!qty) return false;
+
+        await addToCart(product._id, qty, dispatch);
+        return true;
+    };
+
+    const handleBuyNowAction = async (value) => {
+        if (!currentUser) {
+            alert("Vui lòng đăng nhập để mua ngay.");
+            navigate(ROUTERS.ADMIN.LOGIN, {
+                state: { from: location.pathname },
+            });
+            return false;
+        }
+
+        const qty = ensurePurchasableQuantity(value);
+        if (!qty) return false;
+
+        await addToCart(product._id, qty, dispatch);
+        navigate(ROUTERS.USER.CHECKOUT, {
+            state: { selectedProductIds: [String(product._id)] },
+        });
+        return true;
+    };
 
     return (
         <>
@@ -215,26 +324,10 @@ const ProductDetail = () => {
                         {/* ✅ Chọn số lượng + thêm vào giỏ */}
                         {showQuantityButtons ? (
                             <Quantity
-                                onAdd={async (q) => {
-                                    const qty = Math.max(1, Number(q) || 1);
-                                    if (qty > activeBatchQuantity) {
-                                        alert(`Lô hiện tại chỉ còn ${activeBatchQuantity} ${product.unit || "kg"}. Vui lòng giảm số lượng!`);
-                                        return;
-                                    }
-                                    // Dispatch action Redux (thêm vào giỏ hàng)
-                                    await addToCart(product._id, qty, dispatch);
-                                }}
-                                onBuyNow={async (q) => {
-                                    const qty = Math.max(1, Number(q) || 1);
-                                    if (qty > activeBatchQuantity) {
-                                        alert(`Lô hiện tại chỉ còn ${activeBatchQuantity} ${product.unit || "kg"}. Vui lòng giảm số lượng!`);
-                                        return;
-                                    }
-                                    await addToCart(product._id, qty, dispatch);
-                                    navigate(ROUTERS.USER.CHECKOUT, {
-                                        state: { selectedProductIds: [String(product._id)] },
-                                    });
-                                }}
+                                onAdd={handleAddToCartAction}
+                                onBuyNow={handleBuyNowAction}
+                                max={maxSelectableQuantity}
+                                disabled={disablePurchase}
                             />
                         ) : (
                             <div className="no-quantity-buttons">
@@ -242,7 +335,7 @@ const ProductDetail = () => {
                                     type="button"
                                     className="button-submit"
                                     onClick={() => {
-                                        if (!hasStock || (totalBatches > 0 && activeBatchQuantity === 0)) {
+                                        if (disablePurchase) {
                                             alert("Sản phẩm hiện đã hết hàng!");
                                             return;
                                         }
@@ -253,7 +346,7 @@ const ProductDetail = () => {
                                         }
                                         setShowQuantityModal(true);
                                     }}
-                                    disabled={!hasStock || (totalBatches > 0 && activeBatchQuantity === 0)}
+                                    disabled={disablePurchase}
                                 >
                                     Thêm vào giỏ hàng
                                 </button>
@@ -261,7 +354,7 @@ const ProductDetail = () => {
                                     type="button"
                                     className="button-buy-now"
                                     onClick={() => {
-                                        if (!hasStock || (totalBatches > 0 && activeBatchQuantity === 0)) {
+                                        if (disablePurchase) {
                                             alert("Sản phẩm hiện đã hết hàng!");
                                             return;
                                         }
@@ -269,25 +362,33 @@ const ProductDetail = () => {
                                             alert("Sản phẩm chưa có thông tin lô hàng. Vui lòng liên hệ admin!");
                                             return;
                                         }
+                                        if (!currentUser) {
+                                            alert("Vui lòng đăng nhập để mua ngay.");
+                                            navigate(ROUTERS.ADMIN.LOGIN, {
+                                                state: { from: location.pathname },
+                                            });
+                                            return;
+                                        }
                                         setShowQuantityModal(true);
                                         setIsBuyNowMode(true);
                                     }}
-                                    disabled={!hasStock || (totalBatches > 0 && activeBatchQuantity === 0)}
+                                    disabled={disablePurchase}
                                 >
                                     Mua ngay
                                 </button>
                             </div>
                         )}
+                        {!loadingBatches && isOutOfStock && (
+                            <p className="stock-alert">
+                                Sản phẩm hiện đã hết hàng, vui lòng quay lại sau.
+                            </p>
+                        )}
                         <ul>
                             <li>
                                 <b>Tình trạng:</b>{" "}
                                 <span>
-                                    <span className={
-                                        product?.status?.includes("Còn hàng") ? "in-stock" :
-                                        product?.status?.includes("Hết hàng") ? "out-stock" :
-                                        product?.status?.includes("Sắp hết hàng") ? "low-stock" : ""
-                                    }>
-                                        {product?.status || "Không rõ"}
+                                    <span className={statusClassName}>
+                                        {derivedStatus || "Không rõ"}
                                     </span>
                                 </span>
                             </li>
@@ -402,10 +503,16 @@ const ProductDetail = () => {
                                     <input
                                         type="number"
                                         min="1"
-                                        max={activeBatchQuantity}
+                                        max={maxSelectableQuantity}
                                         value={selectedQuantity}
                                         onChange={(e) => {
-                                            const val = Math.max(1, Math.min(activeBatchQuantity, Number(e.target.value) || 1));
+                                            const val = Math.max(
+                                                1,
+                                                Math.min(
+                                                    maxSelectableQuantity,
+                                                    Number(e.target.value) || 1
+                                                )
+                                            );
                                             setSelectedQuantity(val);
                                         }}
                                     />
@@ -440,18 +547,12 @@ const ProductDetail = () => {
                             <button
                                 className="btn-confirm"
                                 onClick={async () => {
-                                    if (selectedQuantity > activeBatchQuantity) {
-                                        alert(`Lô hiện tại chỉ còn ${activeBatchQuantity} ${product.unit || "kg"}!`);
-                                        return;
-                                    }
-                                    await addToCart(product._id, selectedQuantity, dispatch);
-                                    
-                                    if (isBuyNowMode) {
-                                        navigate(ROUTERS.USER.CHECKOUT, {
-                                            state: { selectedProductIds: [String(product._id)] },
-                                        });
-                                    }
-                                    
+                                    const action = isBuyNowMode
+                                        ? handleBuyNowAction
+                                        : handleAddToCartAction;
+                                    const success = await action(selectedQuantity);
+                                    if (!success) return;
+
                                     setShowQuantityModal(false);
                                     setIsBuyNowMode(false);
                                     setSelectedQuantity(1);

@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { ROUTERS } from '../../../utils/router';
 import { useDispatch, useSelector } from "react-redux";
-import { ensureCart, updateCartItem, removeCartItem, validateCoupon, getMyReservation, releaseReservation } from "../../../component/redux/apiRequest";
+import { ensureCart, updateCartItem, removeCartItem, validateCoupon, getMyReservation, releaseReservation, confirmCheckoutReservation, API } from "../../../component/redux/apiRequest";
 import { setCoupon } from "../../../component/redux/cartSlice";
 
 
@@ -25,6 +25,7 @@ const ShoppingCart = () => {
     const SHIPPING_FEE = 0; //30k
     // NEW: quản lý chọn sp
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [isPreparingCheckout, setIsPreparingCheckout] = useState(false);
 
     // Mặc định chọn tất cả
     // useEffect(() => {
@@ -173,7 +174,8 @@ const ShoppingCart = () => {
         }
     };
 
-    const handleCheckout = () => {
+    const handleCheckout = async () => {
+        if (isPreparingCheckout) return;
         if (!user) {
             toast.warning(" Bạn phải đăng nhập để thanh toán!", {
                 position: "top-center",
@@ -190,14 +192,40 @@ const ShoppingCart = () => {
         }
 
         const selectedProductIds = selectedItems.map(getId);
+        setIsPreparingCheckout(true);
 
-        // 🔥 Truyền coupon đã áp dụng sang CheckoutPage
-        navigate(ROUTERS.USER.CHECKOUT, {
-            state: {
-                coupon: couponCode && discount > 0 ? { code: couponCode, discount } : null,
-                selectedProductIds,
-            },
-        });
+        try {
+            const latestCartRes = await API.get("/cart", { validateStatus: () => true });
+            if (latestCartRes.status !== 200) throw new Error(latestCartRes?.data?.message || "Không thể kiểm tra giỏ hàng");
+
+            const latestItems = Array.isArray(latestCartRes.data?.items) ? latestCartRes.data.items : [];
+            const missingIds = selectedProductIds.filter(
+                (id) => !latestItems.some((item) => getId(item) === id && Number(item.quantity) > 0)
+            );
+
+            if (missingIds.length) {
+                toast.warn("Một số sản phẩm đã thay đổi trên hệ thống. Vui lòng kiểm tra lại giỏ hàng.");
+                await ensureCart(dispatch);
+                return;
+            }
+
+            const reservationResult = await confirmCheckoutReservation(selectedProductIds);
+            const checkoutReservationId = reservationResult?.checkoutReservation?.id || null;
+
+            navigate(ROUTERS.USER.CHECKOUT, {
+                state: {
+                    coupon: couponCode && discount > 0 ? { code: couponCode, discount } : null,
+                    selectedProductIds,
+                    checkoutReservationId,
+                },
+            });
+        } catch (error) {
+            const message = error?.message || "Không thể xác nhận thông tin đặt hàng. Vui lòng thử lại.";
+            toast.error(message);
+            await ensureCart(dispatch);
+        } finally {
+            setIsPreparingCheckout(false);
+        }
     };
 
 
@@ -463,9 +491,9 @@ const ShoppingCart = () => {
                                 type="button"
                                 className="cart__checkout-btn"
                                 onClick={handleCheckout}
-                                disabled={selectedItems.length === 0}
+                                disabled={selectedItems.length === 0 || isPreparingCheckout}
                             >
-                                Thanh toán ngay
+                                {isPreparingCheckout ? "Đang kiểm tra..." : "Thanh toán ngay"}
                             </button>
 
                             {selectedItems.length === 0 && (

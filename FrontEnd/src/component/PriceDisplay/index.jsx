@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { formatter } from '../../utils/fomater';
 import { usePriceRange } from '../../hooks/usePriceRange';
 import './PriceDisplay.scss';
@@ -17,20 +17,9 @@ const PriceDisplay = memo(({
   fallbackDiscount = 0,
 }) => {
   const { priceRange, loading, error } = usePriceRange(productId);
+  const computedRange = useMemo(() => {
+    if (!priceRange || priceRange.hasAvailableBatch === false) return null;
 
-  if (loading && !priceRange) {
-    if (!(fallbackPrice && fallbackPrice > 0)) {
-      if (!showLoading) return null;
-
-      return (
-        <div className={['price-display', 'loading', className].filter(Boolean).join(' ')}>
-          <span className="loading-text">Đang tải giá...</span>
-        </div>
-      );
-    }
-  }
-
-  if (priceRange) {
     const {
       minFinal,
       maxFinal,
@@ -42,24 +31,68 @@ const PriceDisplay = memo(({
     const hasDiscount = minBase > minFinal;
     const useRange = hasMultiplePrices && maxFinal !== minFinal;
 
+    return {
+      hasDiscount,
+      useRange,
+      currentText: formatRange(minFinal, maxFinal),
+      originalText: hasDiscount ? formatRange(minBase, maxBase) : null,
+    };
+  }, [priceRange]);
+
+  const fallbackInfo = useMemo(() => {
+    if (!(fallbackPrice && fallbackPrice > 0)) return null;
+
+    const discountPct = Number(fallbackDiscount) || 0;
+    const hasDiscount = discountPct > 0;
+    const finalPrice = hasDiscount
+      ? Math.max(0, Math.round(fallbackPrice * (100 - discountPct) / 100))
+      : fallbackPrice;
+
+    return {
+      hasDiscount,
+      currentText: formatter(finalPrice),
+      originalText: hasDiscount ? formatter(fallbackPrice) : null,
+    };
+  }, [fallbackPrice, fallbackDiscount]);
+
+  if (priceRange && priceRange.hasAvailableBatch === false) {
+    return (
+      <div className={['price-display', 'out-of-stock', className].filter(Boolean).join(' ')}>
+        <span className="out-of-stock-text">Đã hết hàng</span>
+      </div>
+    );
+  }
+
+  if (loading && !computedRange) {
+    if (!fallbackInfo) {
+      if (!showLoading) return null;
+
+      return (
+        <div className={['price-display', 'loading', className].filter(Boolean).join(' ')}>
+          <span className="loading-text">Đang tải giá...</span>
+        </div>
+      );
+    }
+  }
+
+  if (computedRange) {
+    const containerClass = [
+      'price-display',
+      computedRange.useRange ? 'range' : 'single',
+      computedRange.hasDiscount ? 'has-discount' : '',
+      className,
+    ].filter(Boolean).join(' ');
     return (
       <div
-        className={[
-          'price-display',
-          useRange ? 'range' : 'single',
-          hasDiscount ? 'has-discount' : '',
-          className,
-        ].filter(Boolean).join(' ')}
+        className={containerClass}
       >
-        {hasDiscount && (
-          <div className="price-original">
-            {formatRange(minBase, maxBase)}
-          </div>
+        {computedRange.hasDiscount && computedRange.originalText && (
+          <div className="price-original">{computedRange.originalText}</div>
         )}
         <div className="price-current">
-          {formatRange(minFinal, maxFinal)}
+          {computedRange.currentText}
         </div>
-        {useRange && (
+        {computedRange.useRange && (
           <div className="price-note">
             Giá tùy theo lô hàng còn
           </div>
@@ -68,30 +101,22 @@ const PriceDisplay = memo(({
     );
   }
 
-  if (fallbackPrice && fallbackPrice > 0) {
-    const discountPct = Number(fallbackDiscount) || 0;
-    const hasDiscount = discountPct > 0;
-    const finalPrice = hasDiscount
-      ? Math.max(0, Math.round(fallbackPrice * (100 - discountPct) / 100))
-      : fallbackPrice;
-
+  if (fallbackInfo) {
     return (
       <div
         className={[
           'price-display',
           'single',
           'fallback',
-          hasDiscount ? 'has-discount' : '',
+          fallbackInfo.hasDiscount ? 'has-discount' : '',
           className,
         ].filter(Boolean).join(' ')}
       >
-        {hasDiscount && (
-          <div className="price-original">
-            {formatter(fallbackPrice)}
-          </div>
+        {fallbackInfo.hasDiscount && fallbackInfo.originalText && (
+          <div className="price-original">{fallbackInfo.originalText}</div>
         )}
         <div className="price-current">
-          {formatter(finalPrice)}
+          {fallbackInfo.currentText}
         </div>
         <div className="price-note">
           Giá tạm thời (chưa có lô hàng)
@@ -101,13 +126,9 @@ const PriceDisplay = memo(({
   }
 
   if (showOutOfStock) {
-    const displayText = error?.includes('lô hàng')
-      ? 'Chưa có lô hàng'
-      : 'Tạm hết hàng';
-
     return (
       <div className={['price-display', 'out-of-stock', className].filter(Boolean).join(' ')}>
-        <span className="out-of-stock-text">{displayText}</span>
+        <span className="out-of-stock-text">Đã hết hàng</span>
       </div>
     );
   }

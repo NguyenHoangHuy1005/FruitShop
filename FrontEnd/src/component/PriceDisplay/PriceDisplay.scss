@@ -57,9 +57,26 @@
 .price-display.product-card-price {
   align-items: center;
   text-align: center;
+  min-height: 52px;
+  justify-content: center;
 
   .price-current {
     font-size: 18px;
+  }
+
+  .price-original {
+    font-size: 13px;
+  }
+
+  &.out-of-stock,
+  &.fallback {
+    justify-content: center;
+
+    .out-of-stock-text {
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
   }
 }
 

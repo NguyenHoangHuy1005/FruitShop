@@ -2,7 +2,8 @@ import React, { memo, useEffect, useState } from "react";
 import "./style.scss";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList
+  BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList,
+  CartesianGrid, Area, AreaChart, RadialBarChart, RadialBar
 } from "recharts";
 import { getOrderStats } from "../../../component/redux/apiRequest";
 import ExpiryAlert from "../../../component/ExpiryAlert";
@@ -84,6 +85,34 @@ const Dashboard = () => {
     cancelled: "#F44336",
   };
 
+  // Custom tooltip cho biểu đồ
+  const CustomTooltip = ({ active, payload, label, formatter }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="custom-tooltip">
+          <p className="label">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} style={{ color: entry.color }}>
+              {formatter ? formatter(entry.value, entry.name) : `${entry.name}: ${entry.value.toLocaleString()}`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Gradient definitions
+  const gradientOffset = () => {
+    const dataMax = Math.max(...revenueData.map((i) => i.revenue));
+    const dataMin = Math.min(...revenueData.map((i) => i.revenue));
+    if (dataMax <= 0) return 0;
+    if (dataMin >= 0) return 1;
+    return dataMax / (dataMax - dataMin);
+  };
+
+  const off = gradientOffset();
+
   return (
     <div className="dashboard">
       {/* 🔥 Filter Section */}
@@ -148,99 +177,178 @@ const Dashboard = () => {
 
       {/* 📊 Charts Section */}
       <div className="charts">
-        {/* Doanh thu theo thời gian */}
-        <div className="chart">
-          <h3>Doanh Thu Theo Thời Gian</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={revenueData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
-              <XAxis dataKey="period"  />
+        {/* Doanh thu theo thời gian - Area Chart với Gradient */}
+        <div className="chart revenue-chart">
+          <h3>💰 Doanh Thu Theo Thời Gian</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={revenueData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="period" 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
+              />
               <YAxis 
-                tick={{ fontSize: 15 }} 
-                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                axisLine={{ stroke: '#d1d5db' }}
               />
               <Tooltip 
-                formatter={(value) => `${Number(value).toLocaleString()} VND`}
-                labelStyle={{ fontWeight: 'bold' }}
+                content={<CustomTooltip formatter={(value) => [`${value.toLocaleString()} VNĐ`, 'Doanh thu']} />}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="revenue"
                 stroke="#10b981"
                 strokeWidth={3}
-                dot={{ r: 4, fill: "#10b981" }}
+                fillOpacity={1}
+                fill="url(#colorRevenue)"
+                animationDuration={1500}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Tỉ lệ đơn hàng thành công vs thất bại */}
-        <div className="chart">
-          <h3>Tỉ Lệ Đơn Hàng (Thành công / Thất bại)</h3>
-          <ResponsiveContainer width="100%" height={280}>
+        {/* Tỉ lệ đơn hàng thành công vs thất bại - Radial Bar Chart */}
+        <div className="chart success-rate-chart">
+          <h3>📊 Tỉ Lệ Đơn Hàng</h3>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
+              <defs>
+                <linearGradient id="successGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
+                </linearGradient>
+                <linearGradient id="failedGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
+                </linearGradient>
+              </defs>
               <Pie
                 data={orderSuccessData}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
+                innerRadius={60}
                 outerRadius={100}
+                paddingAngle={5}
                 label={({ name, percent }) => `${name}: ${percent}%`}
+                labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                animationDuration={1000}
               >
-                <Cell fill="#10b981" />
-                <Cell fill="#ef4444" />
+                <Cell fill="url(#successGradient)" />
+                <Cell fill="url(#failedGradient)" />
               </Pie>
-              <Tooltip formatter={(v) => `${v} đơn`} />
-              <Legend />
+              <Tooltip 
+                content={<CustomTooltip formatter={(v, name) => [`${v} đơn`, name]} />}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                iconType="circle"
+                wrapperStyle={{ fontSize: '14px', fontWeight: '600' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Sản phẩm sắp hết kho */}
-        <div className="chart">
-          <h3>Sản Phẩm Sắp Hết Kho (Dưới {LOW_STOCK_THRESHOLD})</h3>
+        {/* Sản phẩm sắp hết kho - Gradient Bar Chart */}
+        <div className="chart low-stock-chart">
+          <h3>⚠️ Sản Phẩm Sắp Hết Kho (Dưới {LOW_STOCK_THRESHOLD})</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={lowStockData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={lowStockData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <defs>
+                <linearGradient id="lowStockGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#fca5a5" stopOpacity={0.8}/>
+                </linearGradient>
+                <linearGradient id="warningStockGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.8}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
-                angle={-15}
+                angle={-25}
                 textAnchor="end"
                 height={80}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
+              />
               <Tooltip 
-                formatter={(value) => [`Còn: ${Number(value).toLocaleString()}`, 'Số lượng khả dụng']}
+                content={<CustomTooltip formatter={(value) => [`Còn: ${value.toLocaleString()}`, 'Số lượng']} />}
               />
-              <Bar dataKey="displayStock" radius={[8, 8, 0, 0]}>
+              <Bar 
+                dataKey="displayStock" 
+                radius={[12, 12, 0, 0]}
+                animationDuration={1200}
+              >
                 {lowStockData.map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
-                    fill={entry.displayStock < LOW_STOCK_THRESHOLD ? '#ef4444' : '#f59e0b'} 
+                    fill={entry.displayStock < LOW_STOCK_THRESHOLD ? 'url(#lowStockGradient)' : 'url(#warningStockGradient)'} 
                   />
                 ))}
-                <LabelList dataKey="displayStock" position="top" />
+                <LabelList 
+                  dataKey="displayStock" 
+                  position="top" 
+                  style={{ fontSize: '12px', fontWeight: 'bold', fill: '#374151' }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Top sản phẩm */}
-        <div className="chart">
-          <h3>Top Sản Phẩm Bán Chạy</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        {/* Top sản phẩm - Gradient Bar Chart */}
+        <div className="chart top-products-chart">
+          <h3>🏆 Top Sản Phẩm Bán Chạy</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <defs>
+                <linearGradient id="topProductGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.8}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
-                angle={-15}
+                angle={-25}
                 textAnchor="end"
                 height={80}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis />
-              <Tooltip formatter={(v) => `${v} đã bán`} />
-              <Bar dataKey="sales" fill="#9C27B0" radius={[8, 8, 0, 0]}>
-                <LabelList dataKey="sales" position="top" />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#d1d5db' }}
+              />
+              <Tooltip 
+                content={<CustomTooltip formatter={(v) => [`${v} đã bán`, 'Số lượng']} />}
+              />
+              <Bar 
+                dataKey="sales" 
+                fill="url(#topProductGradient)" 
+                radius={[12, 12, 0, 0]}
+                animationDuration={1200}
+              >
+                <LabelList 
+                  dataKey="sales" 
+                  position="top" 
+                  style={{ fontSize: '12px', fontWeight: 'bold', fill: '#374151' }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

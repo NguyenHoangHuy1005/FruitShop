@@ -61,9 +61,6 @@ const userController = {
         try {
             const users = await User.aggregate([
                 {
-                    $match: { admin: { $ne: true } } // loại bỏ admin
-                },
-                {
                     $lookup: {
                         from: "orders",        // collection đơn hàng
                         localField: "_id",     // so sánh với User._id
@@ -82,10 +79,13 @@ const userController = {
                         email: 1,
                         phone: 1,
                         createdAt: 1,
+                        admin: 1,
                         totalOrders: 1
                     }
                 }
             ]);
+            console.log("📊 getAllUsers - Total users:", users.length);
+            console.log("📊 Sample user:", users[0]);
             res.status(200).json(users);
         } catch (error) {
             console.error(error);
@@ -115,6 +115,40 @@ const userController = {
         } catch (error) {
             console.error(error);
             res.status(500).json(error);
+        }
+    },
+
+    updateUserRole: async (req, res) => {
+        try {
+            const { admin } = req.body;
+            
+            // Kiểm tra xem user có quyền admin không
+            if (!req.user.admin) {
+                return res.status(403).json({ message: "Chỉ admin mới có quyền phân quyền." });
+            }
+
+            // Không cho phép tự phân quyền cho chính mình
+            if (req.params.id === req.user.id) {
+                return res.status(400).json({ message: "Không thể thay đổi quyền của chính mình." });
+            }
+
+            const user = await User.findByIdAndUpdate(
+                req.params.id,
+                { admin: admin === true },
+                { new: true, runValidators: true }
+            ).select("-password");
+
+            if (!user) {
+                return res.status(404).json({ message: "Không tìm thấy người dùng." });
+            }
+
+            res.status(200).json({ 
+                message: `Đã ${admin ? "cấp" : "thu hồi"} quyền admin cho ${user.username}`,
+                user 
+            });
+        } catch (error) {
+            console.error("Update role error:", error);
+            res.status(500).json({ message: "Lỗi máy chủ khi cập nhật quyền." });
         }
     }
 };

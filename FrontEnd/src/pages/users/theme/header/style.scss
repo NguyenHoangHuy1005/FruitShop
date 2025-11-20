@@ -254,14 +254,13 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
             border: 1px solid #c3c3c3;
             position: absolute;
             width: 180px;
-            height: 140px;
+            height: 167px;
             z-index: 9;
             margin-left: 0px;
             transition: all 0.2s;
             /* sửa cú pháp */
             opacity: 0;
             visibility: hidden;
-
             li {
                 a {
                     text-transform: capitalize;
@@ -270,9 +269,6 @@ $bannerImg: "https://res.cloudinary.com/dnk3xed3n/image/upload/v1755177068/uploa
                     padding: 5px 15px;
                     border-bottom: 1px solid #c3c3c3;
                 }
-
-
-
                 :hover {
                     color: #fff;
                     background: map.get(theme.$theme-colors, "main");

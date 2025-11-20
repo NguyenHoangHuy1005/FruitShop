@@ -15,7 +15,7 @@ const ProductsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
-    const [sortType, setSortType] = useState("Trạng thái ưu tiên");
+    const [sortType, setSortType] = useState("Mặc định");
     const [selectedFamily, setSelectedFamily] = useState(""); // ✅ Lọc theo họ
 
     // Lấy sản phẩm từ Redux
@@ -74,7 +74,7 @@ const ProductsPage = () => {
         const priceB = getFinalPrice(b);
 
         switch (sortType) {
-            case "Trạng thái ưu tiên":
+            case "Mặc định":
                 // Sắp xếp theo trạng thái ưu tiên: Hết hạn -> Sắp hết hạn -> Còn hạn -> Còn hàng -> Hết hàng
                 const statusPriority = {
                     'Hết hạn': 0,      // Cao nhất - cần xử lý gấp
@@ -110,7 +110,7 @@ const ProductsPage = () => {
     });
 
     const sorts = [
-        "Trạng thái ưu tiên",
+        "Mặc định",
         "Mới nhất", 
         "Giá thấp đến cao",
         "Giá cao đến thấp",

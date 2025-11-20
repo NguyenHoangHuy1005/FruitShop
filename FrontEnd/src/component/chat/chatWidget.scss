@@ -83,8 +83,9 @@
 
 .chat-window {
   position: absolute;
-  bottom: 68px;
-  right: 0;
+  
+  bottom: 0px;
+  right: 55px;
   width: 330px;
   max-height: 520px;
   background: #fff;
@@ -108,6 +109,7 @@
 }
 
 .chat-window-header {
+
   padding: 14px 16px;
   background: linear-gradient(135deg, #6930c3, #4895ef);
   color: #fff;

@@ -499,10 +499,9 @@ exports.getExpiringItems = async (req, res) => {
       receiptId: item.receipt?._id
     }));
     
-    // Sắp xếp theo mức độ ưu tiên: Hết hạn -> Sắp hết hạn (ít ngày trước) -> Còn hạn
+    // Sắp xếp theo mức độ ưu tiên: Sắp hết hạn (7 ngày) -> Còn hạn (>7 ngày) -> Đã hết hạn (xuống dưới)
     formattedItems.sort((a, b) => {
       const now = new Date();
-      const oneWeek = 7 * 24 * 60 * 60 * 1000;
       
       const aExpiry = new Date(a.expiryDate);
       const bExpiry = new Date(b.expiryDate);
@@ -512,16 +511,16 @@ exports.getExpiringItems = async (req, res) => {
       
       // Xác định trạng thái
       const getStatus = (daysLeft) => {
-        if (daysLeft <= 0) return 'expired';
-        if (daysLeft <= 7) return 'expiring';
-        return 'valid';
+        if (daysLeft <= 0) return 'expired';     // Đã hết hạn
+        if (daysLeft <= 7) return 'expiring';    // Sắp hết hạn (ưu tiên cao nhất)
+        return 'valid';                           // Còn hạn
       };
       
       const aStatus = getStatus(aDaysLeft);
       const bStatus = getStatus(bDaysLeft);
       
-      // Sắp xếp theo ưu tiên: còn hạn -> sắp hết hạn -> hết hạn (xuống cuối)
-      const statusPriority = { 'valid': 0, 'expiring': 1, 'expired': 2 };
+      // Sắp xếp theo ưu tiên: sắp hết hạn (0) -> còn hạn (1) -> đã hết hạn (2)
+      const statusPriority = { 'expiring': 0, 'valid': 1, 'expired': 2 };
       
       if (aStatus !== bStatus) {
         return statusPriority[aStatus] - statusPriority[bStatus];
@@ -707,45 +706,68 @@ exports.getBatchesByProduct = async (req, res) => {
 // API để lấy chi tiết từng lô hàng
 exports.getBatchDetails = async (req, res) => {
   try {
-    // Lấy tất cả ImportItem với thông tin chi tiết
-    const importItems = await ImportItem.find({})
-      .populate('product', 'name image')
-      .populate({
-        path: 'receipt',
-        populate: {
-          path: 'supplier',
-          select: 'name'
+    const startTime = Date.now();
+    
+    // 🔥 Tối ưu: Sử dụng aggregation để giảm số lượng queries
+    const importItems = await ImportItem.aggregate([
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'product',
+          foreignField: '_id',
+          as: 'productInfo'
         }
-      })
-      .sort({ createdAt: -1 })
-      .lean();
+      },
+      {
+        $lookup: {
+          from: 'importreceipts',
+          localField: 'receipt',
+          foreignField: '_id',
+          as: 'receiptInfo'
+        }
+      },
+      {
+        $lookup: {
+          from: 'suppliers',
+          localField: 'receiptInfo.supplier',
+          foreignField: '_id',
+          as: 'supplierInfo'
+        }
+      },
+      {
+        $addFields: {
+          product: { $arrayElemAt: ['$productInfo', 0] },
+          receipt: { $arrayElemAt: ['$receiptInfo', 0] },
+          supplier: { $arrayElemAt: ['$supplierInfo', 0] }
+        }
+      },
+      {
+        $project: {
+          productInfo: 0,
+          receiptInfo: 0,
+          supplierInfo: 0
+        }
+      },
+      { $sort: { createdAt: -1 } }
+    ]);
 
-    // Lấy tất cả đơn hàng đã hoàn thành
-    const Order = require("../models/Order");
-    const orders = await Order.find({ 
-      status: { $in: ['completed', 'shipped', 'delivered'] }
-    }).select('items createdAt').lean();
-
-    // Format dữ liệu để gửi về frontend - sử dụng soldQuantity được lưu trong database
+    // 🔥 Format dữ liệu nhanh hơn
     const batchDetails = importItems.map(item => {
-      // Sử dụng soldQuantity từ database thay vì tính toán
       const soldQuantity = item.soldQuantity || 0;
       const damaged = Number(item.damagedQuantity || 0);
-      // remaining = original quantity - sold - damaged
       const remainingQuantity = Math.max(0, item.quantity - soldQuantity - damaged);
-
-      // Ưu tiên thông tin đã lưu (snapshot) nếu product bị xóa
+      
       const productName = item.product?.name || item.productName || 'Unknown';
       const productImage = item.product?.image?.[0] || item.productImage || null;
-      const isProductDeleted = !item.product; // Product đã bị xóa
+      const isProductDeleted = !item.product;
 
       return {
         _id: item._id,
         productId: item.product?._id || null,
-        productName: productName,
-        productImage: productImage,
-        isProductDeleted: isProductDeleted, // Đánh dấu để frontend disable chỉnh sửa
-        supplierName: item.receipt?.supplier?.name || 'Unknown',
+        productName,
+        productImage,
+        isProductDeleted,
+        supplierName: item.supplier?.name || 'Unknown',
 
         // Thông tin batch (đã tính chính xác)
         batchQuantity: item.quantity,                  // Số lượng nhập ban đầu
@@ -815,6 +837,9 @@ exports.getBatchDetails = async (req, res) => {
       return 0;
     });
 
+    const endTime = Date.now();
+    console.log(`✅ getBatchDetails completed in ${endTime - startTime}ms - ${batchDetails.length} batches`);
+    
     res.json(batchDetails);
   } catch (error) {
     console.error('Error fetching batch details:', error);

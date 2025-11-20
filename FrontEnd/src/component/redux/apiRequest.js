@@ -439,6 +439,22 @@ export const updateUser = async (id, updatedUser, accessToken, dispatch) => {
     }
 };
 
+export const updateUserRole = async (id, roleData, accessToken, dispatch) => {
+    dispatch(updateUserStart());
+    try {
+        const res = await API.put(`/user/${id}/role`, roleData, {
+            headers: { token: `Bearer ${accessToken}` },
+        });
+        dispatch(updateUserSuccess(res.data.user));
+        alert(res.data.message || "Phân quyền thành công!");
+        await getAllUsers(accessToken, dispatch);
+    } catch (err) {
+        dispatch(updateUserFailure(err?.response?.data));
+        const errMsg = err?.response?.data?.message || "Phân quyền thất bại!";
+        alert(errMsg);
+    }
+};
+
 /* ======================= PRODUCT ======================= */
 
 export const createProduct = async (product, dispatch) => {

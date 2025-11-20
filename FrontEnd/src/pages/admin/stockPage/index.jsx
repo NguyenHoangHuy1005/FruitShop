@@ -220,6 +220,7 @@ const StockManagerPage = () => {
     const [busy, setBusy] = useState(false);
     const [sortOrder, setSortOrder] = useState("asc"); // "asc" hoặc "desc" cho tồn kho
     const [soldSortOrder, setSoldSortOrder] = useState("default"); // "default", "asc" hoặc "desc" cho đã bán
+    const [filterStatus, setFilterStatus] = useState("all"); // "all", "valid", "expiring", "expired", "soldout"
 
     const [suppliers, setSuppliers] = useState([]);
 
@@ -338,8 +339,15 @@ const StockManagerPage = () => {
         let validCount = 0;
         let expiringCount = 0;
         let expiredCount = 0;
+        let soldOutCount = 0;
         
         batches.forEach(batch => {
+            // Kiểm tra bán hết trước (remainingQuantity = 0)
+            if (batch.remainingQuantity <= 0) {
+                soldOutCount++;
+                return;
+            }
+            
             // Determine status based on expiry date first (time-based), not on remainingQuantity
             if (batch.expiryDate) {
                 const expiryDate = new Date(batch.expiryDate);
@@ -363,7 +371,8 @@ const StockManagerPage = () => {
             total: batches.length,
             valid: validCount,
             expiring: expiringCount,
-            expired: expiredCount
+            expired: expiredCount,
+            soldOut: soldOutCount
         };
     }, []);
 
@@ -411,10 +420,69 @@ const StockManagerPage = () => {
                 return (a.productDoc?.name || "").localeCompare(b.productDoc?.name || "");
             });
         } else {
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
             result = !s ? batchRows : batchRows.filter((r) => 
                 (r.productName || "").toLowerCase().includes(s) ||
                 (r.supplierName || "").toLowerCase().includes(s)
             );
+            
+            // Lọc theo trạng thái nếu không phải "all"
+            if (filterStatus !== "all") {
+                result = result.filter(batch => {
+                    // Bán hết
+                    if (filterStatus === "soldout") {
+                        return batch.remainingQuantity <= 0;
+                    }
+                    
+                    // Bỏ qua các lô bán hết khi lọc theo trạng thái khác
+                    if (batch.remainingQuantity <= 0) {
+                        return false;
+                    }
+                    
+                    // Hết hạn
+                    if (filterStatus === "expired") {
+                        if (!batch.expiryDate) return false;
+                        const expiryDate = new Date(batch.expiryDate);
+                        return expiryDate <= now;
+                    }
+                    
+                    // Sắp hết hạn
+                    if (filterStatus === "expiring") {
+                        if (!batch.expiryDate) return false;
+                        const expiryDate = new Date(batch.expiryDate);
+                        return expiryDate > now && expiryDate <= oneWeekFromNow;
+                    }
+                    
+                    // Còn hiệu lực
+                    if (filterStatus === "valid") {
+                        if (!batch.expiryDate) return true;
+                        const expiryDate = new Date(batch.expiryDate);
+                        return expiryDate > oneWeekFromNow;
+                    }
+                    
+                    return true;
+                });
+            } else {
+                // Ẩn các lô hết hạn quá 1 tuần nếu đang ở chế độ "all"
+                result = result.filter(batch => {
+                    // Giữ lại lô bán hết
+                    if (batch.remainingQuantity <= 0) return true;
+                    
+                    // Ẩn lô hết hạn quá 1 tuần
+                    if (batch.expiryDate) {
+                        const expiryDate = new Date(batch.expiryDate);
+                        if (expiryDate <= now) {
+                            // Chỉ hiển thị lô hết hạn trong vòng 1 tuần
+                            return expiryDate >= oneWeekAgo;
+                        }
+                    }
+                    
+                    return true;
+                });
+            }
             
             // Sắp xếp theo bộ lọc được chọn
             result.sort((a, b) => {
@@ -470,7 +538,7 @@ const StockManagerPage = () => {
         }
         
         return result;
-    }, [rows, batchRows, q, viewMode, sortOrder, soldSortOrder, getStockStatus, getActualStock, getBatchStatistics]);
+    }, [rows, batchRows, q, viewMode, sortOrder, soldSortOrder, filterStatus, getStockStatus, getActualStock, getBatchStatistics]);
 
     const onStockIn = async (productId) => {
         const v = prompt("Nhập số lượng: dùng số dương để tăng, bắt đầu bằng '-' để giảm (ví dụ: -2):", "0");
@@ -568,12 +636,17 @@ const StockManagerPage = () => {
 
                 {busy && <span className="busy">Đang xử lý...</span>}
             </div>
-            {/* Thống kê số lô - hiển thị ở cả hai trang */}
+            {/* Thống kê số lô - hiển thị ở cả hai trang, có thể click để lọc */}
             {(() => {
                 const stats = getBatchStatistics(batchRows);
                 return (
                     <div className="batch-statistics">
-                        <div className="stat-card total">
+                        <div 
+                            className={`stat-card total ${filterStatus === "all" ? "active" : ""}`}
+                            onClick={() => setFilterStatus("all")}
+                            style={{ cursor: 'pointer' }}
+                            title="Nhấn để xem tất cả"
+                        >
                             <div className="stat-icon">📦</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.total}</div>
@@ -581,7 +654,12 @@ const StockManagerPage = () => {
                             </div>
                         </div>
                         
-                        <div className="stat-card valid">
+                        <div 
+                            className={`stat-card valid ${filterStatus === "valid" ? "active" : ""}`}
+                            onClick={() => setFilterStatus("valid")}
+                            style={{ cursor: 'pointer' }}
+                            title="Nhấn để xem lô còn hiệu lực"
+                        >
                             <div className="stat-icon">✅</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.valid}</div>
@@ -589,7 +667,12 @@ const StockManagerPage = () => {
                             </div>
                         </div>
                         
-                        <div className="stat-card expiring">
+                        <div 
+                            className={`stat-card expiring ${filterStatus === "expiring" ? "active" : ""}`}
+                            onClick={() => setFilterStatus("expiring")}
+                            style={{ cursor: 'pointer' }}
+                            title="Nhấn để xem lô sắp hết hạn"
+                        >
                             <div className="stat-icon">⚠️</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.expiring}</div>
@@ -597,11 +680,29 @@ const StockManagerPage = () => {
                             </div>
                         </div>
                         
-                        <div className="stat-card expired">
+                        <div 
+                            className={`stat-card expired ${filterStatus === "expired" ? "active" : ""}`}
+                            onClick={() => setFilterStatus("expired")}
+                            style={{ cursor: 'pointer' }}
+                            title="Nhấn để xem lô hết hạn"
+                        >
                             <div className="stat-icon">❌</div>
                             <div className="stat-content">
                                 <div className="stat-number">{stats.expired}</div>
                                 <div className="stat-label">hết hạn sử dụng</div>
+                            </div>
+                        </div>
+                        
+                        <div 
+                            className={`stat-card soldout ${filterStatus === "soldout" ? "active" : ""}`}
+                            onClick={() => setFilterStatus("soldout")}
+                            style={{ cursor: 'pointer' }}
+                            title="Nhấn để xem lô bán hết"
+                        >
+                            <div className="stat-icon">✖️</div>
+                            <div className="stat-content">
+                                <div className="stat-number">{stats.soldOut}</div>
+                                <div className="stat-label">Bán hết</div>
                             </div>
                         </div>
                     </div>
@@ -743,6 +844,9 @@ const StockManagerPage = () => {
                             };
                             
                             const getStatusClass = () => {
+                                // Kiểm tra bán hết trước
+                                if ((batch.remainingQuantity || 0) <= 0) return "soldout";
+                                
                                 const now = new Date();
                                 const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -754,12 +858,14 @@ const StockManagerPage = () => {
                                     return "valid";
                                 }
 
-                                // Fallback when no expiryDate: use remainingQuantity to indicate out-of-stock vs in-stock
-                                if ((batch.remainingQuantity || 0) <= 0) return "out-stock";
+                                // Fallback when no expiryDate
                                 return "in-stock";
                             };
 
                             const getStatusText = () => {
+                                // Kiểm tra bán hết trước
+                                if ((batch.remainingQuantity || 0) <= 0) return "Bán hết";
+                                
                                 const now = new Date();
                                 const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -771,7 +877,6 @@ const StockManagerPage = () => {
                                 }
 
                                 // Fallback wording when no expiry date
-                                if ((batch.remainingQuantity || 0) <= 0) return "Hết hàng";
                                 return "Còn hàng";
                             };
 

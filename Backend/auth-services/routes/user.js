@@ -11,5 +11,6 @@ router.put("/me", verifyToken, userController.updateMe);
 router.get("/", requireAdmin, userController.getAllUsers);
 router.delete("/:id", requireAdmin, userController.deleteUser);
 router.put("/:id", requireAdmin, userController.updateUser);
+router.put("/:id/role", requireAdmin, userController.updateUserRole);
 
 module.exports = router;

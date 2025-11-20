@@ -68,11 +68,94 @@ $main: map.get(theme.$theme-colors, "main");
             color: map.get(theme.$theme-colors, "normal-text");
         }
 
-        td .action-buttons {
-            display: flex;
-            gap: 8px;
-            align-items: center;
+        td .action-menu-wrapper {
+            position: relative;
+
+            .menu-trigger {
+                background: transparent;
+                border: none;
+                font-size: 24px;
+                font-weight: bold;
+                cursor: pointer;
+                padding: 4px 12px;
+                border-radius: 6px;
+                transition: all 0.2s;
+                color: #6b7280;
+
+                &:hover {
+                    background: #f3f4f6;
+                    color: $main;
+                }
             }
+
+            .dropdown-menu {
+                position: absolute;
+                top: 100%;
+                right: 0;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                min-width: 180px;
+                z-index: 100;
+                overflow: hidden;
+
+                button {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    width: 100%;
+                    padding: 10px 16px;
+                    border: none;
+                    background: white;
+                    text-align: left;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                    color: #374151;
+
+                    &:hover {
+                        background: #f9fafb;
+                        color: $main;
+                    }
+
+                    &.danger {
+                        color: #dc2626;
+
+                        &:hover {
+                            background: #fef2f2;
+                        }
+                    }
+
+                    &:not(:last-child) {
+                        border-bottom: 1px solid #f3f4f6;
+                    }
+                }
+            }
+        }
+
+        // vai trò user
+        .role-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+
+            &.admin {
+                background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+                color: #78350f;
+                box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
+            }
+
+            &.user {
+                background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+                color: #1e3a8a;
+                box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+            }
+        }
 
         // trạng thái user
         .status {
@@ -93,45 +176,7 @@ $main: map.get(theme.$theme-colors, "main");
             }
         }
 
-        // nút hành động
-        .view-btn,
-        .update-btn,
-        .ban-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.15s ease;
-        }
 
-        .view-btn {
-            background: #2563eb;
-            color: #fff;
-        }
-
-        .update-btn {
-            background: #facc15;
-            color: #111827;
-        }
-
-        .ban-btn {
-            background: #dc2626;
-            color: #fff;
-        }
-
-        .view-btn:hover,
-        .update-btn:hover,
-        .ban-btn:hover {
-            filter: brightness(1.05);
-        }
-
-        .view-btn:active,
-        .update-btn:active,
-        .ban-btn:active {
-            transform: translateY(1px);
-        }
     }
 
     // ✅ phần chi tiết user hiển thị ngay trong trang

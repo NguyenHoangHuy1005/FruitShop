@@ -1,8 +1,11 @@
 import { memo, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { API } from "../redux/apiRequest";
+import { ROUTERS } from "../../utils/router";
 import "./style.scss";
 
 const ExpiryAlert = memo(() => {
+    const navigate = useNavigate();
     const [expiringItems, setExpiringItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [show, setShow] = useState(false);
@@ -14,39 +17,13 @@ const ExpiryAlert = memo(() => {
     const fetchExpiringItems = async () => {
         setLoading(true);
         try {
-            // API endpoint để lấy các sản phẩm sắp hết hạn (trong 7 ngày tới)
+            // API endpoint để lấy các sản phẩm sắp hết hạn
+            // Backend đã sắp xếp: sắp hết hạn lên trên, đã hết hạn xuống dưới
             const response = await API.get('/stock/expiring-items?days=7');
             const items = response.data || [];
             
-            // Sắp xếp theo mức độ ưu tiên (đảm bảo thêm lần nữa)
-            const sortedItems = items.sort((a, b) => {
-                const now = new Date();
-                const aExpiry = new Date(a.expiryDate);
-                const bExpiry = new Date(b.expiryDate);
-                
-                const aDaysLeft = Math.ceil((aExpiry - now) / (24 * 60 * 60 * 1000));
-                const bDaysLeft = Math.ceil((bExpiry - now) / (24 * 60 * 60 * 1000));
-                
-                const getStatus = (daysLeft) => {
-                    if (daysLeft <= 0) return 'expired';
-                    if (daysLeft <= 7) return 'expiring';
-                    return 'valid';
-                };
-                
-                const aStatus = getStatus(aDaysLeft);
-                const bStatus = getStatus(bDaysLeft);
-                
-                const statusPriority = { 'expired': 0, 'expiring': 1, 'valid': 2 };
-                
-                if (aStatus !== bStatus) {
-                    return statusPriority[aStatus] - statusPriority[bStatus];
-                }
-                
-                return aExpiry - bExpiry;
-            });
-            
-            setExpiringItems(sortedItems);
-            setShow(sortedItems.length > 0);
+            setExpiringItems(items);
+            setShow(items.length > 0);
         } catch (error) {
             console.error('Error fetching expiring items:', error);
         } finally {
@@ -77,6 +54,20 @@ const ExpiryAlert = memo(() => {
         }
     };
 
+    const handleNavigateToStock = () => {
+        navigate(ROUTERS.ADMIN.STOCK);
+    };
+
+    const handleItemClick = (item) => {
+        // Chuyển đến trang quản lý kho và có thể lọc theo sản phẩm cụ thể
+        navigate(ROUTERS.ADMIN.STOCK, { 
+            state: { 
+                filterProduct: item.productName,
+                highlightExpiring: true 
+            } 
+        });
+    };
+
     if (loading) return null;
     if (!show || expiringItems.length === 0) return null;
 
@@ -96,16 +87,22 @@ const ExpiryAlert = memo(() => {
                 
                 <div className="alert-content">
                     <p className="alert-summary">
-                        Có <strong>{expiringItems.length}</strong> lô hàng sắp hết hạn sử dụng
+                        Có <strong>{expiringItems.length}</strong> lô hàng cần chú ý
                     </p>
                     
-                    <div className="expiring-items">
-                        {expiringItems.slice(0, 5).map((item, index) => {
+                    <div className="expiring-items-scroll">
+                        {expiringItems.map((item, index) => {
                             const daysLeft = getDaysUntilExpiry(item.expiryDate);
                             const alertLevel = getAlertLevel(daysLeft);
                             
                             return (
-                                <div key={index} className={`expiry-item ${alertLevel}`}>
+                                <div 
+                                    key={item._id || index} 
+                                    className={`expiry-item ${alertLevel}`}
+                                    onClick={() => handleItemClick(item)}
+                                    style={{ cursor: 'pointer' }}
+                                    title="Nhấn để xem chi tiết lô hàng"
+                                >
                                     <div className="item-info">
                                         <strong>{item.productName}</strong>
                                         <span className="supplier">NCC: {item.supplierName}</span>
@@ -123,19 +120,13 @@ const ExpiryAlert = memo(() => {
                                 </div>
                             );
                         })}
-                        
-                        {expiringItems.length > 5 && (
-                            <div className="more-items">
-                                +{expiringItems.length - 5} lô hàng khác...
-                            </div>
-                        )}
                     </div>
                 </div>
                 
                 <div className="alert-actions">
                     <button 
                         className="btn primary"
-                        onClick={() => {/* Navigate to stock page */}}
+                        onClick={handleNavigateToStock}
                     >
                         Xem chi tiết
                     </button>

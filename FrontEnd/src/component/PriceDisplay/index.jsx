@@ -20,22 +20,20 @@ const PriceDisplay = memo(({
   const computedRange = useMemo(() => {
     if (!priceRange || priceRange.hasAvailableBatch === false) return null;
 
-    const {
-      minFinal,
-      maxFinal,
-      minBase,
-      maxBase,
-      hasMultiplePrices,
-    } = priceRange;
+    // Chọn lô gần hết hạn nhất (FEFO) từ danh sách trả về – backend đã sắp theo FEFO
+    const entries = Array.isArray(priceRange.priceEntries) ? priceRange.priceEntries : [];
+    const bestEntry = entries.find((e) => Number(e?.remainingQuantity || 0) > 0) || entries[0];
+    if (!bestEntry) return null;
 
-    const hasDiscount = minBase > minFinal;
-    const useRange = hasMultiplePrices && maxFinal !== minFinal;
+    const currentFinal = bestEntry.finalPrice;
+    const currentBase = bestEntry.basePrice ?? currentFinal;
+    const hasDiscount = Number(currentBase) > Number(currentFinal);
 
     return {
       hasDiscount,
-      useRange,
-      currentText: formatRange(minFinal, maxFinal),
-      originalText: hasDiscount ? formatRange(minBase, maxBase) : null,
+      useRange: false,
+      currentText: formatter(currentFinal),
+      originalText: hasDiscount ? formatter(currentBase) : null,
     };
   }, [priceRange]);
 

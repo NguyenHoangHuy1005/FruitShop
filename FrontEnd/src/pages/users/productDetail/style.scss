@@ -586,9 +586,22 @@ $product-subtle: rgba(15, 23, 42, 0.56);
 
         .price {
             margin: 0;
-            font-size: 20px;
-            font-weight: 700;
-            color: #059669;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+
+            .price-original {
+                font-size: 16px;
+                color: #94a3b8;
+                text-decoration: line-through;
+                text-decoration-thickness: 1px;
+            }
+
+            .price-current {
+                font-size: 20px;
+                font-weight: 700;
+                color: #059669;
+            }
         }
     }
 

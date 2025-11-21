@@ -18,6 +18,7 @@ import PriceDisplay from "../../../component/PriceDisplay";
 import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
 import ProductReviews from "../../../component/productReviews";
+import { usePriceRange } from "../../../hooks/usePriceRange";
 
 const ProductDetail = () => {
     const dispatch = useDispatch();
@@ -28,6 +29,7 @@ const ProductDetail = () => {
     const products = useSelector((s) => s.product.products?.allProducts || []);
     const product = products.find((p) => String(p._id) === String(id));
     const currentUser = useSelector((s) => s.auth?.login?.currentUser);
+    const { priceRange } = usePriceRange(id);
 
     // state viewCount phải fetch lại nếu không dữ liệu sẽ bị cũ vì không thêm vào apirequest
     // lượt mua lấy từ redux vì đã thêm vào hàm tạo order nên sẽ được cập nhật, dữ liệu luôn mới
@@ -44,17 +46,34 @@ const ProductDetail = () => {
         const batches = Array.isArray(batchInfo?.batches) ? batchInfo.batches : [];
         const summary = batchInfo?.summary || {};
         const availableBatches = batches.filter((batch) => Number(batch?.remainingQuantity) > 0);
+
+        const sortedBatches = [...availableBatches].sort((a, b) => {
+            const expA = a.expiryDate ? new Date(a.expiryDate) : null;
+            const expB = b.expiryDate ? new Date(b.expiryDate) : null;
+            if (expA && expB) {
+                const diff = expA - expB;
+                if (diff !== 0) return diff;
+            } else if (expA && !expB) {
+                return -1;
+            } else if (!expA && expB) {
+                return 1;
+            }
+            const impA = a.importDate ? new Date(a.importDate) : new Date(0);
+            const impB = b.importDate ? new Date(b.importDate) : new Date(0);
+            return impA - impB;
+        });
+
         const summaryActiveId = summary.activeBatchId;
         let active = null;
 
         if (summaryActiveId) {
             active =
-                availableBatches.find(
+                sortedBatches.find(
                     (batch) => String(batch._id) === String(summaryActiveId)
                 ) || null;
         }
         if (!active) {
-            active = availableBatches[0] || null;
+            active = sortedBatches[0] || null;
         }
 
         const quantity = Number(active?.remainingQuantity) || 0;
@@ -76,7 +95,7 @@ const ProductDetail = () => {
         return {
             activeBatch: active,
             activeBatchQuantity: quantity,
-            availableBatchCount: availableBatches.length,
+            availableBatchCount: sortedBatches.length,
             hasStock,
             isOutOfStock,
             derivedStatus,
@@ -168,6 +187,25 @@ const ProductDetail = () => {
         ? "low-stock"
         : "";
     const maxSelectableQuantity = Math.max(1, activeBatchQuantity || 0);
+
+    const bestBatchPrice = useMemo(() => {
+        const entries = Array.isArray(priceRange?.priceEntries) ? priceRange.priceEntries : [];
+        const entry = entries.find((e) => Number(e?.remainingQuantity || 0) > 0) || entries[0];
+        if (entry) {
+            const base = Number(entry.basePrice) || Number(entry.finalPrice) || finalPrice;
+            const finalP = Number(entry.finalPrice) || finalPrice;
+            return {
+                current: finalP,
+                base,
+                hasDiscount: base > finalP,
+            };
+        }
+        return {
+            current: finalPrice,
+            base: pct > 0 ? Number(product.price) || finalPrice : finalPrice,
+            hasDiscount: pct > 0,
+        };
+    }, [priceRange, finalPrice, pct, product.price]);
 
     useEffect(() => {
         setSelectedQuantity((prev) => {
@@ -475,7 +513,12 @@ const ProductDetail = () => {
                                 />
                                 <div>
                                     <h4>{product.name}</h4>
-                                    <p className="price">{formatter(activeBatch?.sellingPrice || product.price)}</p>
+                                    <div className="price price-modal">
+                                        {bestBatchPrice.hasDiscount && (
+                                            <span className="price-original">{formatter(bestBatchPrice.base)}</span>
+                                        )}
+                                        <span className="price-current">{formatter(bestBatchPrice.current)}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -528,7 +571,7 @@ const ProductDetail = () => {
                             <div className="total-price">
                                 <strong>Tổng cộng:</strong>
                                 <span className="total-amount">
-                                    {formatter((activeBatch?.sellingPrice || product.price) * selectedQuantity)}
+                                    {formatter(bestBatchPrice.current * selectedQuantity)}
                                 </span>
                             </div>
                         </div>

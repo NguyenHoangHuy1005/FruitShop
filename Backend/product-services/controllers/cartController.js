@@ -7,19 +7,21 @@ const Reservation = require("../models/Reservation");
 const { getAvailableBatches, getAvailableQuantity } = require("./reservationController");
 const { computeBatchPricing } = require("../utils/batchPricing");
 
-// Helper function to get or generate session key
-function getSessionKey(req) {
-    // Priority: x-session-key header > sessionID > generate new
-    const headerKey = req.headers["x-session-key"];
-    if (headerKey) return String(headerKey);
-    
-    const sessionId = req.sessionID;
-    if (sessionId) return String(sessionId);
-    
-    // Generate a fallback session key if none exists
-    const fallbackKey = `guest-${crypto.randomBytes(16).toString('hex')}`;
-    console.warn("⚠️ No session key found in cart, generated fallback:", fallbackKey);
-    return fallbackKey;
+// Helper: ensure guest cart key via cookie (persistent)
+function getGuestCartKey(req, res) {
+    let cartKey = req.cookies?.CART_ID;
+    if (!cartKey) {
+        cartKey = (typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : crypto.randomBytes(16).toString("hex");
+        res.cookie("CART_ID", cartKey, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false,
+            maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
+        });
+    }
+    return cartKey;
 }
 
 // Optional: lấy userId từ JWT
@@ -51,7 +53,7 @@ function ensureCartCookie(req, res) {
         httpOnly: true,
         sameSite: "lax",
         secure: false,               // đổi true nếu chạy https
-        maxAge: 1000 * 60 * 60 * 24 * 30,
+        maxAge: 1000 * 60 * 60 * 24 * 365,
         });
     }
     return cartKey;
@@ -62,6 +64,7 @@ async function getOrCreateCart(req, res) {
     const cartKey = ensureCartCookie(req, res);
 
     let cart = null;
+    let guestCart = null;
 
     if (userId) {
         // ưu tiên giỏ user
@@ -69,10 +72,26 @@ async function getOrCreateCart(req, res) {
         if (!cart) {
             cart = await Carts.create({
                 user: userId,
-                cartKey,   // ⚡ luôn gắn cartKey để tracking session song song
+                cartKey,
                 items: [],
                 summary: { totalItems: 0, subtotal: 0 },
             });
+        } else if (cartKey) {
+            guestCart = await Carts.findOne({ cartKey, status: "active", user: null });
+            if (guestCart && guestCart._id.toString() !== cart._id.toString()) {
+                for (const gItem of guestCart.items) {
+                    const idx = cart.items.findIndex(i => String(i.product) === String(gItem.product));
+                    if (idx >= 0) {
+                        cart.items[idx].quantity += gItem.quantity;
+                    } else {
+                        cart.items.push(gItem.toObject ? gItem.toObject() : gItem);
+                    }
+                }
+                recalc(cart);
+                await cart.save();
+                guestCart.status = "abandoned";
+                await guestCart.save();
+            }
         }
     } else {
         // guest
@@ -140,28 +159,25 @@ exports.getCart = async (req, res) => {
 };
 
 
-// ====== addItem (tích hợp reservation system) ======
+// ====== addItem (khong giu hang, chi them vao gio) ======
 exports.addItem = async (req, res) => {
     const { productId, quantity } = req.body || {};
     const qty = Math.max(1, Number(quantity) || 1);
 
-    let finalQuantity = qty;
-    // 🔥 Tạo reservation trước
-    const reservationResult = await createCartReservation(req, productId, qty);
-    if (!reservationResult.success) {
-        return res.status(400).json({ message: reservationResult.message });
-    }
-
     const cart = await getOrCreateCart(req, res);
-    let product = await Product.findById(productId).lean();
+    const product = await Product.findById(productId).lean();
     if (!product) return res.status(404).json({ message: "Sản phẩm không tồn tại." });
 
-    // ✅ Sử dụng giá đã lock từ reservation
-    const lockedPrice = Number(reservationResult.lockedPrice) || 0;
-    const pct = Number(reservationResult.discountPercent) || 0;
+    // Được tính giá theo batch khi dùng (không lock hàng)
+    const batches = await getAvailableBatches(productId);
+    let pricing = { basePrice: Number(product.price) || 0, discountPercent: Number(product.discountPercent) || 0 };
+    if (batches.length > 0) {
+        pricing = computeBatchPricing(batches[0], product);
+    }
+    const lockedPrice = Number(pricing.basePrice) || 0;
+    const pct = Number(pricing.discountPercent) || 0;
     const unitPrice = pct > 0 ? Math.max(0, Math.round(lockedPrice * (100 - pct) / 100)) : lockedPrice;
 
-    // Tìm item trong giỏ
     const idx = cart.items.findIndex(i => String(i.product) === String(product._id));
 
     if (idx >= 0) {
@@ -170,8 +186,7 @@ exports.addItem = async (req, res) => {
         cart.items[idx].lockedPrice = lockedPrice;
         cart.items[idx].discountPercent = pct;
         cart.items[idx].unit = product.unit || "kg";
-        cart.items[idx].batchId = reservationResult.batchId || null; // ✅ Thêm batchId
-        cart.items[idx].reservationId = reservationResult.reservation._id;
+        cart.items[idx].batchId = batches[0]?._id || null;
         cart.items[idx].lockedAt = new Date();
     } else {
         cart.items.push({
@@ -184,20 +199,18 @@ exports.addItem = async (req, res) => {
             total: 0,
             discountPercent: pct,
             unit: product.unit || "kg",
-            batchId: reservationResult.batchId || null, // ✅ Thêm batchId
-            reservationId: reservationResult.reservation._id,
+            batchId: batches[0]?._id || null,
             lockedAt: new Date()
         });
     }
 
     recalc(cart);
     await cart.save();
-    await syncReservationQuantity(req, productId, finalQuantity);
     return res.json(cart);
 };
 
 
-// ====== updateItem (đã chỉnh giá giảm + kiểm tồn) ======
+// ====== updateItem (da chinh gia giam + kiem ton) ======
 exports.updateItem = async (req, res) => {
     const { productId } = req.params;
     const { quantity } = req.body || {};
@@ -274,11 +287,6 @@ exports.removeItem = async (req, res) => {
         const cart = await getOrCreateCart(req, res);
         const before = cart.items.length;
 
-        // Tìm item để lấy reservationId trước khi xóa
-        const itemToRemove = cart.items.find(
-            (i) => String(i.product) === String(productId)
-        );
-
         // ⚡ lọc item ra khỏi mảng
         cart.items = cart.items.filter(
             (i) => String(i.product) !== String(productId)
@@ -289,30 +297,6 @@ exports.removeItem = async (req, res) => {
         }
 
         // 🔥 Release reservation nếu có
-        if (itemToRemove?.reservationId) {
-            try {
-                const reservation = await Reservation.findById(itemToRemove.reservationId);
-                if (reservation && reservation.status === "active") {
-                    // Xóa item khỏi reservation
-                    reservation.items = reservation.items.filter(
-                        item => item.product.toString() !== productId.toString()
-                    );
-                    
-                    if (reservation.items.length === 0) {
-                        // Nếu không còn item nào, release reservation
-                        reservation.status = "released";
-                        reservation.releasedAt = new Date();
-                    }
-                    
-                    await reservation.save();
-                    console.log(`Released reservation for product ${productId}`);
-                }
-            } catch (err) {
-                console.error("Error releasing reservation:", err);
-                // Không throw error, vẫn xóa item khỏi cart
-            }
-        }
-
         // tính lại tổng
         recalc(cart);
         await cart.save();   // ✅ bắt buộc để ghi xuống MongoDB

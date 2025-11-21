@@ -1,6 +1,7 @@
 const Reservation = require("../models/Reservation");
 const ImportItem = require("../../admin-services/models/ImportItem");
 const Product = require("../models/Product");
+const Carts = require("../models/Carts");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { computeBatchPricing } = require("../utils/batchPricing");
@@ -20,10 +21,12 @@ function extractUserId(req) {
 
 // Helper function to get or generate session key
 function getSessionKey(req) {
+  const userId = req.user?.id || req.user?._id;
+  if (userId) return `user-${userId}`;
   // Priority: x-session-key header > sessionID > generate new
   const headerKey = req.headers["x-session-key"];
   if (headerKey) return String(headerKey);
-  
+
   const sessionId = req.sessionID;
   if (sessionId) return String(sessionId);
   
@@ -151,88 +154,94 @@ exports.reserveForCart = async (req, res) => {
 exports.confirmForCheckout = async (req, res) => {
   try {
     const userId = req.user?.id || extractUserId(req);
-    const sessionKey = getSessionKey(req);
+    const cartKey = userId ? null : (req.cookies?.CART_ID || null);
+    const sessionKey = userId ? `user-${userId}` : (cartKey || getSessionKey(req));
     const { selectedProductIds } = req.body; // Array of product IDs to checkout
 
-    // Tìm cart reservation
-    const reservation = await Reservation.findOne({
-      $or: [
-        { user: userId },
-        { sessionKey: sessionKey }
-      ],
-      type: "cart",
-      status: "active"
-    });
+    // Lấy giỏ hiện tại (user hoặc guest cart)
+    const cart = await (async () => {
+      if (userId) {
+        let userCart = await Carts.findOne({ user: userId, status: "active" });
+        if (userCart) return userCart;
+      }
+      if (cartKey) {
+        return await Carts.findOne({ cartKey, status: "active" });
+      }
+      return null;
+    })();
 
-    if (!reservation) {
+    if (!cart || !cart.items?.length) {
       return res.status(404).json({ message: "Không tìm thấy giỏ hàng" });
     }
 
-    // Lọc items được chọn để checkout
-    let itemsToCheckout = reservation.items;
-    if (selectedProductIds && selectedProductIds.length > 0) {
-      itemsToCheckout = reservation.items.filter(item =>
-        selectedProductIds.includes(item.product.toString())
-      );
-    }
+    // Lọc items theo yêu cầu
+    const cartItems = (cart.items || []).filter((it) => {
+      if (!selectedProductIds || selectedProductIds.length === 0) return true;
+      return selectedProductIds.includes(String(it.product));
+    });
 
-    if (itemsToCheckout.length === 0) {
+    if (!cartItems.length) {
       return res.status(400).json({ message: "Không có sản phẩm nào được chọn" });
     }
 
-    // Validate số lượng còn đủ không
-    for (const item of itemsToCheckout) {
-      // Kiểm tra batchId tồn tại
-      if (!item.batchId) {
-        console.warn(`Item ${item.product} không có batchId, bỏ qua validation`);
-        continue;
+    // Validate về gắn batch FEFO
+    const reservationItems = [];
+    for (const item of cartItems) {
+      const productId = String(item.product);
+      const productDoc = await Product.findById(productId).lean();
+      if (!productDoc) {
+        return res.status(404).json({ message: `Sản phẩm không tồn tại: ${productId}` });
       }
-      
-      const availableQty = await getAvailableQuantity(item.batchId);
-      if (availableQty < item.quantity) {
-        const product = await Product.findById(item.product);
+
+      const batches = await getAvailableBatches(productId);
+      let chosenBatch = null;
+      let availableQty = 0;
+
+      for (const batch of batches) {
+        const qty = await getAvailableQuantity(batch._id);
+        if (qty >= item.quantity) {
+          chosenBatch = batch;
+          availableQty = qty;
+          break;
+        }
+      }
+
+      if (!chosenBatch) {
+        // Không đủ ở bất kỳ batch nào
+        const fallbackQty = availableQty || 0;
         return res.status(400).json({
-          message: `Sản phẩm "${product?.name}" chỉ còn ${availableQty} ${item.unit}`,
-          productId: item.product
+          message: `Sản phẩm "${productDoc?.name || productId}" không đủ hàng (cần ${fallbackQty}).`,
+          productId,
         });
       }
+
+      const pricing = computeBatchPricing(chosenBatch, productDoc);
+      reservationItems.push({
+        product: productId,
+        batchId: chosenBatch._id,
+        quantity: item.quantity,
+        lockedPrice: pricing.basePrice,
+        discountPercent: pricing.discountPercent || 0,
+        unit: productDoc.unit || "kg",
+      });
     }
 
-    // Tạo checkout reservation mới (30 phút cho payment)
     const checkoutReservation = await Reservation.create({
-      user: userId,
-      sessionKey: sessionKey,
+      user: userId || null,
+      sessionKey,
       type: "checkout",
       status: "active",
-      items: itemsToCheckout,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 phút
+      items: reservationItems,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 ph?t
     });
 
-    // Xóa items đã checkout khỏi cart reservation
-    if (selectedProductIds && selectedProductIds.length > 0) {
-      reservation.items = reservation.items.filter(item =>
-        !selectedProductIds.includes(item.product.toString())
-      );
-      
-      if (reservation.items.length === 0) {
-        reservation.status = "released";
-        reservation.releasedAt = new Date();
-      }
-      await reservation.save();
-    } else {
-      // Checkout tất cả -> release cart reservation
-      reservation.status = "released";
-      reservation.releasedAt = new Date();
-      await reservation.save();
-    }
-
-    res.json({
+    return res.json({
       success: true,
       checkoutReservation: {
         id: checkoutReservation._id,
         items: checkoutReservation.items,
-        expiresAt: checkoutReservation.expiresAt
-      }
+        expiresAt: checkoutReservation.expiresAt,
+      },
     });
   } catch (error) {
     console.error("Error in confirmForCheckout:", error);

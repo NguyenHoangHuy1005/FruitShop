@@ -66,7 +66,18 @@ const RenderFeatProducts = () => {
                                 className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
                                 key={item._id}
                             >
-                                <ProductCard {...item} />
+                                <ProductCard
+                                    id={item._id}
+                                    name={item.name}
+                                    description={item.description}
+                                    price={item.price}
+                                    category={item.category}
+                                    image={item.image}
+                                    status={item.status}
+                                    discountPercent={item.discountPercent}
+                                    onHand={item.onHand}
+                                    unit={item.unit}
+                                />
                             </div>
                         ))}
                 </div>
@@ -81,7 +92,18 @@ const RenderFeatProducts = () => {
                                 className="col-lg-3 col-md-3 col-sm-6 col-xs-12"
                                 key={item._id}
                             >
-                                <ProductCard {...item} />
+                                <ProductCard
+                                    id={item._id}
+                                    name={item.name}
+                                    description={item.description}
+                                    price={item.price}
+                                    category={item.category}
+                                    image={item.image}
+                                    status={item.status}
+                                    discountPercent={item.discountPercent}
+                                    onHand={item.onHand}
+                                    unit={item.unit}
+                                />
                             </div>
                         ))}
                 </div>

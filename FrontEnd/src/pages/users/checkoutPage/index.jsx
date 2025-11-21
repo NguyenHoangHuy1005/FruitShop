@@ -4,7 +4,7 @@ import "./style.scss";
 import { memo, useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { placeOrder, validateCoupon, confirmCheckoutReservation } from "../../../component/redux/apiRequest";
+import { placeOrder, validateCoupon, confirmCheckoutReservation, ensureCart } from "../../../component/redux/apiRequest";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTERS } from "../../../utils/router";
 import { setCoupon } from "../../../component/redux/cartSlice";
@@ -46,6 +46,7 @@ const CheckoutPage = () => {
     );
     const SHIPPING_FEE = 0; //30k
     const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
+    const hasItemsToCheckout = itemsToShow?.length > 0;
 
     const derivedCoupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";
     const derivedDiscount = repeatOrder?.coupon?.discount || location.state?.coupon?.discount || cart?.coupon?.discount || 0;
@@ -66,15 +67,99 @@ const CheckoutPage = () => {
     const [couponInsights, setCouponInsights] = useState([]);
     const initialReservationId = location.state?.checkoutReservationId || null;
     const [checkoutReservationId, setCheckoutReservationId] = useState(initialReservationId);
+    const [errors, setErrors] = useState({ fullName: "", address: "", phone: "", email: "" });
+    const [touched, setTouched] = useState({});
+    const [cartReady, setCartReady] = useState(false);
+
+    const sanitizePhoneInput = (value) => (value || "").replace(/\D/g, "").slice(0, 10);
+
+    const validators = useMemo(
+        () => ({
+            fullName: (value) => {
+                const normalized = (value || "").trim();
+                if (!normalized) return "Vui lòng nhập họ và tên.";
+                if (!/^[\p{L}\s]+$/u.test(normalized)) {
+                    return "Tên không được chứa số hoặc ký tự đặc biệt.";
+                }
+                return "";
+            },
+            address: (value) => {
+                const normalized = (value || "").trim();
+                if (!normalized) return "Vui lòng nhập địa chỉ.";
+                return "";
+            },
+            phone: (value) => {
+                const normalized = sanitizePhoneInput(value);
+                if (!normalized) return "Vui lòng nhập số điện thoại.";
+                if (normalized.length !== 10) {
+                    return "Số điện thoại phải có 10 chữ số.";
+                }
+                if (!/^(09|03|08|07|05)/.test(normalized)) {
+                    return "Số điện thoại chỉ chấp nhận đầu 09, 03, 08, 07 hoặc 05.";
+                }
+                return "";
+            },
+            email: (value) => {
+                const normalized = (value || "").trim();
+                if (!normalized) return "Vui lòng nhập email.";
+                const domainRegex = /@gmail\.com$/i;
+                if (!domainRegex.test(normalized)) {
+                    return "Email phải đúng định dạng @gmail.com.";
+                }
+                const localPart = normalized.split("@")[0] || "";
+                if (!/^[A-Za-z0-9]+$/.test(localPart)) {
+                    return "Phần trước @ chỉ được chứa chữ và số, không chứa ký tự đặc biệt.";
+                }
+                return "";
+            },
+        }),
+        []
+    );
+
+    const validateField = (field, value) => {
+        const validator = validators[field];
+        if (!validator) return "";
+        return validator(value);
+    };
+
+    const validateFormFields = (draftForm) => ({
+        fullName: validateField("fullName", draftForm.fullName),
+        address: validateField("address", draftForm.address),
+        phone: validateField("phone", draftForm.phone),
+        email: validateField("email", draftForm.email),
+    });
+
+    const computedValidation = useMemo(() => validateFormFields(form), [form]);
+    const hasBlockingErrors = Object.values(computedValidation).some(Boolean);
 
     useEffect(() => {
-        setForm(repeatFormDefaults);
+        setForm({
+            ...repeatFormDefaults,
+            phone: sanitizePhoneInput(repeatFormDefaults.phone),
+        });
         setPaymentMethod(repeatOrder?.paymentMethod || "COD");
+        setErrors({ fullName: "", address: "", phone: "", email: "" });
+        setTouched({});
     }, [repeatFormDefaults, repeatOrder]);
+
+    useEffect(() => {
+        if (!user || cartReady) return;
+        const syncCart = async () => {
+            try {
+                await ensureCart(dispatch);
+            } catch (error) {
+                toast.error(error?.message || "Không tải được giỏ hàng, vui lòng thử lại.");
+            } finally {
+                setCartReady(true);
+            }
+        };
+        syncCart();
+    }, [user, cartReady, dispatch]);
 
     // Confirm checkout reservation
     useEffect(() => {
         if (!user) return;
+        if (!cartReady) return;
         if (checkoutReservationId) return;
         if (!selectedProductIds || selectedProductIds.length === 0) return;
         
@@ -93,7 +178,7 @@ const CheckoutPage = () => {
         };
         
         confirmReservation();
-    }, [selectedProductIds, user, checkoutReservationId, navigate]);
+    }, [selectedProductIds, user, checkoutReservationId, navigate, cartReady]);
 
     useEffect(() => {
         const normalized = (derivedCoupon || "").trim();
@@ -214,6 +299,29 @@ const CheckoutPage = () => {
         }
     };
 
+    const handleFieldChange = (field, formatter) => (e) => {
+        const rawValue = e.target.value;
+        const value = formatter ? formatter(rawValue) : rawValue;
+        setForm((prev) => ({ ...prev, [field]: value }));
+
+        if (touched[field]) {
+            const message = validateField(field, value);
+            setErrors((prev) => ({ ...prev, [field]: message }));
+        }
+    };
+
+    const handleFieldBlur = (field) => () => {
+        setTouched((prev) => ({ ...prev, [field]: true }));
+        setErrors((prev) => ({ ...prev, [field]: validateField(field, form[field]) }));
+    };
+
+    const ensureFormValid = () => {
+        const nextErrors = validateFormFields(form);
+        setTouched((prev) => ({ ...prev, fullName: true, address: true, phone: true, email: true }));
+        setErrors((prev) => ({ ...prev, ...nextErrors }));
+        return !Object.values(nextErrors).some(Boolean);
+    };
+
     const paymentOptions = [
         {
             value: "COD",
@@ -233,8 +341,16 @@ const CheckoutPage = () => {
 
     const onSubmit = async (e) => {
         e.preventDefault();
+        if (!cartReady) {
+            await ensureCart(dispatch);
+            setCartReady(true);
+        }
         if (!(itemsToShow?.length > 0)) {
             alert("Chưa có sản phẩm nào để đặt hàng.");
+            return;
+        }
+        if (!ensureFormValid()) {
+            toast.error("Vui lòng kiểm tra lại thông tin liên hệ.");
             return;
         }
         if (!user) {
@@ -260,6 +376,11 @@ const CheckoutPage = () => {
         }
     };
 
+    const fullNameError = touched?.fullName && errors.fullName;
+    const addressError = touched?.address && errors.address;
+    const phoneError = touched?.phone && errors.phone;
+    const emailError = touched?.email && errors.email;
+
     if (!user) {
         return null;
     }
@@ -275,7 +396,7 @@ const CheckoutPage = () => {
                             <h2>Thông tin khách hàng</h2>
                             <p>Vui lòng cung cấp thông tin chính xác để thuận tiện cho việc giao hàng.</p>
                         </div>
-                        <div className="checkout__input">
+                        <div className={`checkout__input ${fullNameError ? "has-error" : ""}`}>
                             <label>
                                 Họ và tên: <span className="required">*</span>
                             </label>
@@ -283,11 +404,13 @@ const CheckoutPage = () => {
                                 type="text"
                                 placeholder="Nhập họ và tên"
                                 value={form.fullName}
-                                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                                onChange={handleFieldChange("fullName")}
+                                onBlur={handleFieldBlur("fullName")}
                                 required
                             />
+                            {fullNameError && <span className="checkout__input__error">{fullNameError}</span>}
                         </div>
-                        <div className="checkout__input">
+                        <div className={`checkout__input ${addressError ? "has-error" : ""}`}>
                             <label>
                                 Địa chỉ: <span className="required">*</span>
                             </label>
@@ -295,24 +418,31 @@ const CheckoutPage = () => {
                                 type="text"
                                 placeholder="Nhập địa chỉ"
                                 value={form.address}
-                                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                                onChange={handleFieldChange("address")}
+                                onBlur={handleFieldBlur("address")}
                                 required
                             />
+                            {addressError && <span className="checkout__input__error">{addressError}</span>}
                         </div>
                         <div className="checkout__input__group">
-                            <div className="checkout__input">
+                            <div className={`checkout__input ${phoneError ? "has-error" : ""}`}>
                                 <label>
                                     Số điện thoại: <span className="required">*</span>
                                 </label>
                                 <input
                                     type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     placeholder="Nhập số điện thoại"
                                     value={form.phone}
-                                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                                    maxLength={10}
+                                    onChange={handleFieldChange("phone", sanitizePhoneInput)}
+                                    onBlur={handleFieldBlur("phone")}
                                     required
                                 />
+                                {phoneError && <span className="checkout__input__error">{phoneError}</span>}
                             </div>
-                        <div className="checkout__input">
+                            <div className={`checkout__input ${emailError ? "has-error" : ""}`}>
                                 <label>
                                     Email: <span className="required">*</span>
                                 </label>
@@ -320,10 +450,12 @@ const CheckoutPage = () => {
                                     type="email"
                                     placeholder="Nhập email"
                                     value={form.email}
-                                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                                    onChange={handleFieldChange("email")}
+                                    onBlur={handleFieldBlur("email")}
                                     required
                                 />
-                                </div>
+                                {emailError && <span className="checkout__input__error">{emailError}</span>}
+                            </div>
                         </div>
                         <div className="checkout__input">
                             <label>Ghi chú:</label>
@@ -496,7 +628,11 @@ const CheckoutPage = () => {
                             </p>
                         </div>
                         <div className="checkout__actions">
-                            <button type="submit" className="button-submit">
+                            <button
+                                type="submit"
+                                className="button-submit"
+                                disabled={hasBlockingErrors || !hasItemsToCheckout}
+                            >
                                 Đặt hàng
                             </button>
                             <span className="checkout__actions__secure">Thanh toán an toàn &amp; bảo mật</span>

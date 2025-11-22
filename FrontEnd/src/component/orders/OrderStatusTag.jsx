@@ -1,7 +1,9 @@
 import "./orderStatus.scss";
 
 const STATUS_LABELS = {
-  pending: "Chờ thanh toán",
+  pending: "Chờ xác nhận",
+  pending_payment: "Chờ thanh toán",
+  awaiting_payment: "Chờ thanh toán",
   expired: "Hết hạn",
   processing: "Chờ nhận",
   shipping: "Đang giao",

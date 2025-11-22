@@ -86,29 +86,74 @@ const OrderDetail = () => {
       <div className="shipper-detail__back">
         <Link to={ROUTERS.SHIPPER.ORDERS}>➜ Quay lại</Link>
       </div>
-      <div className="shipper-detail__meta">
+
+      <div className="shipper-detail__header">
         <div>
           <p className="shipper-detail__code">Đơn #{String(order._id).slice(-8).toUpperCase()}</p>
-          <p className="shipper-detail__time">{new Date(order.createdAt).toLocaleString()}</p>
+          <p className="shipper-detail__time">{new Date(order.createdAt).toLocaleString('vi-VN')}</p>
         </div>
         <OrderStatusTag status={order.status} />
       </div>
 
-      <div className="shipper-detail__meta">
-        <p><span>Khách hàng</span><strong>{order.customer?.name}</strong></p>
-        <p><span>Điện thoại</span><strong>{order.customer?.phone}</strong></p>
-        <p className="shipper-detail__meta-address"><span>Địa chỉ</span><strong>{order.customer?.address}</strong></p>
-        <p><span>Tổng</span><strong>{formatter(order.amount?.total || 0)}</strong></p>
+      <div className="shipper-detail__addresses">
+        <div className="shipper-detail__info-section">
+          <h4>📍 Địa chỉ nhận hàng (Kho)</h4>
+          <div className="shipper-detail__meta">
+            <p className="shipper-detail__meta-address">
+              <span>Địa chỉ lấy hàng</span>
+              <strong>{order.pickupAddress || "123 Đường ABC, Quận 1, TP.HCM"}</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="shipper-detail__info-section">
+          <h4>🚚 Địa chỉ giao hàng</h4>
+          <div className="shipper-detail__meta">
+            <p className="shipper-detail__meta-address">
+              <span>Giao đến</span>
+              <strong>{order.customer?.address}</strong>
+            </p>
+          </div>
+        </div>
       </div>
 
-      <h3>Sản phẩm</h3>
-      <ul className="shipper-detail__items">
-        {items.map((it, idx) => (
-          <li key={idx}>
-            {it.name} - {it.quantity} x {formatter(it.price)}
-          </li>
-        ))}
-      </ul>
+      <div className="shipper-detail__info-section">
+        <h4>👤 Thông tin khách hàng</h4>
+        <div className="shipper-detail__meta">
+          <p><span>Họ tên</span><strong>{order.customer?.name}</strong></p>
+          <p><span>Số điện thoại</span><strong>{order.customer?.phone}</strong></p>
+          <p><span>Email</span><strong>{order.customer?.email || "Không có"}</strong></p>
+          <p>
+            <span>Hình thức thanh toán</span>
+            <strong>
+              {(order.paymentMethod || order.paymentType || 'COD') === 'COD' 
+                ? '💵 Thanh toán khi nhận hàng (COD)' 
+                : `💳 Thanh toán trực tuyến (${order.paymentMethod || order.paymentType})`
+              }
+              {order.isPaid && <span style={{color: 'green', marginLeft: '8px'}}>✓ Đã thanh toán</span>}
+            </strong>
+          </p>
+          <p><span>Tổng thanh toán</span><strong className="shipper-detail__total">{formatter(order.amount?.total || 0)}</strong></p>
+          {order.customer?.note && (
+            <p className="shipper-detail__meta-address">
+              <span>Ghi chú</span>
+              <strong>{order.customer.note}</strong>
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="shipper-detail__info-section">
+        <h4>📦 Sản phẩm trong đơn</h4>
+        <ul className="shipper-detail__items">
+          {items.map((it, idx) => (
+            <li key={idx}>
+              <span className="shipper-detail__item-name">{it.name}</span>
+              <span className="shipper-detail__item-qty">{it.quantity} x {formatter(it.price)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="shipper-detail__actions">
         <OrderActions

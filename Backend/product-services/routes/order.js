@@ -22,6 +22,7 @@ router.get("/stats", requireAdmin, orderCtrl.adminStats);
 router.get("/",    requireAdmin, orderCtrl.adminList);
 router.get("/:id", requireAdmin, orderCtrl.adminGetOne);
 router.patch("/:id", requireAdmin, orderCtrl.adminUpdate);
+router.post("/:id/prepare", requireAdmin, orderCtrl.adminPrepareOrder);
 router.post("/maintenance/auto-expire", requireAdmin, orderCtrl.runAutoExpireOrders);
 router.post("/maintenance/auto-complete", requireAdmin, orderCtrl.runAutoCompleteOrders);
 

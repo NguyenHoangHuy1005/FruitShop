@@ -32,8 +32,8 @@ const OrderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "expired", "processing", "shipping", "delivered", "completed", "cancelled"],
-        default: "processing"
+        enum: ["pending", "pending_payment", "awaiting_payment", "expired", "processing", "shipping", "delivered", "completed", "cancelled"],
+        default: "pending"
     },
     paymentType: {
         type: String,
@@ -47,6 +47,7 @@ const OrderSchema = new mongoose.Schema({
     paymentDeadline: { type: Date, default: null },
     paymentCompletedAt: { type: Date, default: null },
     paymentMeta: { type: mongoose.Schema.Types.Mixed, default: {} },
+    pickupAddress: { type: String, default: "123 Đường Nguyễn Văn Linh, Quận 7, TP.HCM" }, // Địa chỉ lấy hàng cho shipper
     shipperId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     deliveredAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },

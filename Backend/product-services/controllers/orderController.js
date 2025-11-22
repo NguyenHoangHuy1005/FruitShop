@@ -227,7 +227,7 @@ const isShipperUser = async (userId) => {
 const autoExpireOrders = async (extraFilter = {}) => {
     const now = new Date();
     const filter = {
-        status: "pending",
+        status: { $in: ["pending", "pending_payment"] }, // Hỗ trợ cả COD và online payment
         $or: [
             { autoConfirmAt: { $ne: null, $lte: now } },
             { autoConfirmAt: null, paymentDeadline: { $ne: null, $lte: now } }
@@ -630,12 +630,17 @@ exports.createOrder = async (req, res) => {
         // ===== 3) Tạo đơn =====
         const isOnlinePayment = paymentMethod !== "COD";
         const paymentDeadline = isOnlinePayment ? new Date(Date.now() + 10 * 60 * 1000) : null;
+        
+        // QR/Online payment: pending_payment (chờ thanh toán online)
+        // COD: pending (chờ xác nhận/nhập địa chỉ)
+        const initialStatus = isOnlinePayment ? "pending_payment" : "pending";
+        
         const order = await Order.create({
             user: userId || cart.user || null,
             customer: { name: customerName, address, phone, email, note: note || "" },
             items,
             amount,
-            status: isOnlinePayment ? "pending" : "processing",
+            status: initialStatus,
             paymentType: paymentMethod,
             payment: paymentMethod,
             paymentDeadline,
@@ -911,13 +916,25 @@ exports.shipperListOrders = async (req, res) => {
             : ["processing", "shipping", "delivered", "completed", "cancelled"];
 
         const filter = { status: { $in: statusList } };
+        // Chỉ hiển thị đơn đã được admin xác nhận (processing) hoặc đơn đã được shipper này nhận
         filter.$or = [
-            { shipperId: userId },
-            { status: "processing", shipperId: null },
+            { shipperId: userId }, // Đơn đã được shipper này nhận (bất kể trạng thái)
+            { status: "processing", shipperId: null, pickupAddress: { $exists: true, $ne: "" } }, // Đơn chờ nhận, đã có địa chỉ lấy hàng
         ];
 
-        const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
-        return res.json({ ok: true, orders });
+        const orders = await Order.find(filter)
+            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt')
+            .sort({ createdAt: -1 })
+            .lean();
+        
+        // Format orders để hiển thị rõ phương thức thanh toán
+        const formattedOrders = orders.map(order => ({
+            ...order,
+            paymentMethod: order.paymentType || 'COD', // Hiển thị phương thức thanh toán
+            isPaid: order.paymentType !== 'COD' && order.paymentCompletedAt ? true : false, // Đã thanh toán hay chưa
+        }));
+        
+        return res.json({ ok: true, orders: formattedOrders });
     } catch (err) {
         console.error("shipperListOrders error:", err);
         return res.status(500).json({ message: "Lỗi server khi tải đơn cho shipper." });
@@ -1159,11 +1176,68 @@ exports.adminGetOne = async (req, res) => {
     return res.json(doc);
 };
 
+// Admin xác nhận và chuẩn bị đơn hàng (pending -> processing/ready for pickup)
+exports.adminPrepareOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { pickupAddress } = req.body;
+
+        const order = await Order.findById(id);
+        if (!order) {
+            return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        }
+
+        // Chỉ cho phép chuẩn bị đơn ở trạng thái pending (chờ xác nhận)
+        if (order.status !== "pending") {
+            return res.status(400).json({ 
+                message: `Chỉ có thể xác nhận đơn hàng ở trạng thái "Chờ xác nhận". Trạng thái hiện tại: ${order.status}` 
+            });
+        }
+
+        // Cập nhật địa chỉ lấy hàng
+        if (pickupAddress && pickupAddress.trim()) {
+            order.pickupAddress = pickupAddress.trim();
+        }
+
+        // Chuyển trạng thái sang processing (chờ shipper nhận)
+        order.status = "processing";
+        
+        // Đánh dấu thời gian xác nhận
+        if (!order.paymentMeta) order.paymentMeta = {};
+        order.paymentMeta.confirmedAt = new Date();
+        order.markModified('paymentMeta');
+
+        await order.save();
+
+        // Tạo thông báo cho user
+        if (order.user) {
+            const orderId = String(order._id).slice(-8).toUpperCase();
+            createNotification(
+                order.user,
+                "order_confirmed",
+                "Đơn hàng đã được xác nhận",
+                `Đơn hàng #${orderId} đã được xác nhận và đang chờ shipper nhận hàng.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_confirmed notification:", err));
+        }
+
+        return res.json({ 
+            ok: true, 
+            message: "Đơn hàng đã được xác nhận, chờ shipper nhận hàng.",
+            data: order 
+        });
+    } catch (err) {
+        console.error("adminPrepareOrder error:", err);
+        return res.status(500).json({ message: "Lỗi khi xác nhận đơn hàng." });
+    }
+};
+
 exports.adminUpdate = async (req, res) => {
     const {
         status, payment, paymentDeadline, paymentCompletedAt, paymentMeta,
         paymentType, shipperId, deliveredAt, completedAt,
-        autoConfirmAt, autoCompleteAt
+        autoConfirmAt, autoCompleteAt, pickupAddress
     } = req.body || {};
     const update = {};
     if (status) update.status = status;   // pending|expired|processing|shipping|delivered|completed|cancelled
@@ -1177,6 +1251,7 @@ exports.adminUpdate = async (req, res) => {
     if (deliveredAt !== undefined) update.deliveredAt = deliveredAt;
     if (completedAt !== undefined) update.completedAt = completedAt;
     if (autoCompleteAt !== undefined) update.autoCompleteAt = autoCompleteAt;
+    if (pickupAddress !== undefined) update.pickupAddress = pickupAddress;
     if (!Object.keys(update).length) {
         return res.status(400).json({ message: "Không có trường nào để cập nhật." });
     }

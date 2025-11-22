@@ -125,10 +125,10 @@ const PaymentPendingView = memo(() => {
     // Tự động polling kiểm tra trạng thái thanh toán khi đã tạo QR
     useEffect(() => {
         // Chỉ polling khi:
-        // 1. Đơn hàng đang pending
+        // 1. Đơn hàng đang chờ thanh toán (pending_payment)
         // 2. Đã chọn kênh SePay
         // 3. Đã có QR code
-        if (!state.order || state.order.status !== "pending" || selectedChannel !== "SePay" || !qrData) {
+        if (!state.order || state.order.status !== "pending_payment" || selectedChannel !== "SePay" || !qrData) {
             // Dọn dẹp polling nếu có
             if (pollingIntervalRef.current) {
                 clearInterval(pollingIntervalRef.current);
@@ -145,8 +145,8 @@ const PaymentPendingView = memo(() => {
             try {
                 const res = await fetchPaymentSession(id, user?.accessToken, dispatch);
                 
-                // Nếu đã thanh toán, chuyển sang trang success
-                if (res.order?.status === "processing") {
+                // Nếu đã thanh toán thành công, chuyển sang trạng thái chờ xác nhận
+                if (res.order?.status === "pending") {
                     if (pollingIntervalRef.current) {
                         clearInterval(pollingIntervalRef.current);
                         pollingIntervalRef.current = null;
@@ -186,7 +186,7 @@ const PaymentPendingView = memo(() => {
     }, [state.order, selectedChannel, qrData, id, user?.accessToken, dispatch, navigate]);
 
     useEffect(() => {
-        if (!state.order || state.order.status !== "pending" || !state.deadline) {
+        if (!state.order || (state.order.status !== "pending" && state.order.status !== "pending_payment") || !state.deadline) {
             return undefined;
         }
         const computeRemaining = () => {
@@ -199,7 +199,7 @@ const PaymentPendingView = memo(() => {
     }, [state.deadline, state.order?.status]);
 
     useEffect(() => {
-        if (!state.order || state.order.status !== "pending") {
+        if (!state.order || (state.order.status !== "pending" && state.order.status !== "pending_payment")) {
             expiryTriggeredRef.current = false;
             return undefined;
         }
@@ -223,7 +223,7 @@ const PaymentPendingView = memo(() => {
             return;
         }
         
-        if (!state.order || state.order.status !== "pending") {
+        if (!state.order || (state.order.status !== "pending" && state.order.status !== "pending_payment")) {
             return;
         }
 
@@ -363,7 +363,7 @@ const PaymentPendingView = memo(() => {
                         </div>
                         <div className="payment-card__status">
                             <span className={`badge status-${state.order.status}`}>{state.order.status}</span>
-                            {state.order.status === "pending" && (
+                            {(state.order.status === "pending" || state.order.status === "pending_payment") && (
                                 <div className="payment-card__countdown">
                                     <span>Thời gian còn lại:</span>
                                     <strong>{countdownText}</strong>
@@ -522,7 +522,7 @@ const PaymentPendingView = memo(() => {
                             <button type="button" className="button-secondary" onClick={() => navigate(ROUTERS.USER.ORDERS)}>
                                 Xem đơn hàng của tôi
                             </button>
-                            {state.order.status === "pending" && (
+                            {(state.order.status === "pending" || state.order.status === "pending_payment") && (
                                 <div className="payment-card__action-group">
                                     <button type="button" className="button-cancel" onClick={handleCancel}>
                                         Hủy thanh toán
@@ -547,7 +547,7 @@ const PaymentSuccessView = memo(() => {
     const [state, setState] = useState({ loading: true, error: "", order: location.state?.order || null });
 
     useEffect(() => {
-        if (state.order && state.order.status === "processing") {
+        if (state.order && (state.order.status === "processing" || state.order.status === "pending")) {
             setState((prev) => ({ ...prev, loading: false }));
             return;
         }
@@ -556,7 +556,7 @@ const PaymentSuccessView = memo(() => {
             try {
                 const res = await fetchPaymentSession(id, user?.accessToken, dispatch);
                 if (cancelled) return;
-                if (res.order?.status === "pending") {
+                if (res.order?.status === "pending" || res.order?.status === "pending_payment") {
                     const redirectPath = ROUTERS.USER.PAYMENT.replace(":id", id);
                     navigate(redirectPath, { replace: true });
                     return;

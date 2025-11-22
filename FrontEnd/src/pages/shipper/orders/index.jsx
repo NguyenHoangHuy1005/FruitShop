@@ -114,6 +114,7 @@ const Orders = () => {
             <tr>
               <th>Mã</th>
               <th>Khách hàng</th>
+              <th>Thanh toán</th>
               <th>Trạng thái</th>
               <th>Tổng</th>
               <th>Hành động</th>
@@ -123,10 +124,19 @@ const Orders = () => {
             {visibleOrders.map((o) => {
               const orderId = o._id || o.id;
               const actionKey = actionState.id === orderId ? actionState.key : "";
+              const paymentMethod = o.paymentMethod || o.paymentType || 'COD';
+              const paymentLabel = paymentMethod === 'COD' ? 'Thanh toán khi nhận hàng (COD)' : `Thanh toán trực tuyến (${paymentMethod})`;
+              const paymentClass = paymentMethod === 'COD' ? 'payment-cod' : 'payment-online';
+              
               return (
                 <tr key={orderId}>
                   <td>#{String(orderId).slice(-8).toUpperCase()}</td>
                   <td>{o.customer?.name}</td>
+                  <td>
+                    <span className={`payment-badge ${paymentClass}`}>
+                      {paymentMethod === 'COD' ? '💵 COD' : `💳 ${paymentMethod}`}
+                    </span>
+                  </td>
                   <td><OrderStatusTag status={o.status} /></td>
                   <td>{formatter(o.amount?.total || 0)}</td>
                   <td className="shipper-orders__actions">

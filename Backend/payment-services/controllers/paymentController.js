@@ -66,7 +66,7 @@ const restoreInventory = async (orderDoc) => {
 };
 
 const ensureNotExpired = async (orderDoc) => {
-  if (!orderDoc || orderDoc.status !== "pending") {
+  if (!orderDoc || (orderDoc.status !== "pending" && orderDoc.status !== "awaiting_payment" && orderDoc.status !== "pending_payment")) {
     return { order: orderDoc, expired: false };
   }
 
@@ -346,7 +346,7 @@ exports.handleSePayWebhook = async (req, res) => {
     console.log('[SEPAY WEBHOOK] Order found:', order._id);
 
     // === Validate order status and transfer type ===
-    if (order.status !== 'pending') {
+    if (order.status !== 'pending' && order.status !== 'awaiting_payment' && order.status !== 'pending_payment') {
       console.log('[SEPAY WEBHOOK] Order already confirmed:', order._id);
       return res.status(200).json({ ok: true, msg: 'already_processed' });
     }
@@ -367,8 +367,8 @@ exports.handleSePayWebhook = async (req, res) => {
       return res.status(200).json({ ok: false, msg: 'amount_mismatch', orderTotal, transferAmount });
     }
 
-        // === Mark order as confirmed ===
-    order.status = 'processing';
+        // === Mark order as paid, waiting for admin confirmation ===
+    order.status = 'pending'; // Chờ admin xác nhận địa chỉ
     order.paymentType = order.paymentType || 'BANK';
     order.paymentCompletedAt = new Date();
     order.paymentDeadline = null;

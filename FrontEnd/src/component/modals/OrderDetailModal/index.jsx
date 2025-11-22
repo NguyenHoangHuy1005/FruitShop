@@ -7,6 +7,15 @@ import OrderActions from "../../orders/OrderActions";
 import { formatter } from "../../../utils/fomater";
 import "./style.scss";
 
+const getPaymentMethodDisplay = (payment) => {
+    if (!payment) return "COD";
+    if (typeof payment === "string") return payment;
+    if (typeof payment === "object") {
+        return payment.gateway || payment.method || "COD";
+    }
+    return "COD";
+};
+
 const OrderDetailModal = ({ orderId, onClose }) => {
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -262,7 +271,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                             <span className="value">{formatter(order.amount?.total || 0)}</span>
                         </div>
                         <div className="payment-method">
-                            Phuong thuc: {order.payment || "COD"}
+                            Phuong thuc: {getPaymentMethodDisplay(order.payment)}
                         </div>
                     </div>
 

@@ -148,18 +148,17 @@ const ProductDetail = () => {
         }
     }, [id]);
 
-    if (!product) return <h2>Không tìm thấy sản phẩm</h2>;
-
-    const pct = Number(product.discountPercent) || 0;
+    // Move calculations and derived values before early return
+    const pct = Number(product?.discountPercent) || 0;
     const finalPrice = Math.max(
         0,
-        Math.round(((Number(product.price) || 0) * (100 - pct)) / 100)
+        Math.round(((Number(product?.price) || 0) * (100 - pct)) / 100)
     );
-    const mainImg = Array.isArray(product.image)
-        ? product.image[0]
-        : product.image;
+    const mainImg = Array.isArray(product?.image)
+        ? product?.image[0]
+        : product?.image;
     const relatedProducts = products
-        .filter((p) => p.category === product.category && p._id !== product._id)
+        .filter((p) => p.category === product?.category && p._id !== product?._id)
         .slice(0, 8);
 
     // Tổng số lượng tồn tính từ batch info
@@ -173,7 +172,8 @@ const ProductDetail = () => {
     } = derivedBatchState;
     const totalBatches =
         batchInfo?.summary?.totalBatches ?? availableBatchCount ?? 0;
-    const showQuantityButtons = totalBatches === 1 && hasStock && !isOutOfStock;
+    // Hiển thị nút tăng/giảm khi có hàng trong kho, không phụ thuộc vào số lượng lô
+    const showQuantityButtons = hasStock && !isOutOfStock && activeBatchQuantity > 0;
     const disablePurchase = !hasStock || isOutOfStock;
     const normalizedStatus = (derivedStatus || "")
         .normalize("NFD")
@@ -202,10 +202,10 @@ const ProductDetail = () => {
         }
         return {
             current: finalPrice,
-            base: pct > 0 ? Number(product.price) || finalPrice : finalPrice,
+            base: pct > 0 ? Number(product?.price) || finalPrice : finalPrice,
             hasDiscount: pct > 0,
         };
-    }, [priceRange, finalPrice, pct, product.price]);
+    }, [priceRange, finalPrice, pct, product?.price]);
 
     useEffect(() => {
         setSelectedQuantity((prev) => {
@@ -227,7 +227,7 @@ const ProductDetail = () => {
         if (activeBatch && activeBatchQuantity > 0 && qty > activeBatchQuantity) {
             alert(
                 `Lô hiện tại chỉ còn ${activeBatchQuantity} ${
-                    product.unit || "kg"
+                    product?.unit || "kg"
                 }. Vui lòng giảm số lượng!`
             );
             return null;
@@ -261,6 +261,9 @@ const ProductDetail = () => {
         });
         return true;
     };
+
+    // Early return AFTER all hooks and calculations
+    if (!product) return <h2>Không tìm thấy sản phẩm</h2>;
 
     return (
         <>
@@ -296,10 +299,10 @@ const ProductDetail = () => {
 
                         {/* ✅ Lượt mua */}
                         <div className="buy-count">
-                            Đã bán: <b>{product.purchaseCount || 0}</b>
+                            Đã bán: <b>{product?.purchaseCount || 0}</b>
                         </div>
 
-                        <h2 className="product__name">{product.name}</h2>
+                        <h2 className="product__name">{product?.name}</h2>
 
                         {/* Giá từ lô hàng, fallback về giá Product */}
                         <div className="price-section">
@@ -313,7 +316,7 @@ const ProductDetail = () => {
 
                         {/* ✅ Đơn vị tính */}
                         <div className="product-unit">
-                            <b>Đơn vị tính:</b> <span>{product.unit || "kg"}</span>
+                            <b>Đơn vị tính:</b> <span>{product?.unit || "kg"}</span>
                         </div>
                         
                         {/* Display batch information */}
@@ -331,9 +334,9 @@ const ProductDetail = () => {
                                     <b>Thông tin lô hàng:</b>
                                     <div className="batch-details">
                                         <span>Số lô hiện có: <strong>{totalBatches}</strong></span>
-                                        {totalBatches === 1 && activeBatch && (
+                                        {activeBatch && (
                                             <>
-                                                <span> | Còn lại: <strong>{activeBatchQuantity} {product.unit || "kg"}</strong></span>
+                                                <span> | Còn lại: <strong>{activeBatchQuantity} {product?.unit || "kg"}</strong></span>
                                                 {activeBatch.daysLeft !== null && (
                                                     <span className={activeBatch.daysLeft <= 7 ? "expiring-soon" : ""}>
                                                         {" "}| HSD còn: <strong>{activeBatch.daysLeft} ngày</strong>
@@ -343,7 +346,7 @@ const ProductDetail = () => {
                                         )}
                                         {totalBatches > 1 && (
                                             <span className="multiple-batches-note">
-                                                {""}<em>Sản phẩm có nhiều lô. Sau khi mua hết lô gần hạn nhất, sẽ mở lô tiếp theo.</em>
+                                                <br /><em>Sản phẩm có nhiều lô. Sau khi mua hết lô gần hạn nhất, sẽ mở lô tiếp theo.</em>
                                             </span>
                                         )}
                                     </div>
@@ -431,7 +434,7 @@ const ProductDetail = () => {
                                 </span>
                             </li>
                             {/* ✅ Họ sản phẩm (nếu có) */}
-                            {product.family && (
+                            {product?.family && (
                                 <li>
                                     <b>Họ:</b> <span>{product.family}</span>
                                 </li>
@@ -445,7 +448,7 @@ const ProductDetail = () => {
                                 </span>
                             </li>
                             <li>
-                                <b>Giới thiệu:</b> <span>{product.description}</span>
+                                <b>Giới thiệu:</b> <span>{product?.description}</span>
                             </li>
                         </ul>
                     </div>
@@ -509,10 +512,10 @@ const ProductDetail = () => {
                             <div className="product-info-modal">
                                 <img 
                                     src={mainImg || "/assets/images/placeholder-product.png"} 
-                                    alt={product.name}
+                                    alt={product?.name}
                                 />
                                 <div>
-                                    <h4>{product.name}</h4>
+                                    <h4>{product?.name}</h4>
                                     <div className="price price-modal">
                                         {bestBatchPrice.hasDiscount && (
                                             <span className="price-original">{formatter(bestBatchPrice.base)}</span>
@@ -525,7 +528,7 @@ const ProductDetail = () => {
                             <div className="stock-info">
                                 <p className="stock-label">
                                     <strong>Số lượng tồn kho:</strong> 
-                                    <span className="stock-value">{activeBatchQuantity} {product.unit || "kg"}</span>
+                                    <span className="stock-value">{activeBatchQuantity} {product?.unit || "kg"}</span>
                                 </p>
                                 {activeBatch?.daysLeft !== null && (
                                     <p className={`expiry-info ${activeBatch.daysLeft <= 7 ? "expiring-soon" : ""}`}>

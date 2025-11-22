@@ -14,6 +14,9 @@
 }
 
 .shipper-shell__header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -24,6 +27,8 @@
   box-shadow: 0 18px 50px rgba(tokens.$ink, 0.35);
   border-bottom-left-radius: 24px;
   border-bottom-right-radius: 24px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
 }
 
 .shipper-shell__brand {

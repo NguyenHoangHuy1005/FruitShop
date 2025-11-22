@@ -312,20 +312,45 @@ $bp-phone: 640px;
 
 .detail-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .info-item {
   border: 1px solid rgba($border, 0.6);
-  border-radius: 18px;
-  background: rgba($surface, 0.95);
-  padding: 16px 18px;
-  min-height: 100px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba($surface, 0.98), rgba($soft-surface, 0.95));
+  padding: 18px 20px;
+  min-height: 90px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 10px 30px rgba($ink, 0.05);
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba($ink, 0.06);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, $accent, $accent-soft);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  &:hover {
+    border-color: rgba($accent, 0.3);
+    box-shadow: 0 12px 36px rgba($accent, 0.15);
+    transform: translateY(-2px);
+
+    &::before {
+      opacity: 1;
+    }
+  }
 }
 
 .info-item--full {
@@ -334,16 +359,39 @@ $bp-phone: 640px;
 
 .info-label {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  font-weight: 700;
   color: $muted-light;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba($border, 0.4), transparent);
+  }
 }
 
 .info-value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: $ink;
   word-break: break-word;
+  line-height: 1.5;
+  padding-left: 4px;
+}
+
+.info-value--email {
+  color: $accent;
+  font-size: 14px;
+  text-decoration: none;
+  
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .table-wrapper {
@@ -581,27 +629,41 @@ body.orders-modal-open {
   .orders-table td {
     padding: 12px 14px;
   }
+
+  .detail-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .detail-section--grid {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 10px;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba($accent, 0.1);
+  margin-bottom: 8px;
 }
 
-.section-meta {
-  display: flex;
-  gap: 10px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: $muted-light;
+.detail-section__title {
+  position: relative;
+  padding-left: 14px;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, $accent, $accent-soft);
+    border-radius: 2px;
+  }
 }
 
 .detail-section--summary {

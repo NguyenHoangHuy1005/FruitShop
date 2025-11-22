@@ -96,6 +96,9 @@ const OrderAdminPage = () => {
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [pickupAddress, setPickupAddress] = useState("");
+    const [preparing, setPreparing] = useState(false);
 
     const [isDark, setIsDark] = useState(() => {
         return localStorage.getItem("theme") === "dark";
@@ -258,7 +261,12 @@ const OrderAdminPage = () => {
                                     const normalizedStatus = normalizeOrderStatus(o?.status);
                                     const statusClass = normalizedStatus ? `order-${normalizedStatus}` : '';
                                     return (
-                                        <tr key={id} className={`orders__row ${statusClass}`}>
+                                        <tr 
+                                            key={id} 
+                                            className={`orders__row ${statusClass}`}
+                                            onClick={() => setSelectedOrder(o)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
                                             <td>{id.slice(-8).toUpperCase()}</td>
                                             <td className="td-right fw-bold">{formatter(total)}</td>
                                             <td>
@@ -308,6 +316,140 @@ const OrderAdminPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Modal chi tiết đơn hàng */}
+            {selectedOrder && (
+                <div className="order-modal-overlay" onClick={() => setSelectedOrder(null)}>
+                    <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="order-modal__header">
+                            <h3>Đơn hàng #{String(selectedOrder._id).slice(-8).toUpperCase()}</h3>
+                            <button className="btn-close" onClick={() => setSelectedOrder(null)}>×</button>
+                        </div>
+
+                        <div className="order-modal__body">
+                            <div className="order-info-grid">
+                                <div className="info-card">
+                                    <label>Trạng thái</label>
+                                    <OrderStatusTag status={selectedOrder.status} />
+                                </div>
+                                <div className="info-card">
+                                    <label>Tổng tiền</label>
+                                    <strong>{formatter(selectedOrder.amount?.total || 0)}</strong>
+                                </div>
+                                <div className="info-card">
+                                    <label>Khách hàng</label>
+                                    <strong>{selectedOrder.customer?.name}</strong>
+                                </div>
+                                <div className="info-card">
+                                    <label>Số điện thoại</label>
+                                    <strong>{selectedOrder.customer?.phone}</strong>
+                                </div>
+                                <div className="info-card info-card--full">
+                                    <label>Địa chỉ giao hàng</label>
+                                    <strong>{selectedOrder.customer?.address}</strong>
+                                </div>
+                            </div>
+
+                            {selectedOrder.status === "pending" && (
+                                <div className="prepare-section">
+                                    <h4>Xác nhận đơn hàng</h4>
+                                    <p className="prepare-note">
+                                        Xác nhận đơn hàng và nhập địa chỉ lấy hàng cho shipper. Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái "Chờ nhận" và hiển thị cho shipper.
+                                    </p>
+                                    <div className="form-group">
+                                        <label>Địa chỉ lấy hàng cho shipper *</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="VD: 789 Fruit Shop, phường Sài Gòn, Tp.HCM"
+                                            value={pickupAddress || selectedOrder.pickupAddress || ""}
+                                            onChange={(e) => setPickupAddress(e.target.value)}
+                                        />
+                                    </div>
+                                    <button
+                                        className="btn btn-primary btn-prepare"
+                                        disabled={preparing || !(pickupAddress || selectedOrder.pickupAddress)}
+                                        onClick={async () => {
+                                            const address = pickupAddress || selectedOrder.pickupAddress;
+                                            if (!address || !address.trim()) {
+                                                alert("Vui lòng nhập địa chỉ lấy hàng!");
+                                                return;
+                                            }
+                                            try {
+                                                setPreparing(true);
+                                                const res = await API.post(
+                                                    `/order/${selectedOrder._id}/prepare`,
+                                                    { pickupAddress: address },
+                                                    { headers, validateStatus: () => true }
+                                                );
+                                                if (res.status === 200) {
+                                                    alert("Đơn hàng đã được xác nhận!");
+                                                    setSelectedOrder(null);
+                                                    setPickupAddress("");
+                                                    // Reload data
+                                                    window.location.reload();
+                                                } else {
+                                                    alert(res.data?.message || "Có lỗi xảy ra");
+                                                }
+                                            } catch (error) {
+                                                alert("Không thể xác nhận đơn hàng: " + (error.response?.data?.message || error.message));
+                                            } finally {
+                                                setPreparing(false);
+                                            }
+                                        }}
+                                    >
+                                        {preparing ? "Đang xử lý..." : "✓ Xác nhận đơn hàng"}
+                                    </button>
+                                </div>
+                            )}
+
+                            {selectedOrder.status === "processing" && (
+                                <div className="ready-info">
+                                    <div className="ready-badge-large">✓ Đã xác nhận - Chờ shipper nhận</div>
+                                    <p>Đơn hàng đã được xác nhận và đang chờ shipper nhận hàng.</p>
+                                    {selectedOrder.pickupAddress && (
+                                        <div className="info-card info-card--full">
+                                            <label>Địa chỉ lấy hàng</label>
+                                            <strong>{selectedOrder.pickupAddress}</strong>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(selectedOrder.status === "shipping" || selectedOrder.status === "delivered" || selectedOrder.status === "completed") && selectedOrder.pickupAddress && (
+                                <div className="info-card info-card--full">
+                                    <label>Địa chỉ lấy hàng đã sử dụng</label>
+                                    <strong>{selectedOrder.pickupAddress}</strong>
+                                </div>
+                            )}
+
+                            <div className="order-items-section">
+                                <h4>Sản phẩm trong đơn</h4>
+                                <table className="order-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th>Số lượng</th>
+                                            <th>Đơn giá</th>
+                                            <th>Thành tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(selectedOrder.items || []).map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td>{item.name}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>{formatter(item.price)}</td>
+                                                <td>{formatter(item.total || item.price * item.quantity)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

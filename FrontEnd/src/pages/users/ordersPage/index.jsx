@@ -29,6 +29,15 @@ const formatDateTime = (iso) => {
   }
 };
 
+const getPaymentMethodDisplay = (payment) => {
+  if (!payment) return "COD";
+  if (typeof payment === "string") return payment;
+  if (typeof payment === "object") {
+    return payment.gateway || payment.method || "COD";
+  }
+  return "COD";
+};
+
 const OrdersPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -205,7 +214,7 @@ const toggleOpen = (id) => {
     const summary = { total: orders.length, active: 0, completed: 0 };
     orders.forEach((order) => {
       const status = normalizeOrderStatus(order?.status);
-      if (["pending", "processing", "shipping", "delivered"].includes(status)) {
+      if (["pending", "pending_payment", "processing", "shipping", "delivered"].includes(status)) {
         summary.active += 1;
       }
       if (status === "completed") {
@@ -257,7 +266,7 @@ const toggleOpen = (id) => {
   }, [selectedOrderKey]);
 
   useEffect(() => {
-    if (!selectedOrder || detailStatus !== "pending") {
+    if (!selectedOrder || (detailStatus !== "pending" && detailStatus !== "pending_payment")) {
       setPendingCountdownMs(null);
       return undefined;
     }
@@ -374,7 +383,7 @@ const toggleOpen = (id) => {
                           <span className="status-placeholder">—</span>
                         )}
                       </td>
-                      <td>{o?.payment || "COD"}</td>
+                      <td>{getPaymentMethodDisplay(o?.payment)}</td>
                       <td className="text-right fw-bold">{formatter(total)}</td>
                       <td className="text-right">
                         <button
@@ -435,23 +444,27 @@ const toggleOpen = (id) => {
                     <section className="detail-section detail-section--grid">
                       <div className="section-header">
                         <h4 className="detail-section__title">Thông tin người nhận</h4>
-                        <div className="section-meta">
-                          {selectedOrder?.customer?.phone && <span>{selectedOrder.customer.phone}</span>}
-                          {selectedOrder?.customer?.email && <span>{selectedOrder.customer.email}</span>}
-                        </div>
                       </div>
                       <div className="detail-info-grid">
                         <div className="info-item">
-                          <span className="info-label">Tên</span>
+                          <span className="info-label">Tên người nhận</span>
                           <span className="info-value">{selectedOrder?.customer?.name}</span>
                         </div>
+                        <div className="info-item">
+                          <span className="info-label">Số điện thoại</span>
+                          <span className="info-value">{selectedOrder?.customer?.phone}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Email</span>
+                          <span className="info-value info-value--email">{selectedOrder?.customer?.email}</span>
+                        </div>
                         <div className="info-item info-item--full">
-                          <span className="info-label">Địa chỉ</span>
+                          <span className="info-label">Địa chỉ giao hàng</span>
                           <span className="info-value">{selectedOrder?.customer?.address}</span>
                         </div>
                         {selectedOrder?.customer?.note && (
                           <div className="info-item info-item--full">
-                            <span className="info-label">Ghi chú</span>
+                            <span className="info-label">Ghi chú đơn hàng</span>
                             <span className="info-value">{selectedOrder.customer.note}</span>
                           </div>
                         )}
@@ -462,7 +475,7 @@ const toggleOpen = (id) => {
                       <div className="summary-cards">
                         <div className="summary-card">
                           <span>Phương thức thanh toán</span>
-                          <strong>{selectedOrder?.payment || "COD"}</strong>
+                          <strong>{getPaymentMethodDisplay(selectedOrder?.payment)}</strong>
                         </div>
                         {selectedOrder?.amount?.total && (
                           <div className="summary-card summary-card--highlight">
@@ -477,15 +490,22 @@ const toggleOpen = (id) => {
                           </div>
                         )}
                       </div>
-                      {detailStatus === "pending" && (selectedOrder?.autoConfirmAt || selectedOrder?.paymentDeadline) && (
+                      {(detailStatus === "pending" || detailStatus === "pending_payment") && (selectedOrder?.autoConfirmAt || selectedOrder?.paymentDeadline) && (
                         <div className="pending-payment">
                           <div className="pending-payment__info">
                             <span>Thời gian còn lại</span>
                             <strong>{formatRemainingTime(pendingCountdownMs)}</strong>
                           </div>
-                          <button type="button" className="btn btn-primary" onClick={goToPayment}>
-                            Đi tới thanh toán
-                          </button>
+                          {detailStatus === "pending_payment" && (
+                            <button type="button" className="btn btn-primary" onClick={goToPayment}>
+                              Đi tới thanh toán
+                            </button>
+                          )}
+                          {detailStatus === "pending" && (
+                            <div className="pending-info">
+                              <span>✓ Đã thanh toán - Chờ admin xác nhận</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </section>

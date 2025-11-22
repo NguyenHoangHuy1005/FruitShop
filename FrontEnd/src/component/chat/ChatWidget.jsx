@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { FiMessageCircle } from "react-icons/fi";
+import { io } from "socket.io-client";
 import { API } from "../redux/apiRequest";
 import ChatWindow from "./ChatWindow";
 import "./chatWidget.scss";
 
 const buildSeenKey = (isAdmin, targetId) =>
   `${isAdmin ? "CHAT_SEEN_ADMIN" : "CHAT_SEEN_USER"}:${targetId || "self"}`;
+
+const getSocketBaseUrl = () => {
+  const apiBase = import.meta?.env?.VITE_API_BASE || "http://localhost:3000/api";
+  return apiBase.replace(/\/api\/?$/, "");
+};
 
 const readSeenTimestamp = (key) => {
   try {
@@ -52,19 +58,39 @@ const ChatWidget = () => {
   const [conversations, setConversations] = useState([]);
   const [conversationError, setConversationError] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const latestSeenRef = useRef({});
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  const markConversationSeen = useCallback(
-    (targetKey, timestampMs) => {
-      if (!targetKey || !timestampMs) return;
-      latestSeenRef.current[targetKey] = timestampMs;
-      writeSeenTimestamp(buildSeenKey(isAdmin, targetKey), timestampMs);
-    },
-    [isAdmin]
-  );
+  const latestSeenRef = useRef({});
+  const socketRef = useRef(null);
+  const viewerIdRef = useRef(viewerId);
+  const selectedUserRef = useRef(selectedUserId);
+  const isAdminRef = useRef(isAdmin);
+  const isOpenRef = useRef(isOpen);
+
+  useEffect(() => {
+    viewerIdRef.current = viewerId;
+  }, [viewerId]);
+
+  useEffect(() => {
+    selectedUserRef.current = selectedUserId;
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  const markConversationSeen = useCallback((targetKey, timestampMs) => {
+    if (!targetKey || !timestampMs) return;
+    latestSeenRef.current[targetKey] = timestampMs;
+    writeSeenTimestamp(buildSeenKey(isAdminRef.current, targetKey), timestampMs);
+  }, []);
 
   const markConversationReadLocally = useCallback((userId) => {
-    if (!userId) return;
+    if (!userId || !isAdminRef.current) return;
     setConversations((prev) => {
       let changed = false;
       const next = prev.map((item) => {
@@ -75,13 +101,21 @@ const ChatWidget = () => {
         return item;
       });
       if (changed) {
-        setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
+        setUnreadCount(next.filter((item) => item.hasUnread).length);
       }
       return next;
     });
   }, []);
 
-  const resetChatState = () => {
+  const disconnectSocket = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    setSocketConnected(false);
+  }, []);
+
+  const resetChatState = useCallback(() => {
     setMessages([]);
     setInputValue("");
     setIsOpen(false);
@@ -92,7 +126,8 @@ const ChatWidget = () => {
     setSelectedUserId(null);
     setIsEmojiOpen(false);
     latestSeenRef.current = {};
-  };
+    disconnectSocket();
+  }, [disconnectSocket]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -104,7 +139,7 @@ const ChatWidget = () => {
       return;
     }
     setSelectedUserId(viewerId || null);
-  }, [currentUser, isAdmin, viewerId]);
+  }, [currentUser, isAdmin, viewerId, resetChatState]);
 
   useEffect(() => {
     if (!isAdmin && viewerId) {
@@ -131,8 +166,11 @@ const ChatWidget = () => {
       const list = response.data?.conversations || [];
       const enriched = list.map((item) => {
         const msgTime = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : 0;
-        const seenMs = readSeenTimestamp(buildSeenKey(true, item.userId));
-        const hasUnread = !!(msgTime && item.lastSenderType === "user" && msgTime > seenMs);
+        const seenMs =
+          latestSeenRef.current[item.userId] ||
+          readSeenTimestamp(buildSeenKey(true, item.userId));
+        const hasUnread =
+          !!(msgTime && item.lastSenderType === "user" && msgTime > (seenMs || 0));
         return { ...item, hasUnread };
       });
       setConversations(enriched);
@@ -157,9 +195,7 @@ const ChatWidget = () => {
   useEffect(() => {
     if (!currentUser || !isAdmin) return;
     fetchConversations();
-    const interval = setInterval(fetchConversations, 8000);
-    return () => clearInterval(interval);
-  }, [currentUser, isAdmin, fetchConversations]);
+  }, [currentUser, isAdmin, socketConnected, fetchConversations]);
 
   const fetchMessages = useCallback(
     async (withLoader = false) => {
@@ -208,12 +244,8 @@ const ChatWidget = () => {
           return msgTime > baseline;
         }).length;
 
-        if (newIncoming > 0) {
-          if (isAdmin) {
-            setUnreadCount((prev) => prev + newIncoming);
-          } else {
-            setUnreadCount(newIncoming);
-          }
+        if (newIncoming > 0 && !isAdmin) {
+          setUnreadCount(newIncoming);
         }
       } catch (err) {
         console.error("chat fetch lỗi", err);
@@ -229,11 +261,14 @@ const ChatWidget = () => {
     if (!currentUser) return;
     if (isAdmin && !selectedUserId) return;
     fetchMessages(true);
-    const interval = setInterval(() => {
-      fetchMessages(false);
-    }, isOpen ? 4000 : 8000);
-    return () => clearInterval(interval);
-  }, [currentUser, isAdmin, selectedUserId, isOpen, fetchMessages]);
+  }, [currentUser, isAdmin, selectedUserId, fetchMessages]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!isOpen) return;
+    if (isAdmin && !selectedUserId) return;
+    fetchMessages(false);
+  }, [isOpen, currentUser, isAdmin, selectedUserId, fetchMessages]);
 
   useEffect(() => {
     if (!isOpen || !messages.length) return;
@@ -247,7 +282,6 @@ const ChatWidget = () => {
     markConversationSeen(seenKey, newestMs);
     if (isAdmin) {
       markConversationReadLocally(selectedUserId);
-      fetchConversations();
     } else {
       setUnreadCount(0);
     }
@@ -258,9 +292,178 @@ const ChatWidget = () => {
     selectedUserId,
     viewerId,
     markConversationSeen,
-    fetchConversations,
     markConversationReadLocally,
   ]);
+
+  const handleSocketMessage = useCallback(
+    (payload = {}) => {
+      const { userId: rawUserId, message, event = "created", targetId } = payload;
+      if (!rawUserId) return;
+      const normalized = rawUserId.toString();
+      const adminMode = isAdminRef.current;
+      const selectedCurrent = selectedUserRef.current;
+      const viewerCurrent = viewerIdRef.current;
+      const panelOpen = isOpenRef.current;
+
+      if (!adminMode && normalized !== viewerCurrent) return;
+
+      const messageId = message?.id || message?._id;
+      const matchesActiveConversation = !adminMode
+        ? true
+        : !!selectedCurrent && normalized === selectedCurrent;
+
+      const appendMessage = (incoming) => {
+        if (!incoming) return;
+        const newId = incoming.id || incoming._id;
+        setMessages((prev) => {
+          if (newId && prev.some((msg) => (msg.id || msg._id) === newId)) {
+            return prev;
+          }
+          return [...prev, incoming];
+        });
+      };
+
+      const updateMessage = (incoming) => {
+        if (!incoming) return;
+        const newId = incoming.id || incoming._id;
+        if (!newId) return;
+        setMessages((prev) =>
+          prev.map((msg) => ((msg.id || msg._id) === newId ? incoming : msg))
+        );
+      };
+
+      const removeMessage = (id) => {
+        if (!id) return;
+        setMessages((prev) => prev.filter((msg) => (msg.id || msg._id) !== id));
+      };
+
+      if (event === "removed") {
+        if (!matchesActiveConversation) return;
+        const removalId = targetId || messageId;
+        removeMessage(removalId);
+        return;
+      }
+
+      if (event === "updated") {
+        if (!matchesActiveConversation) return;
+        updateMessage(message);
+        return;
+      }
+
+      // Default: created/new message
+      if (!matchesActiveConversation && adminMode) {
+        return;
+      }
+
+      const isIncomingForUser = !adminMode && message?.senderType === "admin";
+      appendMessage(message);
+
+      if (panelOpen && matchesActiveConversation) {
+        const ts = message?.createdAt ? new Date(message.createdAt).getTime() : Date.now();
+        if (ts) {
+          const seenKey = adminMode ? normalized : viewerCurrent || "self";
+          markConversationSeen(seenKey, ts);
+        }
+        if (adminMode) {
+          markConversationReadLocally(normalized);
+        } else if (isIncomingForUser) {
+          setUnreadCount(0);
+        }
+      } else if (!adminMode && isIncomingForUser) {
+        setUnreadCount((prev) => prev + 1);
+      }
+    },
+    [markConversationReadLocally, markConversationSeen]
+  );
+
+  const handleConversationEvent = useCallback((payload = {}) => {
+    if (!isAdminRef.current) return;
+    if (!payload.userId) return;
+    const normalized = payload.userId.toString();
+    const skipUnread =
+      isOpenRef.current && selectedUserRef.current === normalized;
+    const messageTs = payload.lastMessageAt
+      ? new Date(payload.lastMessageAt).getTime()
+      : 0;
+    const baseline =
+      latestSeenRef.current[normalized] ||
+      readSeenTimestamp(buildSeenKey(true, normalized)) ||
+      0;
+    const hasUnread =
+      payload.lastSenderType === "user" &&
+      messageTs > baseline &&
+      !skipUnread;
+
+    setConversations((prev) => {
+      let exists = false;
+      const next = prev.map((item) => {
+        if (item.userId === normalized) {
+          exists = true;
+          return { ...item, ...payload, hasUnread };
+        }
+        return item;
+      });
+      if (!exists) {
+        next.unshift({ ...payload, hasUnread });
+      }
+      setUnreadCount(next.filter((item) => item.hasUnread).length);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const token = currentUser?.accessToken;
+    if (!currentUser || !token) {
+      disconnectSocket();
+      return;
+    }
+
+    const socket = io(getSocketBaseUrl(), {
+      transports: ["websocket"],
+      auth: { token },
+    });
+    socketRef.current = socket;
+
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+    const handleError = (err) => {
+      console.error("chat socket error:", err?.message || err);
+      setErrorText("Không thể kết nối realtime");
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("chat:message", handleSocketMessage);
+    socket.on("chat:conversation", handleConversationEvent);
+    socket.on("connect_error", handleError);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("chat:message", handleSocketMessage);
+      socket.off("chat:conversation", handleConversationEvent);
+      socket.off("connect_error", handleError);
+      socket.disconnect();
+      socketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [currentUser, handleConversationEvent, handleSocketMessage, disconnectSocket]);
+
+  const sendMessageViaSocket = useCallback((payload) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected) {
+      return Promise.reject(new Error("Socket chưa kết nối"));
+    }
+    return new Promise((resolve, reject) => {
+      socket.emit("chat:send", payload, (response) => {
+        if (response?.ok) {
+          resolve(response.message);
+        } else {
+          reject(new Error(response?.message || "Gửi thất bại"));
+        }
+      });
+    });
+  }, []);
 
   const handleToggle = () => {
     setIsOpen((prev) => {
@@ -300,19 +503,29 @@ const ChatWidget = () => {
     const seenKey = isAdmin ? targetUserId : viewerId || "self";
     setIsSending(true);
     try {
-      const response = await API.post("/chat", {
-        content: inputValue.trim(),
-        ...(isAdmin ? { userId: targetUserId } : {}),
-      });
-      const newMessage = response.data?.message;
-      if (newMessage) {
+      let usedSocket = false;
+      let newMessage = null;
+      try {
+        await sendMessageViaSocket({
+          content: inputValue.trim(),
+          userId: isAdmin ? targetUserId : undefined,
+        });
+        usedSocket = true;
+      } catch {
+        const response = await API.post("/chat", {
+          content: inputValue.trim(),
+          ...(isAdmin ? { userId: targetUserId } : {}),
+        });
+        newMessage = response.data?.message;
+      }
+
+      if (!usedSocket && newMessage) {
         setMessages((prev) => [...prev, newMessage]);
         const createdMs = newMessage.createdAt
           ? new Date(newMessage.createdAt).getTime()
           : Date.now();
         markConversationSeen(seenKey, createdMs);
       }
-      if (isAdmin) fetchConversations();
       setInputValue("");
       setIsEmojiOpen(false);
       setErrorText("");
@@ -417,7 +630,9 @@ const ChatWidget = () => {
     if (!isAdmin) return;
     setSelectedUserId(userId);
     setMessages([]);
-    setUnreadCount(0);
+    if (userId) {
+      markConversationReadLocally(userId);
+    }
     setErrorText("");
     setIsEmojiOpen(false);
   };

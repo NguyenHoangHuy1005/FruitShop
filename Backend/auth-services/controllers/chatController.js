@@ -1,6 +1,13 @@
 const mongoose = require("mongoose");
 const ChatMessage = require("../models/ChatMessage");
 const User = require("../models/User");
+const { formatChatMessage } = require("../utils/chatFormatter");
+const {
+  broadcastNewChatMessage,
+  emitConversationSnapshotForUser,
+  broadcastMessageUpdated,
+  broadcastMessageRemoved,
+} = require("../socket/chatRealtime");
 
 const toObjectId = (raw) => {
   if (!raw || !mongoose.Types.ObjectId.isValid(raw)) return null;
@@ -17,23 +24,6 @@ const resolveConversationUserId = (req) => {
 const canSeeMessage = (msg, isAdmin) =>
   !msg.fullyRemoved && (isAdmin ? !msg.deletedByAdmin : !msg.deletedByUser);
 
-const formatMessage = (doc) => ({
-  id: doc._id?.toString?.() || doc._id,
-  userId: doc.userId?.toString?.() || doc.userId,
-  senderType: doc.senderType,
-  content: doc.content,
-  createdAt: doc.createdAt,
-  updatedAt: doc.updatedAt,
-  deletedByUser: !!doc.deletedByUser,
-  deletedByAdmin: !!doc.deletedByAdmin,
-  isPlaceholder: !!doc.isPlaceholder,
-  placeholderText: doc.placeholderText || "",
-  reactions: {
-    userHearted: !!doc.reactions?.userHearted,
-    adminHearted: !!doc.reactions?.adminHearted,
-  },
-});
-
 const getChatHistory = async (req, res) => {
   try {
     const rawUserId = resolveConversationUserId(req);
@@ -48,7 +38,7 @@ const getChatHistory = async (req, res) => {
       .lean();
 
     const visible = records.filter((msg) => canSeeMessage(msg, isAdmin));
-    return res.json({ messages: visible.map(formatMessage) });
+    return res.json({ messages: visible.map(formatChatMessage) });
   } catch (err) {
     console.error("[chat] loi getChatHistory:", err);
     return res.status(500).json({ message: "Lịch sử trò chuyện không khả dụng" });
@@ -83,7 +73,9 @@ const postMessage = async (req, res) => {
       placeholderText: "",
     });
 
-    return res.status(201).json({ message: formatMessage(payload) });
+    await broadcastNewChatMessage(payload);
+
+    return res.status(201).json({ message: formatChatMessage(payload) });
   } catch (err) {
     console.error("[chat] loi postMessage:", err);
     return res.status(500).json({ message: "Gửi tin nhắn thất bại" });
@@ -129,11 +121,13 @@ const deleteMessage = async (req, res) => {
       message.deletedByAdmin = true;
       message.deletedByUser = true;
       await message.save();
+      await broadcastMessageRemoved(message.userId, rawMessageId);
       return res.json({ success: true, removed: true, targetId: rawMessageId });
     }
 
     if (message.isPlaceholder) {
-      return res.json({ success: true, message: formatMessage(message) });
+      await emitConversationSnapshotForUser(message.userId);
+      return res.json({ success: true, message: formatChatMessage(message) });
     }
 
     message.isPlaceholder = true;
@@ -141,7 +135,8 @@ const deleteMessage = async (req, res) => {
     message.content = message.placeholderText;
     message.reactions = { userHearted: false, adminHearted: false };
     await message.save();
-    return res.json({ success: true, message: formatMessage(message) });
+    await broadcastMessageUpdated(message);
+    return res.json({ success: true, message: formatChatMessage(message) });
   } catch (err) {
     console.error("[chat] loi deleteMessage:", err);
     return res.status(500).json({ message: "Xóa tin nhắn thất bại" });
@@ -225,7 +220,8 @@ const reactToMessage = async (req, res) => {
     }
 
     await message.save();
-    return res.json({ message: formatMessage(message) });
+    await broadcastMessageUpdated(message);
+    return res.json({ message: formatChatMessage(message) });
   } catch (err) {
     console.error("[chat] loi reactToMessage:", err);
     return res.status(500).json({ message: "Phản ứng với tin nhắn thất bại" });

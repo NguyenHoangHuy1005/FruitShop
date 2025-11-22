@@ -1,18 +1,22 @@
 // BE/server.js
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const path = require('path');
 const connectDB = require('./auth-services/config/db');
+const { registerChatSockets } = require('./auth-services/socket/chatSocket');
 
 // Connect DB
 connectDB();
 
 // Create app
 const app = express();
+const httpServer = http.createServer(app);
 
 // === Global safety guards to avoid process exit during debugging ===
 process.on('uncaughtException', (err) => {
@@ -51,10 +55,15 @@ const allowlist = [
   /^http:\/\/\[::1\]:\d+$/
 ];
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  return allowlist.some((re) => re.test(origin));
+};
+
 const corsOptions = {
   origin(origin, cb) {
     if (!origin) return cb(null, true); // allow Postman / curl / server-to-server
-    const ok = allowlist.some((re) => re.test(origin));
+    const ok = isAllowedOrigin(origin);
     return cb(null, ok ? true : false);
   },
   credentials: true,
@@ -66,6 +75,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+const io = new Server(httpServer, {
+  cors: {
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      const ok = isAllowedOrigin(origin);
+      return cb(null, ok ? true : false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'token', 'X-Session-Key'],
+  },
+});
+registerChatSockets(io);
 
 // === Other middleware ===
 app.use(cookieParser());
@@ -157,7 +180,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Server running on port ${port}`);
   
   // Start background cleanup job for expired reservations

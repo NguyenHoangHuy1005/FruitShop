@@ -7,6 +7,7 @@ const Product = require("../../admin-services/models/Product");
 const Supplier = require("../../admin-services/models/Supplier");
 const ImportReceipt = require("../../admin-services/models/ImportReceipt");
 const ImportItem = require("../../admin-services/models/ImportItem");
+const SpoilageRecord = require("../models/SpoilageRecord");
 const User = require("../../auth-services/models/User");
 const { computeBatchPricing } = require("../utils/batchPricing");
 
@@ -33,7 +34,7 @@ async function upsertProductInventory(productId, onHand = null, session = null) 
     const Order = require("../models/Order");
     const orders = await Order.find({ 
       'items.product': productId,
-      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+      status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
     }).select('items createdAt').lean();
 
     // Calculate sold quantities per batch
@@ -563,7 +564,7 @@ exports.getBatchesByProduct = async (req, res) => {
     const Order = require("../models/Order");
     const orders = await Order.find({ 
       'items.product': productId,
-      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] } // Chỉ tính đơn hàng đã thanh toán/hoàn thành
+      status: { $in: ['processing', 'shipping', 'delivered', 'completed'] } // Chỉ tính đơn hàng đã thanh toán/hoàn thành
     }).select('items createdAt').lean();
 
     // Format dữ liệu để gửi về frontend - sử dụng soldQuantity được lưu trong database
@@ -934,6 +935,21 @@ exports.updateBatchQuantity = async (req, res) => {
     await upsertProductInventory(String(batch.product));
 
     const delta = newDamagedQuantity - currentDamaged;
+    if (delta > 0) {
+      try {
+        await SpoilageRecord.create({
+          product: batch.product,
+          batch: batch._id,
+          order: null,
+          quantity: delta,
+          reason: "expired_on_return",
+          expiryDate: batch.expiryDate || null,
+          recordedBy: req.user?.id || null,
+        });
+      } catch (logErr) {
+        console.error("[spoilage] cannot record batch update:", logErr?.message || logErr);
+      }
+    }
     return res.json({ ok: true, batch: updated, damagedAdded: delta, newDamagedTotal: newDamagedQuantity });
   } catch (error) {
     console.error('Error updating batch quantity:', error);
@@ -1202,7 +1218,7 @@ exports.getPriceRange = async (req, res) => {
     const Order = require("../models/Order");
     const orders = await Order.find({
       'items.product': productId,
-      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+      status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
     }).select('items').lean();
 
     const totalSold = orders.reduce((sum, order) => {
@@ -1314,7 +1330,7 @@ exports.getPublicBatchesByProduct = async (req, res) => {
     const Order = require("../models/Order");
     const orders = await Order.find({ 
       'items.product': productId,
-      status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+      status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
     }).select('items createdAt').lean();
 
     // Tính số lượng đã bán cho từng lô theo FEFO

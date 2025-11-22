@@ -165,18 +165,18 @@ const NotificationIcon = () => {
 
     const getNotificationIcon = (type) => {
         const icons = {
-            // Order notifications
-            order_created: "🛒",
-            order_paid: "💳",
-            order_processing: "📦",
+            order_created: "🧾",
+            order_processing: "🛠️",
             order_shipping: "🚚",
+            order_shipped: "🚚",
+            order_delivered: "📦",
             order_completed: "✅",
+            order_complete: "✅",
             order_cancelled: "❌",
-            // Article notifications
+            order_expired: "⏰",
             article_pending: "⏳",
             article_approved: "✅",
-            article_rejected: "❌",
-            // Content notifications
+            article_rejected: "⚠️",
             new_comment: "💬",
             new_review: "⭐",
             comment_reply: "↩️",

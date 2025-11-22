@@ -1,0 +1,16 @@
+@use "./tokens";
+
+@include tokens.laptop {
+  .shipper-shell__header {
+    padding: 18px 48px;
+  }
+
+  .shipper-shell__content {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .shipper-page {
+    padding: 32px 0 56px;
+  }
+}

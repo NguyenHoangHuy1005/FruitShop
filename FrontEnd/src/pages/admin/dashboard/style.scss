@@ -334,7 +334,7 @@
                 color: #92400e;
               }
 
-              &.paid {
+              &.processing {
                 background: linear-gradient(135deg, #ddd6fe, #c4b5fd);
                 color: #5b21b6;
               }
@@ -458,7 +458,7 @@
       .legend-item-pending {
         color: #ff9800;
       }
-      .legend-item-paid {
+      .legend-item-processing {
         color: #9c27b0;
       }
       .legend-item-shipped {

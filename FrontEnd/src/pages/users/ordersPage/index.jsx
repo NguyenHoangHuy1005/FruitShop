@@ -1,635 +1,580 @@
-// src/pages/user/orders/index.jsx
+// src/pages/users/ordersPage/index.jsx
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Breadcrumb from "../theme/breadcrumb";
 import { formatter } from "../../../utils/fomater";
 import {
-    API,
-    addToCart,
-} from "../../../component/redux/apiRequest"; // dùng axios instance sẵn có
+  API,
+  addToCart,
+  cancelOrder,
+  confirmDelivered,
+} from "../../../component/redux/apiRequest";
+import OrderStatusTag, { normalizeOrderStatus } from "../../../component/orders/OrderStatusTag";
+import OrderActions from "../../../component/orders/OrderActions";
 import { ROUTERS } from "../../../utils/router";
-import "./style.scss"; // nếu cần style dùng chung
+import "./style.scss";
 
 const formatDateTime = (iso) => {
-    try {
-        const d = new Date(iso);
-        const dd = String(d.getDate()).padStart(2, "0");
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, "0");
-        const mi = String(d.getMinutes()).padStart(2, "0");
-        return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-    } catch {
-        return iso || "";
-    }
-};
-
-const formatCountdown = (ms) => {
-    if (typeof ms !== "number" || Number.isNaN(ms) || ms <= 0) return "00:00";
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-};
-
-const PAYMENT_METHOD_LABELS = {
-    COD: "Thanh toán khi nhận hàng (COD)",
-    BANK: "Thanh toán trực tuyến (SePay QR)",
-    VNPAY: "Cổng VNPAY / Thẻ quốc tế",
-};
-
-const PAYMENT_CHANNEL_LABELS = {
-    vietqr: "Quét mã SePay - Ngân hàng nội địa",
-    card: "QR thẻ quốc tế (Visa/Mastercard)",
-    momo: "Ví MoMo",
-};
-
-const PAYMENT_CANCEL_REASON_LABELS = {
-    timeout: "Đơn hàng đã được hủy tự động do quá hạn thanh toán. Kho đã được hoàn lại.",
-    user_cancelled: "Đơn hàng đã được bạn hủy.",
-    admin_cancelled: "Đơn hàng đã được quản trị viên hủy.",
-};
-
-const resolvePaymentLabels = (order) => {
-    // Handle both old format (string) and new format (object)
-    let methodCode;
-    if (typeof order?.payment === 'object') {
-        methodCode = order?.payment?.gateway || 'BANK';
-    } else {
-        methodCode = order?.payment;
-    }
-    
-    const channelCode = order?.paymentMeta?.channel;
-    const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
-    const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
-        ? PAYMENT_CHANNEL_LABELS[channelCode]
-        : "";
-    return { methodLabel, channelLabel };
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+  } catch {
+    return iso || "";
+  }
 };
 
 const OrdersPage = () => {
-    const navigate = useNavigate();
-    const dispatch = useDispatch();
-    const location = useLocation();
-    const user = useSelector((s) => s.auth?.login?.currentUser);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const user = useSelector((s) => s.auth?.login?.currentUser);
 
-    const [orders, setOrders] = useState([]);
-    const [selectedOrderId, setSelectedOrderId] = useState(null); // chỉ hiển thị 1 đơn
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [now, setNow] = useState(() => Date.now());
-    const [reorderLoading, setReorderLoading] = useState(null);
-    const [reloadTick, setReloadTick] = useState(0);
-    const refreshOnExpiryRef = useRef(false);
-    const pendingOrderIdRef = useRef(null); // Lưu orderId từ notification
-    const orderDetailRef = useRef(null);
+  const [orders, setOrders] = useState([]);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionState, setActionState] = useState({ id: null, key: "" });
+  const [pendingCountdownMs, setPendingCountdownMs] = useState(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-    const tokenHeader = useMemo(() => {
-        // Back-end chấp nhận 'Authorization' hoặc 'token'
-        const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
-        return bearer ? { Authorization: bearer } : {};
-    }, [user?.accessToken]);
+  const orderDetailRef = useRef(null);
 
-    useEffect(() => {
-        if (!API?.defaults?.headers?.common) return;
+  const setActionLoading = (id, key) => setActionState({ id, key });
+  const clearActionLoading = () => setActionState({ id: null, key: "" });
 
-        if (user?.accessToken) {
-            API.defaults.headers.common.Authorization = `Bearer ${user.accessToken}`;
-        } else {
-            delete API.defaults.headers.common.Authorization;
-        }
-    }, [user?.accessToken]);
-    
-    // Lưu orderId từ navigation state ngay lập tức
-    useEffect(() => {
-        if (location.state?.selectedOrderId) {
-            pendingOrderIdRef.current = location.state.selectedOrderId;
-            console.log('📦 Received orderId from notification:', location.state.selectedOrderId);
-            // Clear state sau khi đã lưu
-            window.history.replaceState({}, document.title);
-        }
-    }, [location.state?.selectedOrderId]);
-    
-    // Xử lý mở chi tiết đơn hàng sau khi orders đã load
-    useEffect(() => {
-        if (pendingOrderIdRef.current && !loading && orders.length > 0) {
-            const orderId = pendingOrderIdRef.current;
-            console.log('🔍 Orders loaded, checking for orderId:', orderId);
-            console.log('📋 Available orders:', orders.map(o => o._id || o.id));
-            
-            // Kiểm tra xem đơn hàng có tồn tại trong danh sách không
-            const orderExists = orders.some(o => String(o._id || o.id || "") === String(orderId));
-            
-            if (orderExists) {
-                console.log('✅ Order found, opening details');
-                setSelectedOrderId(String(orderId));
-            } else {
-                console.log('❌ Order not found in list');
-            }
-            
-            // Clear ref sau khi đã xử lý
-            pendingOrderIdRef.current = null;
-        }
-    }, [loading, orders]);
+  const tokenHeader = useMemo(() => {
+    const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
+    return bearer ? { Authorization: bearer } : {};
+  }, [user?.accessToken]);
 
-    useEffect(() => {
-        if (!selectedOrderId) return;
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await API.get("/order/me", {
+        headers: tokenHeader,
+        validateStatus: () => true,
+      });
+      if (res.status === 200 && Array.isArray(res.data)) {
+        setOrders(res.data);
+      } else {
+        const msg = res?.data?.message || `Không tải được danh sách đơn (HTTP ${res.status}).`;
+        setError(msg);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Lỗi tải đơn hàng.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        // Mimic the ScrollToTop behavior but align the view with the detail card itself.
-        const scrollTarget = orderDetailRef.current;
-        if (scrollTarget) {
-            const { top } = scrollTarget.getBoundingClientRect();
-            const absoluteTop = window.scrollY + top - 16;
-            window.scrollTo({ top: Math.max(absoluteTop, 0), behavior: "smooth" });
-        } else {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-    }, [selectedOrderId]);
+  useEffect(() => {
+    if (!user?.accessToken) {
+      navigate(ROUTERS.ADMIN.LOGIN, { replace: true });
+      return;
+    }
+    fetchOrders();
+  }, [user?.accessToken, reloadTick]);
 
-    useEffect(() => {
-        if (!user?.accessToken) {
-            // Chưa đăng nhập => điều hướng về trang đăng nhập (đang dùng chung trang Admin Login)
-            navigate(ROUTERS.ADMIN.LOGIN, { replace: true });
-            return;
-        }
+  const selectedOrder = useMemo(
+    () => orders.find((o) => String(o._id || o.id || "") === selectedOrderId),
+    [orders, selectedOrderId]
+  );
+  const selectedOrderKey = selectedOrder ? String(selectedOrder._id || selectedOrder.id || "") : "";
+  const selectedOrderTimestamp = selectedOrder?.createdAt || selectedOrder?.updatedAt;
+  const detailActionKey = actionState.id === selectedOrderKey ? actionState.key : "";
 
-        let alive = true;
-        (async () => {
-            setLoading(true);
-            setError("");
-            try {
-                // validateStatus để tự kiểm soát thông báo lỗi (khỏi ném exception)
-                const res = await API.get("/order/me", {
-                    headers: tokenHeader,
-                    validateStatus: () => true,
-                });
-                if (!alive) return;
+  const refresh = () => setReloadTick((t) => t + 1);
 
-                if (res.status === 200 && Array.isArray(res.data)) {
-                    setOrders(res.data);
-                } else {
-                    const msg = res?.data?.message || `Không tải được đơn hàng (HTTP ${res.status}).`;
-                    setError(msg);
-                }
-            } catch (e) {
-                if (!alive) return;
-                const msg = e?.response?.data?.message || e?.message || "Lỗi mạng khi tải đơn hàng.";
-                setError(msg);
-            } finally {
-                if (alive) setLoading(false);
-            }
-        })();
+  const handleConfirmReceived = async (orderId) => {
+    try {
+      setActionLoading(orderId, "confirm");
+      await confirmDelivered(orderId, user?.accessToken);
+      alert("Đã xác nhận hoàn tất đơn hàng.");
+      refresh();
+    } catch (err) {
+      alert(err?.message || "Xác nhận thất bại.");
+    } finally {
+      clearActionLoading();
+    }
+  };
 
-        return () => {
-            alive = false;
-        };
-    }, [navigate, reloadTick, tokenHeader, user?.accessToken]);
+const handleCancelOrder = async (orderId) => {
+    if (!orderId) return;
+    if (!window.confirm("Bạn chắc chắn muốn hủy đơn này?")) return;
+    try {
+      setActionLoading(orderId, "cancel");
+      await cancelOrder(orderId, user?.accessToken);
+      alert("Đã hủy đơn hàng.");
+      setSelectedOrderId(null);
+      refresh();
+    } catch (err) {
+      alert(err?.message || "Hủy đơn thất bại.");
+    } finally {
+      clearActionLoading();
+    }
+  };
 
-    useEffect(() => {
-        const hasPendingWithDeadline = orders.some(
-            (ord) => ord?.status === "pending" && ord?.paymentDeadline
-        );
-        if (!hasPendingWithDeadline) return undefined;
-        setNow(Date.now());
-        const timer = setInterval(() => {
-            setNow(Date.now());
-        }, 1000);
-        return () => clearInterval(timer);
-    }, [orders]);
+const handleRepeatOrder = async (orderOrId, maybeOrder) => {
+    const order = maybeOrder || orderOrId;
+    if (!order) return;
+    const id = String(order._id || order.id || orderOrId || "");
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+      alert("Đơn hàng không có sản phẩm để đặt lại.");
+      return;
+    }
 
-    useEffect(() => {
-        if (!Number.isFinite(now)) {
-            refreshOnExpiryRef.current = false;
-            return undefined;
-        }
-        const hasExpiredPending = orders.some((ord) => {
-            if (ord?.status !== "pending" || !ord?.paymentDeadline) return false;
-            const deadline = new Date(ord.paymentDeadline).getTime();
-            if (Number.isNaN(deadline)) return false;
-            return deadline <= now;
-        });
-        if (!hasExpiredPending) {
-            refreshOnExpiryRef.current = false;
-            return undefined;
-        }
-        if (refreshOnExpiryRef.current) return undefined;
-        refreshOnExpiryRef.current = true;
-        const timer = setTimeout(() => {
-            setReloadTick((tick) => tick + 1);
-        }, 1200);
-        return () => clearTimeout(timer);
-    }, [now, orders]);
+    setActionLoading(id, "reorder");
+    try {
+      const selectedIds = [];
+      for (const line of items) {
+        const productId = line?.product?._id || line?.product?.id || line?.product || line?.id;
+        const qty = Math.max(1, Number(line?.quantity) || 1);
+        if (!productId) continue;
+        selectedIds.push(String(productId));
+        await addToCart(productId, qty, dispatch);
+      }
 
-    const orderMeta = useMemo(() => {
-        const metaMap = new Map();
-        orders.forEach((ord) => {
-            const orderId = String(ord?._id || ord?.id || "");
-            const deadlineMs = ord?.paymentDeadline ? new Date(ord.paymentDeadline).getTime() : null;
-            const remainingMs = typeof deadlineMs === "number" ? deadlineMs - now : null;
-            const hasDeadline = typeof deadlineMs === "number" && !Number.isNaN(deadlineMs);
-            const isPending = ord?.status === "pending";
-            const stillValid = isPending && hasDeadline && remainingMs > 0;
-            const expired = isPending && hasDeadline && remainingMs !== null && remainingMs <= 0;
-            metaMap.set(orderId, {
-                deadlineMs,
-                remainingMs,
-                hasDeadline,
-                countdown: stillValid ? formatCountdown(remainingMs) : "00:00",
-                stillValid,
-                expired,
-            });
-        });
-        return metaMap;
-    }, [now, orders]);
+      const cartSnapshot = await API.get("/cart", {
+        headers: tokenHeader,
+        validateStatus: () => true,
+      });
+      if (cartSnapshot.status !== 200) {
+        alert(cartSnapshot?.data?.message || "Không thể đồng bộ giỏ hàng.");
+        return;
+      }
 
-    const toggleOpen = (id) => {
-        // Nếu click vào đơn đang mở thì đóng, nếu không thì mở đơn mới
-        setSelectedOrderId((prev) => (prev === id ? null : id));
-        // Scroll lên đầu trang để xem chi tiết
-        if (selectedOrderId !== id) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+      const cartItems = Array.isArray(cartSnapshot.data?.items) ? cartSnapshot.data.items : [];
+      const matchedIds = cartItems
+        .map((line) => String(line?.product?._id || line?.product?.id || line?.product || line?.id || ""))
+        .filter((pid) => pid && selectedIds.includes(pid));
+
+      if (!matchedIds.length) {
+        alert("Không có sản phẩm nào được thêm vào giỏ. Vui lòng kiểm tra tồn kho.");
+        return;
+      }
+
+      const customer = order.customer || {};
+      const repeatState = {
+        repeatOrder: {
+          selectedProductIds: matchedIds,
+          form: {
+            fullName: customer.name || "",
+            address: customer.address || "",
+            phone: customer.phone || "",
+            email: customer.email || "",
+            note: customer.note || "",
+          },
+          paymentMethod:
+            typeof order.payment === "object" ? order.payment?.gateway : order.payment || "COD",
+        },
+      };
+
+      navigate(ROUTERS.USER.CHECKOUT, { state: repeatState });
+    } catch (err) {
+      alert(err?.message || "Không thể chuẩn bị đơn mới, vui lòng thử lại.");
+    } finally {
+      clearActionLoading();
+    }
+  };
+
+const handleReviewOrder = (orderOrId, maybeOrder) => {
+    const order = maybeOrder || orderOrId;
+    const firstItem = order?.items?.[0];
+    const productId = firstItem?.product?._id || firstItem?.product?.id || firstItem?.product || firstItem?.id;
+    if (!productId) {
+      alert("Không tìm thấy sản phẩm để đánh giá.");
+      return;
+    }
+    navigate(`/product/detail/${productId}`);
+  };
+
+const toggleOpen = (id) => {
+    setSelectedOrderId((prev) => (prev === id ? null : id));
+  };
+
+  const orderStats = useMemo(() => {
+    const summary = { total: orders.length, active: 0, completed: 0 };
+    orders.forEach((order) => {
+      const status = normalizeOrderStatus(order?.status);
+      if (["pending", "processing", "shipping", "delivered"].includes(status)) {
+        summary.active += 1;
+      }
+      if (status === "completed") {
+        summary.completed += 1;
+      }
+    });
+    return summary;
+  }, [orders]);
+
+  const detailStatus = normalizeOrderStatus(selectedOrder?.status);
+  const cancelReason = selectedOrder?.paymentMeta?.cancelReason || selectedOrder?.cancelReason || "";
+  const locationState = location.state;
+  const presetOrderId = locationState?.selectedOrderId;
+
+  useEffect(() => {
+    if (presetOrderId) {
+      const { selectedOrderId: _preset, ...restState } = locationState || {};
+      setSelectedOrderId(String(presetOrderId));
+      navigate(location.pathname, { replace: true, state: restState });
+    }
+  }, [presetOrderId, locationState, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      document.body.classList.add("orders-modal-open");
+    } else {
+      document.body.classList.remove("orders-modal-open");
+    }
+    return () => document.body.classList.remove("orders-modal-open");
+  }, [selectedOrder]);
+
+  const closeDetail = () => setSelectedOrderId(null);
+
+  useEffect(() => {
+    if (!selectedOrder) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeDetail();
+      }
     };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedOrder]);
 
-    const handleRepeatOrder = async (order) => {
-        if (!order) return;
-        const id = String(order._id || order.id || "");
-        const items = Array.isArray(order.items) ? order.items : [];
-        if (!items.length) {
-            alert("Đơn hàng không còn sản phẩm để đặt lại.");
-            return;
-        }
+  useEffect(() => {
+    if (orderDetailRef.current) {
+      orderDetailRef.current.scrollTop = 0;
+    }
+  }, [selectedOrderKey]);
 
-        setReorderLoading(id);
-        try {
-            const selectedIds = [];
-            const skipped = [];
-            for (const line of items) {
-                const productId =
-                    line?.product?._id || line?.product?.id || line?.product || line?.id;
-                const qty = Math.max(1, Number(line?.quantity) || 1);
-                if (!productId) {
-                    skipped.push(line?.name || "Sản phẩm");
-                    continue;
-                }
-                selectedIds.push(String(productId));
-                // addToCart sẽ tự kiểm tra tồn kho & giá mới nhất
-                await addToCart(productId, qty, dispatch);
-            }
-
-            if (!selectedIds.length) {
-                alert("Không thể chuẩn bị giỏ hàng cho đơn này. Sản phẩm có thể đã ngừng bán.");
-                return;
-            }
-
-            if (skipped.length) {
-                alert(
-                    `Một số sản phẩm không thể thêm lại vào giỏ: ${skipped
-                        .slice(0, 3)
-                        .join(", ")}${skipped.length > 3 ? "…" : ""}`
-                );
-            }
-
-            const uniqueIds = Array.from(new Set(selectedIds));
-            const cartSnapshot = await API.get("/cart", {
-                headers: tokenHeader,
-                validateStatus: () => true,
-            });
-
-            if (cartSnapshot.status !== 200) {
-                alert(cartSnapshot?.data?.message || "Không thể đồng bộ giỏ hàng, vui lòng thử lại.");
-                return;
-            }
-
-            const cartItems = Array.isArray(cartSnapshot.data?.items) ? cartSnapshot.data.items : [];
-            const matchedIds = cartItems
-                .map((line) => String(line?.product?._id || line?.product?.id || line?.product || line?.id || ""))
-                .filter((pid) => pid && uniqueIds.includes(pid));
-
-            if (!matchedIds.length) {
-                alert("Không có sản phẩm nào được thêm vào giỏ. Vui lòng kiểm tra tồn kho.");
-                return;
-            }
-
-            const customer = order.customer || {};
-            const repeatState = {
-                repeatOrder: {
-                    selectedProductIds: matchedIds,
-                    form: {
-                        fullName: customer.name || "",
-                        address: customer.address || "",
-                        phone: customer.phone || "",
-                        email: customer.email || "",
-                        note: customer.note || "",
-                    },
-                    paymentMethod: typeof order.payment === 'object' ? order.payment?.gateway : (order.payment || "COD"),
-                },
-            };
-
-            navigate(ROUTERS.USER.CHECKOUT, { state: repeatState });
-        } catch (err) {
-            alert(err?.message || "Không thể chuẩn bị đơn hàng mới, vui lòng thử lại.");
-        } finally {
-            setReorderLoading(null);
-        }
+  useEffect(() => {
+    if (!selectedOrder || detailStatus !== "pending") {
+      setPendingCountdownMs(null);
+      return undefined;
+    }
+    const deadline = selectedOrder.autoConfirmAt || selectedOrder.paymentDeadline;
+    if (!deadline) {
+      setPendingCountdownMs(null);
+      return undefined;
+    }
+    const target = new Date(deadline).getTime();
+    const tick = () => {
+      setPendingCountdownMs(Math.max(0, target - Date.now()));
     };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [selectedOrder, detailStatus]);
 
-    return (
-        <>
-        <Breadcrumb paths={[{ label: "Đơn mua" }]} />
-        <div className="container orders-page-container">
-            <h2 style={{ margin: "12px 0 16px" }}>Đơn hàng của tôi</h2>
+  const formatRemainingTime = (ms) => {
+    if (ms === null || ms === undefined) return null;
+    if (ms <= 0) return "Đã hết hạn";
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    parts.push(`${String(minutes).padStart(2, "0")}m`);
+    parts.push(`${String(seconds).padStart(2, "0")}s`);
+    return parts.join(" ");
+  };
 
-            {loading && <p>Đang tải đơn hàng…</p>}
-            {!loading && error && (
-            <div className="alert alert-danger" role="alert" style={{ marginBottom: 16 }}>
-                {error}
+  const goToPayment = () => {
+    if (!selectedOrderKey) return;
+    navigate(ROUTERS.USER.PAYMENT.replace(":id", selectedOrderKey));
+  };
+
+  return (
+    <>
+      <Breadcrumb paths={[{ label: "Đơn mua" }]} />
+      <section className="orders-page">
+        <div className="container orders-page__container">
+          <header className="orders-page__header">
+            <div className="orders-page__heading">
+              <p className="orders-page__eyebrow">Trung tâm đơn hàng</p>
+              <h2 className="orders-page__title">Đơn hàng của tôi</h2>
+              <p className="orders-page__subtitle">
+                Theo dõi trạng thái và quản lý tất cả đơn mua của bạn tại một nơi.
+              </p>
             </div>
-            )}
+            <div className="orders-page__metrics">
+              <div className="orders-metric">
+                <span>Đơn hoạt động</span>
+                <strong>{orderStats.active}</strong>
+              </div>
+              <div className="orders-metric">
+                <span>Đơn hoàn tất</span>
+                <strong>{orderStats.completed}</strong>
+              </div>
+              <div className="orders-metric">
+                <span>Tổng đơn</span>
+                <strong>{orderStats.total}</strong>
+              </div>
+            </div>
+          </header>
 
-            {!loading && !error && (!orders || orders.length === 0) && (
+          {loading && <p>Đang tải đơn hàng...</p>}
+          {!loading && error && (
+            <div className="alert alert-danger" role="alert">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && (!orders || orders.length === 0) && (
             <div className="empty-state">
-                <p>Bạn chưa có đơn hàng nào.</p>
-                <button
+              <p>Bạn chưa có đơn hàng nào.</p>
+              <button
                 type="button"
-                className="button-submit"
+                className="btn btn-primary"
                 onClick={() => navigate(ROUTERS.USER.PRODUCTS)}
-                >
+              >
                 Mua sắm ngay
-                </button>
+              </button>
             </div>
-            )}
+          )}
 
-            {!loading && !error && orders && orders.length > 0 && (
-            <div className="orders-list">
-                {/* Chi tiết đơn hàng được chọn - hiển thị ở đầu */}
-                {selectedOrderId && (() => {
-                    const selectedOrder = orders.find(o => String(o._id || o.id || "") === selectedOrderId);
-                    if (!selectedOrder) return null;
-                    
-                    const id = String(selectedOrder._id || selectedOrder.id || "");
-                    const meta = orderMeta.get(id) || {};
-                    const paymentPath = ROUTERS.USER.PAYMENT.replace(":id", id);
-                    const isReorderLoading = reorderLoading === id;
-                    const { methodLabel, channelLabel } = resolvePaymentLabels(selectedOrder);
-                    const total = selectedOrder?.amount?.total ?? selectedOrder?.amount ?? 0;
-                    
-                    return (
-                        <div className="order-detail-card" ref={orderDetailRef}>
-                            <div className={`order-detail-header header-status-${selectedOrder?.status || "pending"}`}>
-                                <div className="order-detail-header-left">
-                                    <h3>Chi tiết đơn hàng #{id.slice(-8).toUpperCase()}</h3>
-                                    <span className={`badge-large status-${selectedOrder?.status || "pending"}`}>
-                                        {selectedOrder?.status === "paid" ? "ĐÃ THANH TOÁN" :
-                                         selectedOrder?.status === "cancelled" ? "ĐÃ HỦY" :
-                                         selectedOrder?.status === "pending" ? "CHỜ THANH TOÁN" :
-                                         selectedOrder?.status?.toUpperCase()}
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="btn-close-detail"
-                                    onClick={() => setSelectedOrderId(null)}
-                                    aria-label="Đóng chi tiết"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-
-                            <div className="order-detail-body">
-                                {/* Thông tin khách hàng */}
-                                <section className="detail-section">
-                                    <h4 className="detail-section-title">Thông tin người nhận</h4>
-                                    <div className="detail-info-grid">
-                                        <div className="info-item">
-                                            <span className="info-label">Tên:</span>
-                                            <span className="info-value">{selectedOrder?.customer?.name}</span>
-                                        </div>
-                                        <div className="info-item">
-                                            <span className="info-label">Điện thoại:</span>
-                                            <span className="info-value">{selectedOrder?.customer?.phone}</span>
-                                        </div>
-                                        <div className="info-item">
-                                            <span className="info-label">Email:</span>
-                                            <span className="info-value">{selectedOrder?.customer?.email}</span>
-                                        </div>
-                                        <div className="info-item full-width">
-                                            <span className="info-label">Địa chỉ:</span>
-                                            <span className="info-value">{selectedOrder?.customer?.address}</span>
-                                        </div>
-                                        {selectedOrder?.customer?.note && (
-                                            <div className="info-item full-width">
-                                                <span className="info-label">Ghi chú:</span>
-                                                <span className="info-value">{selectedOrder.customer.note}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-
-                                {/* Thông tin thanh toán */}
-                                <section className="detail-section">
-                                    <h4 className="detail-section-title">Thông tin thanh toán</h4>
-                                    <div className="detail-info-grid">
-                                        <div className="info-item">
-                                            <span className="info-label">Phương thức:</span>
-                                            <span className="info-value">{methodLabel}</span>
-                                        </div>
-                                        {channelLabel && (
-                                            <div className="info-item">
-                                                <span className="info-label">Kênh:</span>
-                                                <span className="info-value">{channelLabel}</span>
-                                            </div>
-                                        )}
-                                        {selectedOrder?.paymentCompletedAt && (
-                                            <div className="info-item full-width">
-                                                <span className="info-label">Hoàn tất lúc:</span>
-                                                <span className="info-value highlight-success">
-                                                    {formatDateTime(selectedOrder.paymentCompletedAt)}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-
-                                {/* Danh sách sản phẩm */}
-                                <section className="detail-section">
-                                    <div className="table__cart" style={{ overflowX: "auto" }}>
-                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                            <thead>
-                                                <tr>
-                                                    <th style={{ textAlign: "left" }}>Sản phẩm</th>
-                                                    <th style={{ textAlign: "right" }}>Đơn giá</th>
-                                                    <th style={{ textAlign: "right" }}>SL</th>
-                                                    <th style={{ textAlign: "right" }}>Thành tiền</th>
-                                                    {selectedOrder.status === "paid" && (
-                                                        <th style={{ textAlign: "center" }}>Đánh giá</th>
-                                                    )}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {(selectedOrder?.items || []).map((it, idx) => {
-                                                    const productId = it?.product?._id || it?.product?.id || it?.product || it?.id || "";
-                                                    const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : (it.image || "");
-                                                    return (
-                                                        <tr key={idx}>
-                                                            <td style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
-                                                                {imgSrc && (
-                                                                    <img
-                                                                        src={imgSrc}
-                                                                        alt={it.name}
-                                                                        style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
-                                                                    />
-                                                                )}
-                                                                <span style={{ whiteSpace: "nowrap" }}>{it.name}</span>
-                                                            </td>
-                                                            <td style={{ textAlign: "right" }}>{formatter(it.price)}</td>
-                                                            <td style={{ textAlign: "right" }}>{it.quantity}</td>
-                                                            <td style={{ textAlign: "right", fontWeight: 600 }}>
-                                                                {formatter(it.total ?? it.price * it.quantity)}
-                                                            </td>
-                                                            {selectedOrder.status === "paid" && (
-                                                                <td style={{ textAlign: "center" }}>
-                                                                    <button
-                                                                        className="btn-review-product"
-                                                                        onClick={() => navigate(`/product/detail/${productId}`)}
-                                                                        title="Đánh giá sản phẩm"
-                                                                    >
-                                                                        ⭐ Đánh giá
-                                                                    </button>
-                                                                </td>
-                                                            )}
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                            <tfoot>
-                                                <tr>
-                                                    <td colSpan="2" />
-                                                    <td style={{ textAlign: "right" }}><b>Tạm tính:</b></td>
-                                                    <td style={{ textAlign: "right" }}>{formatter(selectedOrder?.amount?.subtotal ?? 0)}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td colSpan="2" />
-                                                    <td style={{ textAlign: "right" }}><b>Vận chuyển:</b></td>
-                                                    <td style={{ textAlign: "right" }}>{formatter(selectedOrder?.amount?.shipping ?? 0)}</td>
-                                                </tr>
-                                                {(selectedOrder?.amount?.discount ?? 0) > 0 && (
-                                                    <tr>
-                                                        <td colSpan="2" />
-                                                        <td style={{ textAlign: "right" }}><b>Giảm giá:</b></td>
-                                                        <td style={{ textAlign: "right", color: "#ef4444" }}>
-                                                            -{formatter(selectedOrder?.amount?.discount ?? 0)}
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                                <tr className="total-row">
-                                                    <td colSpan="2" />
-                                                    <td style={{ textAlign: "right" }}><b>Tổng thanh toán:</b></td>
-                                                    <td style={{ textAlign: "right" }}><b>{formatter(total)}</b></td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
-                                    </div>
-                                </section>
-
-                                {/* Trạng thái và hành động */}
-                                {selectedOrder.status === "pending" && meta.stillValid && (
-                                    <div className="order-status-alert alert-warning">
-                                        <div>
-                                            <h4>⏰ Thanh toán còn hạn</h4>
-                                            <p>
-                                                Đơn hàng sẽ tự động hủy nếu chưa thanh toán trong <strong>{meta.countdown}</strong> nữa.
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="button-submit"
-                                            onClick={() => navigate(paymentPath)}
-                                        >
-                                            Tiếp tục thanh toán
-                                        </button>
-                                    </div>
-                                )}
-
-                                {selectedOrder.status !== "pending" && (
-                                    <div className="order-detail-actions">
-                                        <button
-                                            type="button"
-                                            className="btn-reorder"
-                                            onClick={() => handleRepeatOrder(selectedOrder)}
-                                            disabled={isReorderLoading}
-                                        >
-                                            {isReorderLoading ? "Đang chuẩn bị…" : "Đặt lại đơn"}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* Bảng danh sách đơn hàng */}
-                <table className="table table-striped orders-table" style={{ width: "100%", borderCollapse: "collapse", marginTop: selectedOrderId ? "24px" : "0" }}>
-                <thead>
-                    <tr>
-                    <th style={{ textAlign: "left" }}>Mã đơn</th>
-                    <th style={{ textAlign: "left" }}>Thời gian</th>
-                    <th style={{ textAlign: "left" }}>Trạng thái</th>
-                    <th style={{ textAlign: "left" }}>Thanh toán</th>
-                    <th style={{ textAlign: "right" }}>Tổng tiền</th>
-                    <th />
+          {!loading && !error && orders && orders.length > 0 && (
+            <div className="orders-layout">
+              <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>Mã đơn</th>
+                  <th>Thời gian</th>
+                  <th>Trạng thái</th>
+                  <th>Thanh toán</th>
+                  <th className="text-right">Tổng tiền</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((o) => {
+                  const id = String(o._id || o.id || "");
+                  const total = o?.amount?.total ?? o?.amount ?? 0;
+                  const normalizedRowStatus = normalizeOrderStatus(o?.status);
+                  return (
+                    <tr key={id}>
+                      <td>
+                        <div className="code">{id.slice(-8).toUpperCase()}</div>
+                      </td>
+                      <td>{formatDateTime(o?.createdAt || o?.updatedAt || "")}</td>
+                      <td>
+                        {normalizedRowStatus ? (
+                          <OrderStatusTag status={normalizedRowStatus} />
+                        ) : (
+                          <span className="status-placeholder">—</span>
+                        )}
+                      </td>
+                      <td>{o?.payment || "COD"}</td>
+                      <td className="text-right fw-bold">{formatter(total)}</td>
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          className="link-btn"
+                          onClick={() => toggleOpen(id)}
+                        >
+                          {selectedOrderId === id ? "Đóng" : "Xem chi tiết"}
+                        </button>
+                      </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {orders.map((o) => {
-                    const id = String(o._id || o.id || "");
-                    const total = o?.amount?.total ?? o?.amount ?? 0;
-                    const createdAt = o?.createdAt || o?.updatedAt || "";
-                    const meta = orderMeta.get(id) || {};
-                    const { methodLabel, channelLabel } = resolvePaymentLabels(o);
-
-                    return (
-                        <tr key={id} style={{ borderTop: "1px solid #eee" }}>
-                        <td>
-                            <div style={{ fontWeight: 600 }}>{id.slice(-8).toUpperCase()}</div>
-                        </td>
-                        <td>{formatDateTime(createdAt)}</td>
-                        <td>
-                            <span className={`badge status-${o?.status || "pending"}`}>
-                            {o?.status || "pending"}
-                            </span>
-                        </td>
-                        <td>
-                            <div className="payment-method-label">{methodLabel}</div>
-                            {channelLabel ? (
-                                <div className="payment-channel-label">{channelLabel}</div>
-                            ) : null}
-                            {meta.stillValid ? (
-                            <div className="payment-countdown">Còn {meta.countdown} để thanh toán</div>
-                            ) : null}
-                        </td>
-                        <td style={{ textAlign: "right", fontWeight: 600 }}>{formatter(total)}</td>
-                        <td style={{ width: 1, whiteSpace: "nowrap" }}>
-                            <button
-                            type="button"
-                            className={`link-btn ${selectedOrderId === id ? 'active' : ''}`}
-                            onClick={() => toggleOpen(id)}
-                            aria-expanded={selectedOrderId === id}
-                            >
-                            {selectedOrderId === id ? "Thu gọn" : "Xem chi tiết"}
-                            </button>
-                        </td>
-                        </tr>
-                    );
-                    })}
-                </tbody>
-                </table>
+                  );
+                })}
+              </tbody>
+              </table>
             </div>
-            )}
+          )}
+          {selectedOrder && (
+            <div className="order-detail-overlay" onClick={closeDetail}>
+              <div
+                className="order-detail-panel"
+                onClick={(e) => e.stopPropagation()}
+                ref={orderDetailRef}
+                role="dialog"
+                aria-modal="true"
+              >
+                <div className={`order-detail-card${detailStatus ? ` order-detail-card--${detailStatus}` : ""}`}>
+                  <div className="order-detail-header">
+                    <div className="order-detail-header__meta">
+                      <div>
+                        <p className="order-detail-code">
+                          Đơn #{String(selectedOrder._id || selectedOrder.id).slice(-8).toUpperCase()}
+                        </p>
+                        {selectedOrderTimestamp && (
+                          <span className="order-detail-date">{formatDateTime(selectedOrderTimestamp)}</span>
+                        )}
+                      </div>
+                      <div className="order-detail-header__actions">
+                        <OrderStatusTag status={selectedOrder.status} />
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-close"
+                          onClick={closeDetail}
+                          aria-label="Đóng chi tiết"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="order-detail-body">
+                    {detailStatus === "cancelled" && (
+                      <div className="order-cancel-reason">
+                        <strong>Ly do huy:</strong> {cancelReason || "Khong co ly do"}
+                      </div>
+                    )}
+                    <section className="detail-section detail-section--grid">
+                      <div className="section-header">
+                        <h4 className="detail-section__title">Thông tin người nhận</h4>
+                        <div className="section-meta">
+                          {selectedOrder?.customer?.phone && <span>{selectedOrder.customer.phone}</span>}
+                          {selectedOrder?.customer?.email && <span>{selectedOrder.customer.email}</span>}
+                        </div>
+                      </div>
+                      <div className="detail-info-grid">
+                        <div className="info-item">
+                          <span className="info-label">Tên</span>
+                          <span className="info-value">{selectedOrder?.customer?.name}</span>
+                        </div>
+                        <div className="info-item info-item--full">
+                          <span className="info-label">Địa chỉ</span>
+                          <span className="info-value">{selectedOrder?.customer?.address}</span>
+                        </div>
+                        {selectedOrder?.customer?.note && (
+                          <div className="info-item info-item--full">
+                            <span className="info-label">Ghi chú</span>
+                            <span className="info-value">{selectedOrder.customer.note}</span>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="detail-section detail-section--summary">
+                      <div className="summary-cards">
+                        <div className="summary-card">
+                          <span>Phương thức thanh toán</span>
+                          <strong>{selectedOrder?.payment || "COD"}</strong>
+                        </div>
+                        {selectedOrder?.amount?.total && (
+                          <div className="summary-card summary-card--highlight">
+                            <span>Tổng thanh toán</span>
+                            <strong>{formatter(selectedOrder.amount.total)}</strong>
+                          </div>
+                        )}
+                        {selectedOrder?.paymentCompletedAt && (
+                          <div className="summary-card">
+                            <span>Hoàn tất lúc</span>
+                            <strong>{formatDateTime(selectedOrder.paymentCompletedAt)}</strong>
+                          </div>
+                        )}
+                      </div>
+                      {detailStatus === "pending" && (selectedOrder?.autoConfirmAt || selectedOrder?.paymentDeadline) && (
+                        <div className="pending-payment">
+                          <div className="pending-payment__info">
+                            <span>Thời gian còn lại</span>
+                            <strong>{formatRemainingTime(pendingCountdownMs)}</strong>
+                          </div>
+                          <button type="button" className="btn btn-primary" onClick={goToPayment}>
+                            Đi tới thanh toán
+                          </button>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="detail-section">
+                      <div className="table-wrapper">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Sản phẩm</th>
+                              <th className="text-right">Đơn giá</th>
+                              <th className="text-right">SL</th>
+                              <th className="text-right">Thành tiền</th>
+                              {detailStatus === "completed" && <th className="text-center">Đánh giá</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(selectedOrder?.items || []).map((it) => {
+                              const productId = it?.product?._id || it?.product?.id || it?.product || it?.id || "";
+                              const imgSrc = Array.isArray(it.image) ? (it.image[0] || "") : it.image || "";
+                              return (
+                                <tr key={`${productId}-${it.name}`}>
+                                  <td className="item-cell">
+                                    {imgSrc && <img src={imgSrc} alt={it.name} />}
+                                    <span>{it.name}</span>
+                                  </td>
+                                  <td className="text-right">{formatter(it.price)}</td>
+                                  <td className="text-right">{it.quantity}</td>
+                                  <td className="text-right fw-bold">{formatter(it.total ?? it.price * it.quantity)}</td>
+                                  {detailStatus === "completed" && (
+                                    <td className="text-center">
+                                      <button
+                                        className="btn btn-secondary"
+                                        onClick={() => navigate(`/product/detail/${productId}`)}
+                                      >
+                                        ✩ Đánh giá
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <td colSpan="2" />
+                              <td className="text-right"><b>Tạm tính</b></td>
+                              <td className="text-right">{formatter(selectedOrder?.amount?.subtotal ?? 0)}</td>
+                            </tr>
+                            <tr>
+                              <td colSpan="2" />
+                              <td className="text-right"><b>Vận chuyển</b></td>
+                              <td className="text-right">{formatter(selectedOrder?.amount?.shipping ?? 0)}</td>
+                            </tr>
+                            {(selectedOrder?.amount?.discount ?? 0) > 0 && (
+                              <tr>
+                                <td colSpan="2" />
+                                <td className="text-right"><b>Giảm giá</b></td>
+                                <td className="text-right text-danger">-{formatter(selectedOrder?.amount?.discount ?? 0)}</td>
+                              </tr>
+                            )}
+                            <tr className="total-row">
+                              <td colSpan="2" />
+                              <td className="text-right"><b>Tổng thanh toán</b></td>
+                              <td className="text-right"><b>{formatter(selectedOrder?.amount?.total ?? 0)}</b></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </section>
+
+                    <OrderActions
+                      order={selectedOrder}
+                      role="user"
+                      onConfirmReceived={handleConfirmReceived}
+                      onReorder={handleRepeatOrder}
+                      onCancel={handleCancelOrder}
+                      onReview={handleReviewOrder}
+                      loadingAction={detailActionKey}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        </>
-    );
+      </section>
+    </>
+  );
 };
 
 export default memo(OrdersPage);

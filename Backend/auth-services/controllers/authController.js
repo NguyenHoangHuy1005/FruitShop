@@ -454,7 +454,47 @@ const authController = {
         return res.status(500).json({ ok: false, message: "Lỗi máy chủ." });
         }
     },
-    // ============== REQUEST CHANGE EMAIL (OTP to current email) ==============
+        // ============== CHANGE PASSWORD (AUTH) ==============
+    changePassword: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
+            const currentPassword = String(req.body?.currentPassword || "");
+            const newPassword = String(req.body?.newPassword || "");
+            const confirm = String(req.body?.password_confirm || "");
+
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({ message: "Thieu mat khau hien tai hoac mat khau moi." });
+            }
+            if (newPassword !== confirm) {
+                return res.status(400).json({ message: "Mat khau moi khong khop." });
+            }
+            if (newPassword.length < 6) {
+                return res.status(400).json({ message: "Mat khau moi phai tu 6 ky tu." });
+            }
+
+            const user = await User.findById(userId).select("password resetPasswordToken resetPasswordExpiresAt");
+            if (!user) return res.status(404).json({ message: "Khong tim thay tai khoan." });
+            if (!user.password) return res.status(400).json({ message: "Tai khoan khong ho tro doi mat khau." });
+
+            const isMatch = await bcrypt.compare(currentPassword, user.password || "");
+            if (!isMatch) return res.status(400).json({ message: "Mat khau hien tai khong dung." });
+
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(newPassword, salt);
+            user.resetPasswordToken = null;
+            user.resetPasswordExpiresAt = null;
+            await user.save();
+
+            return res.status(200).json({ ok: true, message: "Doi mat khau thanh cong." });
+        } catch (error) {
+            console.error("changePassword error:", error);
+            return res.status(500).json({ message: "Loi may chu khi doi mat khau." });
+        }
+    },
+
+// ============== REQUEST CHANGE EMAIL (OTP to current email) ==============
     requestChangeEmail: async (req, res) => {
         try {
             const userId = req.user?.id;

@@ -2,6 +2,8 @@ const Reservation = require("../models/Reservation");
 const ImportItem = require("../../admin-services/models/ImportItem");
 const Product = require("../models/Product");
 const Carts = require("../models/Carts");
+const Order = require("../models/Order");
+const SpoilageRecord = require("../models/SpoilageRecord");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { computeBatchPricing } = require("../utils/batchPricing");
@@ -42,6 +44,7 @@ function getSessionKey(req) {
  */
 exports.reserveForCart = async (req, res) => {
   try {
+    return res.status(410).json({ message: "Cart reservations are only created during checkout." });
     const { productId, quantity } = req.body;
     const userId = req.user?.id || extractUserId(req);
     const sessionKey = getSessionKey(req);
@@ -265,15 +268,31 @@ exports.confirmPayment = async (req, res) => {
       return res.status(400).json({ message: "Reservation không còn active" });
     }
 
-    // Confirm reservation
     reservation.status = "confirmed";
     reservation.confirmedAt = new Date();
     reservation.orderId = orderId;
     await reservation.save();
 
+    let order = null;
+    if (orderId) {
+      order = await Order.findById(orderId);
+      if (order) {
+        if (order.status === "pending") {
+          order.status = "processing";
+        }
+        if (!order.paymentCompletedAt) {
+          order.paymentCompletedAt = new Date();
+        }
+        order.paymentDeadline = null;
+        order.autoConfirmAt = null;
+        await order.save();
+      }
+    }
+
     res.json({
       success: true,
-      message: "Đã xác nhận đơn hàng"
+      message: "Đã xác nhận đơn hàng",
+      order,
     });
   } catch (error) {
     console.error("Error in confirmPayment:", error);
@@ -281,9 +300,6 @@ exports.confirmPayment = async (req, res) => {
   }
 };
 
-/**
- * Release reservation khi payment fail hoặc cancel
- */
 exports.releaseReservation = async (req, res) => {
   try {
     const { reservationId } = req.body;
@@ -352,6 +368,10 @@ exports.getMyReservation = async (req, res) => {
 exports.cleanupExpiredReservations = async () => {
   try {
     const now = new Date();
+    const expiredReservations = await Reservation.find({
+      status: "active",
+      expiresAt: { $lt: now }
+    }).lean();
     
     const result = await Reservation.updateMany(
       {
@@ -366,6 +386,12 @@ exports.cleanupExpiredReservations = async () => {
       }
     );
 
+    if (expiredReservations.length) {
+      for (const reservation of expiredReservations) {
+        await recordSpoilageForReservation(reservation, now);
+      }
+    }
+
     console.log(`[Cleanup] Released ${result.modifiedCount} expired reservations`);
     return result;
   } catch (error) {
@@ -375,6 +401,31 @@ exports.cleanupExpiredReservations = async () => {
 };
 
 // ==================== Helper Functions ====================
+async function recordSpoilageForReservation(reservation, now = new Date()) {
+  if (!reservation?.items?.length) return;
+  for (const item of reservation.items) {
+    const qty = Number(item.quantity) || 0;
+    if (!qty || !item.batchId) continue;
+    try {
+      const batch = await ImportItem.findById(item.batchId).select("product expiryDate").lean();
+      if (!batch) continue;
+      const expiryDate = batch.expiryDate ? new Date(batch.expiryDate) : null;
+      if (expiryDate && expiryDate <= now) {
+        await SpoilageRecord.create({
+          product: batch.product || item.product,
+          batch: item.batchId,
+          order: null,
+          quantity: qty,
+          reason: "expired_on_return",
+          expiryDate: batch.expiryDate || null,
+          recordedBy: reservation.user || null,
+        });
+      }
+    } catch (err) {
+      console.error("[reservation] record spoilage failed:", err?.message || err);
+    }
+  }
+}
 
 /**
  * Lấy danh sách batch available theo FEFO - CHỈ trả về lô còn hàng
@@ -395,7 +446,7 @@ async function getAvailableBatches(productId) {
   const Order = require("../models/Order");
   const orders = await Order.find({
     'items.product': productId,
-    status: { $in: ['paid', 'completed', 'shipped', 'delivered'] }
+    status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
   }).select('items').lean();
 
   const totalSold = orders.reduce((sum, order) => {
@@ -451,7 +502,7 @@ async function getAvailableQuantity(batchId) {
   const Order = require("../models/Order");
   const orders = await Order.find({
     "items.product": batch.product,
-    status: { $in: ["completed", "shipped", "delivered"] }
+    status: { $in: ["processing", "shipping", "delivered", "completed"] }
   }).select("items createdAt").lean();
 
   let totalSold = 0;

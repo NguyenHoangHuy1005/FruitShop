@@ -180,9 +180,9 @@ const NotificationsPage = () => {
     }
   };
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
-      markAsRead(notification._id);
+      await markAsRead(notification._id);
     }
 
     const orderNavigation = buildOrderNavigation(notification);
@@ -220,15 +220,18 @@ const NotificationsPage = () => {
       comment_reaction: '❤️',
       review_reaction: '❤️',
       reply_reaction: '👍',
-      order_created: '🛒',
-      order_paid: '💳',
-      order_processing: '📦',
+      order_created: '🧾',
+      order_processing: '🛠️',
       order_shipping: '🚚',
+      order_shipped: '🚚',
+      order_delivered: '📦',
       order_completed: '✅',
+      order_complete: '✅',
       order_cancelled: '❌',
+      order_expired: '⏰',
       article_pending: '⏳',
       article_approved: '✅',
-      article_rejected: '❌',
+      article_rejected: '⚠️',
     };
     return icons[type] || '🔔';
   };

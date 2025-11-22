@@ -1,0 +1,54 @@
+$ink: #0f172a;
+$muted: #475569;
+$muted-light: #94a3b8;
+$border: #e2e8f0;
+$surface: #ffffff;
+$soft-surface: #f8fafc;
+$accent: #0ea5e9;
+$accent-alt: #f97316;
+$success: #22c55e;
+$warning: #fbbf24;
+$error: #ef4444;
+
+$bp-desktop: 1200px;
+$bp-tablet: 768px;
+
+@mixin card {
+  background: $surface;
+  border: 1px solid rgba($ink, 0.06);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba($ink, 0.08);
+}
+
+@mixin pill {
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@mixin laptop {
+  @media (min-width: $bp-desktop) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: $bp-tablet) and (max-width: ($bp-desktop - 1px)) {
+    @content;
+  }
+}
+
+@mixin phone {
+  @media (max-width: ($bp-tablet - 1px)) {
+    @content;
+  }
+}
+
+@mixin respond-max($width) {
+  @media (max-width: $width) {
+    @content;
+  }
+}

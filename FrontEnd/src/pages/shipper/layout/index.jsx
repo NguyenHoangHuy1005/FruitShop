@@ -1,0 +1,40 @@
+import { NavLink, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { logout } from "../../../component/redux/apiRequest";
+import { ROUTERS } from "../../../utils/router";
+import "../theme.scss";
+import "./style.scss";
+
+const ShipperLayout = ({ children }) => {
+  const user = useSelector((s) => s.auth?.login?.currentUser);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout(dispatch, navigate, user?.accessToken, user?._id || user?.id);
+  };
+
+  return (
+    <div className="shipper-shell">
+      <header className="shipper-shell__header">
+        <div className="shipper-shell__brand">Shipper</div>
+        <nav className="shipper-shell__nav">
+          <NavLink to={ROUTERS.SHIPPER.DASHBOARD}>Dashboard</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.ORDERS}>Orders</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.DELIVERING}>Delivering</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.PROFILE}>Profile</NavLink>
+        </nav>
+        <div className="shipper-shell__actions">
+          <button type="button" onClick={handleLogout}>Đăng xuất</button>
+        </div>
+      </header>
+      <main className="shipper-shell__body">
+        <div className="shipper-shell__content">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default ShipperLayout;

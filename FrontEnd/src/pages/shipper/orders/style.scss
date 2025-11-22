@@ -1,0 +1,9 @@
+@use "../styles/tokens" as tokens;
+
+.shipper-table {
+  margin-top: 12px;
+}
+
+.shipper-orders__actions .order-actions {
+  justify-content: flex-start;
+}

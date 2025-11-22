@@ -1,0 +1,50 @@
+@use "./tokens";
+
+@include tokens.phone {
+  .shipper-shell__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .shipper-shell__nav {
+    flex-wrap: wrap;
+    gap: 8px;
+
+    a {
+      flex: 1 1 45%;
+      text-align: center;
+    }
+  }
+
+  .shipper-shell__actions button {
+    width: 100%;
+  }
+
+  .shipper-stats {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .shipper-orders__actions {
+    flex-direction: column;
+    align-items: stretch;
+
+    button,
+    a {
+      width: 100%;
+      text-align: center;
+    }
+  }
+
+  .shipper-detail__actions {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+    }
+  }
+
+  .shipper-section {
+    padding: 16px;
+  }
+}

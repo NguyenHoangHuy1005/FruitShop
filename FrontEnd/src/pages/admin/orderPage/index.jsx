@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { API } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
 import { formatter } from "../../../utils/fomater";
-
+import OrderStatusTag from "../../../component/orders/OrderStatusTag";
 
 const formatDateTime = (iso) => {
   try {
@@ -71,6 +71,14 @@ const resolveCancelNote = (order) => {
     return PAYMENT_CANCEL_REASON_LABELS[reason];
   }
   return "Đơn đã bị hủy";
+};
+
+const normalizeOrderStatus = (status) => {
+  const raw = String(status || "").toLowerCase();
+  if (!raw) return "";
+  if (raw === "shipping" || raw === "shipped") return "shipped";
+  if (raw === "completed" || raw === "complete") return "complete";
+  return raw;
 };
 
 
@@ -246,8 +254,9 @@ const OrderAdminPage = () => {
                                     const total = o?.amount?.total ?? o?.amount ?? 0;
                                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
                                     const cancelNote = resolveCancelNote(o);
-                                    const paidAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";
-                                    const statusClass = o?.status ? `order-${o.status}` : '';
+                                    const confirmedAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";
+                                    const normalizedStatus = normalizeOrderStatus(o?.status);
+                                    const statusClass = normalizedStatus ? `order-${normalizedStatus}` : '';
                                     return (
                                         <tr key={id} className={`orders__row ${statusClass}`}>
                                             <td>{id.slice(-8).toUpperCase()}</td>
@@ -265,8 +274,8 @@ const OrderAdminPage = () => {
                                                     {channelLabel ? (
                                                         <span className="orders__payment-channel">{channelLabel}</span>
                                                     ) : null}
-                                                    {paidAt ? (
-                                                        <span className="orders__payment-time">Hoàn tất: {paidAt}</span>
+                                                    {confirmedAt ? (
+                                                        <span className="orders__payment-time">Hoàn tất: {confirmedAt}</span>
                                                     ) : null}
                                                     {cancelNote ? (
                                                         <span className="orders__payment-note">{cancelNote}</span>
@@ -274,13 +283,7 @@ const OrderAdminPage = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                              <span className={`status-badge status-${o?.status}`}>
-                                                {o?.status === 'pending' && 'Pending'}
-                                                {o?.status === 'paid' && 'Paid'}
-                                                {o?.status === 'shipped' && 'Shipped'}
-                                                {o?.status === 'completed' && 'Completed'}
-                                                {o?.status === 'cancelled' && 'Cancelled'}
-                                              </span>
+                                              <OrderStatusTag status={o?.status} size="sm" />
                                             </td>
                                         </tr>
                                     );

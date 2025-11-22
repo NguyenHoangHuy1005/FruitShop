@@ -1,0 +1,12 @@
+@use "../styles/tokens" as tokens;
+
+.shipper-profile__card {
+  display: grid;
+  gap: 12px;
+  font-size: 15px;
+
+  strong {
+    color: tokens.$muted;
+    margin-right: 6px;
+  }
+}

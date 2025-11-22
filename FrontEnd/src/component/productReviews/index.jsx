@@ -130,18 +130,18 @@ const ProductReviews = ({ productId }) => {
         }
       );
 
-      // Lọc các đơn hàng đã thanh toán (paid) và có chứa sản phẩm này
-      const paidOrders = ordersResponse.data.filter(
+      // Lọc đơn hoàn tất có sản phẩm này
+      const eligibleOrders = ordersResponse.data.filter(
         (order) =>
-          order.status === "paid" &&
+          order.status === "completed" &&
           order.items?.some((item) => {
             const itemProductId = item.product?._id || item.product;
             return String(itemProductId) === String(productId);
           })
       );
 
-      setUserOrders(paidOrders);
-      setCanReview(paidOrders.length > 0);
+      setUserOrders(eligibleOrders);
+      setCanReview(eligibleOrders.length > 0);
     } catch (error) {
       console.error("Error checking review eligibility:", error);
     }

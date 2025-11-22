@@ -1,0 +1,26 @@
+@use "../styles/tokens" as tokens;
+
+.shipper-heading {
+  letter-spacing: -0.01em;
+}
+
+.shipper-dashboard__hint {
+  margin: 4px 0 20px;
+  color: tokens.$muted;
+  font-size: 15px;
+}
+
+.shipper-list li {
+  position: relative;
+  padding-left: 28px;
+
+  &::before {
+    content: "↺";
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: tokens.$accent;
+    font-size: 12px;
+  }
+}

@@ -16,11 +16,17 @@ const sanitizeOrder = (orderDoc) => {
   return {
     id: obj._id,
     status: obj.status,
+    paymentType: obj.paymentType,
     payment: obj.payment,
     amount: obj.amount,
     items: obj.items,
     customer: obj.customer,
+    shipperId: obj.shipperId,
+    deliveredAt: obj.deliveredAt,
+    completedAt: obj.completedAt,
     paymentDeadline: obj.paymentDeadline,
+    autoConfirmAt: obj.autoConfirmAt,
+    autoCompleteAt: obj.autoCompleteAt,
     paymentCompletedAt: obj.paymentCompletedAt,
     paymentMeta: obj.paymentMeta || {},
     createdAt: obj.createdAt,
@@ -60,26 +66,27 @@ const restoreInventory = async (orderDoc) => {
 };
 
 const ensureNotExpired = async (orderDoc) => {
-  if (!orderDoc || orderDoc.status !== "pending" || !orderDoc.paymentDeadline) {
+  if (!orderDoc || orderDoc.status !== "pending") {
     return { order: orderDoc, expired: false };
   }
 
-  const deadline = new Date(orderDoc.paymentDeadline).getTime();
+  const rawDeadline = orderDoc.autoConfirmAt || orderDoc.paymentDeadline;
+  const deadline = rawDeadline ? new Date(rawDeadline).getTime() : NaN;
   if (Number.isNaN(deadline) || deadline > Date.now()) {
     return { order: orderDoc, expired: false };
   }
 
   await restoreInventory(orderDoc);
-  orderDoc.status = "cancelled";
+  orderDoc.status = "expired";
   orderDoc.paymentDeadline = null;
+  orderDoc.autoConfirmAt = null;
   orderDoc.paymentMeta = {
     ...(orderDoc.paymentMeta || {}),
-    autoCancelledAt: new Date(),
+    autoExpiredAt: new Date(),
     cancelReason: "timeout",
   };
   await orderDoc.save();
 
-  // 🔥 Release checkout reservation khi auto-cancel
   try {
     const reservation = await Reservation.findOne({
       user: orderDoc.user,
@@ -91,10 +98,10 @@ const ensureNotExpired = async (orderDoc) => {
       reservation.status = "released";
       reservation.releasedAt = new Date();
       await reservation.save();
-      console.log('[Auto Cancel] Checkout reservation released:', reservation._id);
+      console.log('[Auto Expire] Checkout reservation released:', reservation._id);
     }
   } catch (resErr) {
-    console.error('[Auto Cancel] Failed to release reservation:', resErr.message);
+    console.error('[Auto Expire] Failed to release reservation:', resErr.message);
   }
 
   return { order: orderDoc, expired: true };
@@ -160,7 +167,7 @@ exports.createPaymentQr = async (req, res) => {
     }
 
     if (order.status !== "pending") {
-      return res.status(400).json({ message: "Đơn hàng không ở trạng thái chờ thanh toán." });
+      return res.status(400).json({ message: "Don hang khong o trang thai cho thanh toan." });
     }
 
     // Return existing QR if already created
@@ -339,9 +346,9 @@ exports.handleSePayWebhook = async (req, res) => {
     console.log('[SEPAY WEBHOOK] Order found:', order._id);
 
     // === Validate order status and transfer type ===
-    if (order.status === 'paid') {
-      console.log('[SEPAY WEBHOOK] Order already paid:', order._id);
-      return res.status(200).json({ ok: true, msg: 'already_paid' });
+    if (order.status !== 'pending') {
+      console.log('[SEPAY WEBHOOK] Order already confirmed:', order._id);
+      return res.status(200).json({ ok: true, msg: 'already_processed' });
     }
     
     if (transferType !== 'in') {
@@ -360,9 +367,12 @@ exports.handleSePayWebhook = async (req, res) => {
       return res.status(200).json({ ok: false, msg: 'amount_mismatch', orderTotal, transferAmount });
     }
 
-        // === Mark order as paid ===
-    order.status = 'paid';
+        // === Mark order as confirmed ===
+    order.status = 'processing';
+    order.paymentType = order.paymentType || 'BANK';
     order.paymentCompletedAt = new Date();
+    order.paymentDeadline = null;
+    order.autoConfirmAt = null;
     order.payment = {
       sepayId,
       gateway: payload.bank || payload.gateway || 'SEPAY',
@@ -389,7 +399,7 @@ exports.handleSePayWebhook = async (req, res) => {
       return res.status(500).json({ ok: false, msg: 'save_failed', error: saveErr.message });
     }
 
-    console.log('[SEPAY WEBHOOK] Order marked as paid:', order._id);
+    console.log('[SEPAY WEBHOOK] Order marked as processing:', order._id);
 
     // 🔥 Confirm checkout reservation khi payment success
     try {
@@ -420,12 +430,12 @@ exports.handleSePayWebhook = async (req, res) => {
       
       createNotification(
         order.user,
-        "order_paid",
+        "order_processing",
         "Thanh toán thành công",
-        `Đơn hàng #${orderIdShort} đã được thanh toán thành công. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
+        `Đơn hàng #${orderIdShort} đã xác nhận thanh toán. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
         order._id,
         "/orders"
-      ).catch(err => console.error("[notification] Failed to create order_paid notification:", err));
+      ).catch(err => console.error("[notification] Failed to create order_processing notification:", err));
     }
 
     // Send email notification
@@ -478,7 +488,9 @@ exports.getPaymentSession = async (req, res) => {
 
     const { order, expired } = await ensureNotExpired(orderDoc);
     const now = Date.now();
-    const deadline = order.paymentDeadline ? new Date(order.paymentDeadline).getTime() : null;
+    const deadline = order.autoConfirmAt
+      ? new Date(order.autoConfirmAt).getTime()
+      : (order.paymentDeadline ? new Date(order.paymentDeadline).getTime() : null);
     const remainingMs = order.status === "pending" && deadline
       ? Math.max(0, deadline - now)
       : 0;
@@ -504,7 +516,7 @@ exports.cancelPayment = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng cần hủy." });
     }
 
-    if (orderDoc.status === "cancelled") {
+    if (orderDoc.status === "expired") {
       return res.json({ ok: true, order: sanitizeOrder(orderDoc) });
     }
 
@@ -514,12 +526,13 @@ exports.cancelPayment = async (req, res) => {
     }
 
     if (order.status !== "pending") {
-      return res.status(400).json({ message: "Đơn hàng không thể hủy ở trạng thái hiện tại." });
+      return res.status(400).json({ message: "Đơn hàng không ở trạng thái chờ thanh toán." });
     }
 
     await restoreInventory(order);
-    order.status = "cancelled";
+    order.status = "expired";
     order.paymentDeadline = null;
+    order.autoConfirmAt = null;
     order.paymentMeta = {
       ...(order.paymentMeta || {}),
       cancelledAt: new Date(),
@@ -527,7 +540,6 @@ exports.cancelPayment = async (req, res) => {
     };
     await order.save();
 
-    // 🔥 Release checkout reservation khi cancel payment
     try {
       const reservation = await Reservation.findOne({
         user: order.user,

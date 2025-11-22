@@ -12,7 +12,7 @@ const reviewController = {
       const order = await Order.findOne({
         _id: orderId,
         user: userId,
-        status: "paid",
+        status: { $in: ["delivered", "completed"] },
       });
 
       if (!order) {
@@ -564,7 +564,7 @@ const reviewController = {
       const order = await Order.findOne({
         _id: orderId,
         user: userId,
-        status: "paid",
+        status: "completed",
       });
 
       if (!order) {

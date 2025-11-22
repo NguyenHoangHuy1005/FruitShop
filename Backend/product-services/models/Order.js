@@ -30,18 +30,28 @@ const OrderSchema = new mongoose.Schema({
         discount: { type: Number, required: true, min: 0, default: 0 },
         total: { type: Number, required: true, min: 0 },
     },
-    status: { 
-        type: String, 
-        enum: ["pending", "paid", "shipped", "completed", "cancelled"], 
-        default: "pending" 
+    status: {
+        type: String,
+        enum: ["pending", "expired", "processing", "shipping", "delivered", "completed", "cancelled"],
+        default: "processing"
     },
-    payment: { 
-        type: mongoose.Schema.Types.Mixed, 
-        default: "COD" 
+    paymentType: {
+        type: String,
+        enum: ["COD", "BANK", "VNPAY"],
+        default: "COD"
+    },
+    payment: {
+        type: mongoose.Schema.Types.Mixed,
+        default: "COD"
     },
     paymentDeadline: { type: Date, default: null },
     paymentCompletedAt: { type: Date, default: null },
     paymentMeta: { type: mongoose.Schema.Types.Mixed, default: {} },
+    shipperId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    deliveredAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    autoConfirmAt: { type: Date, default: null },   // pending payment auto-expire deadline
+    autoCompleteAt: { type: Date, default: null },  // delivered auto-complete deadline
 }, { timestamps: true });
 
 module.exports = mongoose.model("Order", OrderSchema);

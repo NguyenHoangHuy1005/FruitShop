@@ -1,0 +1,32 @@
+@use "../styles/tokens" as tokens;
+
+.shipper-shell__brand {
+  text-shadow: 0 6px 18px rgba(tokens.$ink, 0.5);
+}
+
+.shipper-shell__nav a {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 4px;
+    height: 2px;
+    background: rgba(#fff, 0.3);
+    border-radius: 999px;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.2s ease;
+  }
+
+  &.active::after {
+    transform: scaleX(1);
+  }
+}
+
+.shipper-shell__actions button:focus-visible {
+  outline: 3px solid rgba(tokens.$error, 0.35);
+  outline-offset: 2px;
+}

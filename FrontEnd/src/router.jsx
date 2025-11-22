@@ -1,3 +1,4 @@
+
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import HomePage from "./pages/users/homePage";
@@ -34,7 +35,24 @@ import StockManagerPage from "./pages/admin/stockPage";
 import InvoicePage from "./pages/admin/invoicePage";
 import ContentManagementPage from "./pages/admin/contentPage";
 
-//  Trang báo lỗi 403
+// Shipper routes
+import ShipperLoginRedirect from "./pages/shipper/loginRedirect";
+import ShipperDashboard from "./pages/shipper/dashboard";
+import ShipperOrders from "./pages/shipper/orders";
+import ShipperOrderDetail from "./pages/shipper/orderDetail";
+import ShipperDelivering from "./pages/shipper/delivering";
+import ShipperProfile from "./pages/shipper/profile";
+import ShipperLayout from "./pages/shipper/layout";
+
+const getRole = (user) => {
+  if (!user) return null;
+  if (user.role) return user.role;
+  if (user.admin || user.isAdmin) return "admin";
+  if (user.shipper || (Array.isArray(user.roles) && user.roles.includes("shipper"))) return "shipper";
+  return "user";
+};
+
+//  Trang b?o l?i 403
 const ForbiddenPage = () => (
   <div style={{ textAlign: "center", padding: "50px" }}>
     <h1>403 - Forbidden</h1>
@@ -45,16 +63,33 @@ const ForbiddenPage = () => (
 //  Middleware check Admin
 const RequireAdmin = ({ children }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
+  const role = getRole(user);
 
   // chưa có user => coi như chưa login
   if (!user) return <Navigate to={ROUTERS.ADMIN.LOGIN} replace />;
 
   // nếu không phải admin
-  if (!user.admin) return <ForbiddenPage />;
+  if (role !== "admin") return <ForbiddenPage />;
 
   return children;
 };
-  
+
+// Middleware check Shipper
+const RequireShipper = ({ children }) => {
+  const user = useSelector((state) => state.auth.login?.currentUser);
+  const role = getRole(user);
+  const location = useLocation();
+  if (!user || role !== "shipper") {
+    return (
+      <Navigate
+        to={ROUTERS.ADMIN.LOGIN}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+  return children;
+};
 
 // ---------- USER ROUTES ----------
 const renderUserRouter = () => {
@@ -81,6 +116,56 @@ const renderUserRouter = () => {
         ))}
       </Routes>
     </MasterLayout>
+  );
+};
+
+// ---------- SHIPPER ROUTES ----------
+const renderShipperRouter = () => {
+  return (
+    <Routes>
+      <Route path={ROUTERS.SHIPPER.ROOT} element={<ShipperLoginRedirect />} />
+      <Route path={ROUTERS.SHIPPER.LOGIN} element={<Navigate to={ROUTERS.ADMIN.LOGIN} replace />} />
+      <Route
+        path={ROUTERS.SHIPPER.DASHBOARD}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperDashboard /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+      <Route
+        path={ROUTERS.SHIPPER.ORDERS}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperOrders /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+      <Route
+        path={ROUTERS.SHIPPER.ORDER_DETAIL}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperOrderDetail /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+      <Route
+        path={ROUTERS.SHIPPER.DELIVERING}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperDelivering /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+      <Route
+        path={ROUTERS.SHIPPER.PROFILE}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperProfile /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+    </Routes>
   );
 };
 
@@ -123,7 +208,7 @@ const renderAdminAppRouter = () => {
             path={r.path}
             element={
               <RequireAdmin>
-                {/*    chỉ admin mới có layout admin */}
+                {/*    ch? admin m?i c? layout admin */}
                 <MasterAdLayout>{r.element}</MasterAdLayout>
               </RequireAdmin>
             }
@@ -153,8 +238,11 @@ const RouterCustom = () => {
     pathname.startsWith(ROUTERS.ADMIN.INVOICES) ||
     pathname.startsWith(ROUTERS.ADMIN.CONTENT);
 
+  const isShipper = pathname.startsWith(ROUTERS.SHIPPER.ROOT);
+
   if (isAdminAuth) return renderAdminAuthRouter();
   if (isAdminApp)  return renderAdminAppRouter();
+  if (isShipper) return renderShipperRouter();
   return renderUserRouter();
 };
 

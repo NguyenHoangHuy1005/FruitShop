@@ -48,7 +48,7 @@ async function checkBankTransactions() {
         // Tìm order
         const order = await Order.findOne({
           'paymentMeta.sepay.code': code,
-          'status': 'pending'
+          status: 'pending'
         });
         
         if (order) {
@@ -56,9 +56,11 @@ async function checkBankTransactions() {
           const orderAmount = order.amount?.total || order.amount || 0;
           
           if (Math.abs(orderAmount - amount) <= 1) {
-            // Cập nhật order thành paid
-            order.status = 'paid';
+            // Cap nhat order thanh processing
+            order.status = 'processing';
             order.paymentCompletedAt = new Date(tx.transaction_date || Date.now());
+            order.paymentDeadline = null;
+            order.autoConfirmAt = null;
             order.payment = {
               sepayId: tx.id || tx.transaction_id,
               gateway: tx.bank || 'MB',
@@ -67,7 +69,7 @@ async function checkBankTransactions() {
             
             await order.save();
             
-            console.log(`[POLLING] ✓ Order ${order._id} marked as PAID`);
+            console.log(`[POLLING] Order ${order._id} moved to processing`);
             
             // Gửi thông báo cho user
             if (order.user) {
@@ -76,12 +78,12 @@ async function checkBankTransactions() {
               
               createNotification(
                 order.user,
-                "order_paid",
+                "order_processing",
                 "Thanh toán thành công",
-                `Đơn hàng #${orderIdShort} đã được thanh toán thành công. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
+                `Đơn hàng #${orderIdShort} đã xác nhận thanh toán. Tổng tiền: ${totalAmount}đ. Bạn có thể đánh giá sản phẩm sau khi nhận hàng!`,
                 order._id,
                 "/orders"
-              ).catch(err => console.error("[notification] Failed to create order_paid notification:", err));
+              ).catch(err => console.error("[notification] Failed to create order_processing notification:", err));
             }
             
             // TODO: Gửi email thông báo

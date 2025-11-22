@@ -50,6 +50,14 @@ const UserSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
         },
+        roles: {
+        type: [String],
+        default: [],
+        },
+        shipper: {
+        type: Boolean,
+        default: false,
+        },
         fullname: { type: String, default: "" },
         avatar:   { type: String, default: "" },
         

@@ -18,6 +18,8 @@ router.post("/verify/resend", authController.resendVerifyCode);
 // Password reset
 router.post("/password/forgot", authController.forgotPassword);
 router.post("/password/reset", authController.resetPassword);
+router.post("/password/change", middlewareController.verifyToken, authController.changePassword);
+
 
 // Change email (OTP gửi về email hiện tại)
 router.post("/email/change/request", middlewareController.verifyToken, authController.requestChangeEmail);

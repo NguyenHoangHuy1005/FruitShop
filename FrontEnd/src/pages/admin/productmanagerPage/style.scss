@@ -1207,7 +1207,7 @@ $product-main: map.get(theme.$theme-colors, "main");
     box-shadow: 0 2px 6px rgba(0, 136, 116, 0.2);
 
     &:hover:not(:disabled) {
-      background: darken($product-main, 8%);
+      background: color.scale($product-main, $lightness: -8%);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 136, 116, 0.3);
     }

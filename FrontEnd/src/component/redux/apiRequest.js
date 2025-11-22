@@ -108,6 +108,29 @@ export const ensureAccessToken = async (maybeToken, dispatch, navigate, isAdmin 
     return null;
 };
 
+const deriveUserRole = (userData = {}) => {
+    if (userData.role) return userData.role;
+    if (userData.admin || userData.isAdmin) return "admin";
+    if (userData.shipper || (Array.isArray(userData.roles) && userData.roles.includes("shipper"))) return "shipper";
+    return "user";
+};
+
+const withDerivedRole = (payload = {}) => {
+    const role = deriveUserRole(payload);
+    return { ...payload, role };
+};
+
+const navigateByRole = (role, navigate) => {
+    if (!navigate) return;
+    if (role === "admin") {
+        navigate(ROUTERS.ADMIN?.DASHBOARD || "/admin/dashboard");
+    } else if (role === "shipper") {
+        navigate(ROUTERS.SHIPPER?.DASHBOARD || "/shipper/dashboard");
+    } else {
+        navigate("/", { replace: true });
+    }
+};
+
 
 
 /* ======================= AUTH ======================= */
@@ -116,15 +139,16 @@ export const loginUser = async (user, dispatch, navigate) => {
     dispatch(loginStart());
     try {
         const res = await API.post("/auth/login", user);
-        dispatch(loginSuccess(res.data));
+        const enriched = withDerivedRole(res.data);
+        dispatch(loginSuccess(enriched));
 
-        // Gắn Authorization cho mọi request tiếp theo
+        // Attach Authorization for subsequent requests
         if (res.data?.accessToken) {
             API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
         }
         markHasRefresh();
 
-        //  sync giỏ
+        // sync cart
         if (res.data?.cart) {
             const { items = [], summary = { totalItems: 0, subtotal: 0 } } = res.data.cart;
             dispatch(cartSuccess({ items, summary }));
@@ -132,15 +156,10 @@ export const loginUser = async (user, dispatch, navigate) => {
             await ensureCart(dispatch); // fallback
         }
 
-
         const msg = res?.data?.message || "Đăng nhập thành công!";
         alert(msg);
 
-        if (res.data.admin === true) {
-            navigate(ROUTERS.ADMIN?.DASHBOARD || "/admin/dashboard");
-        } else {
-            navigate("/");
-        }
+        navigateByRole(enriched.role, navigate);
     } catch (error) {
         if (error?.response?.status === 403 && error?.response?.data?.pendingEmail) {
             const pending = error.response.data.pendingEmail;
@@ -160,7 +179,8 @@ export const loginGoogle = async (dispatch, credential, navigate) => {
     dispatch(loginStart());
     try {
         const res = await API.post("/auth/google-login", { credential });
-        dispatch(loginSuccess(res.data));
+        const enriched = withDerivedRole(res.data);
+        dispatch(loginSuccess(enriched));
 
         if (res.data?.accessToken) {
         API.defaults.headers.common.Authorization = `Bearer ${res.data.accessToken}`;
@@ -177,11 +197,7 @@ export const loginGoogle = async (dispatch, credential, navigate) => {
         const msg = res?.data?.message || "Đăng nhập Google thành công!";
         alert(msg);
 
-        if (res.data.admin === true) {
-        navigate?.(ROUTERS.ADMIN?.DASHBOARD || "/admin/dashboard");
-        } else if (navigate) {
-        navigate("/");
-        }
+        navigateByRole(enriched.role, navigate);
 
         return res.data;
     } catch (error) {
@@ -836,6 +852,22 @@ export const updateProfile = async (payload, dispatch) => {
     return { ok: false, error: res.data || { message: 'Cập nhật thất bại' } };
 };
 
+export const changePassword = async ({ currentPassword, newPassword, confirmPassword }) => {
+    const token = await ensureAccessToken(null);
+    const payload = {
+        currentPassword: currentPassword || "",
+        newPassword: newPassword || "",
+        password_confirm: confirmPassword ?? newPassword,
+    };
+    const res = await API.post(
+        "/auth/password/change",
+        payload,
+        { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
 export const uploadAvatar = async (file, dispatch) => {
     const token = await ensureAccessToken(null);
     
@@ -1275,3 +1307,65 @@ export const updateBatchQuantity = async (batchId, quantity) => {
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data;
 };
+
+/* ======================= SHIPPER ======================= */
+export const fetchShipperOrders = async (status = "") => {
+    const token = await ensureAccessToken(null);
+    const params = {};
+    if (Array.isArray(status)) {
+        params.status = status.filter(Boolean).join(",");
+    } else if (status) {
+        params.status = status;
+    }
+    const res = await API.get("/order/shipper/orders", {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    const payload = res.data || {};
+    return { orders: payload.orders || payload.data || [] };
+};
+
+export const shipperAcceptOrder = async (orderId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.patch(`/order/shipper/orders/${orderId}/accept`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+export const shipperDeliveredOrder = async (orderId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.patch(`/order/shipper/orders/${orderId}/deliver`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+export const shipperCancelOrder = async (orderId) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.patch(`/order/shipper/orders/${orderId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+// User xac nhan da nhan hang (delivered -> completed)
+export const confirmDelivered = async (orderId, token) => {
+    const accessToken = token || await ensureAccessToken(null);
+    const res = await API.patch(
+        `/order/${orderId}/confirm-delivered`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` }, validateStatus: () => true }
+    );
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+

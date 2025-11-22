@@ -1,0 +1,22 @@
+@use "./tokens";
+
+@include tokens.tablet {
+  .shipper-shell__header {
+    padding: 16px 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .shipper-shell__nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .shipper-stats {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .shipper-section {
+    padding: 18px;
+  }
+}

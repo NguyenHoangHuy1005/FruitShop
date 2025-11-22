@@ -280,7 +280,15 @@ $zinc: #71717a;
                 }
             }
 
-            &.order-paid {
+            &.order-expired {
+                background-color: #fff7ed;
+
+                &:hover {
+                    background-color: #ffedd5;
+                }
+            }
+
+            &.order-processing {
                 background-color: #ecfdf5; // Xanh lá rất nhạt
                 
                 &:hover {
@@ -288,7 +296,8 @@ $zinc: #71717a;
                 }
             }
 
-            &.order-shipped {
+            &.order-shipped,
+            &.order-shipping {
                 background-color: #eff6ff; // Xanh dương rất nhạt
                 
                 &:hover {
@@ -296,7 +305,16 @@ $zinc: #71717a;
                 }
             }
 
-            &.order-completed {
+            &.order-delivered {
+                background-color: #f8fafc;
+
+                &:hover {
+                    background-color: #e2e8f0;
+                }
+            }
+
+            &.order-completed,
+            &.order-complete {
                 background-color: #f0fdfa; // Xanh lục rất nhạt
                 
                 &:hover {
@@ -340,82 +358,6 @@ $zinc: #71717a;
     }
     
     &__row { border-top: 1px solid var(--border); }
-
-    // Badge trạng thái - to và đậm hơn
-    .status-badge {
-        display: inline-block;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: 0.8px;
-        border: 2px solid transparent;
-        text-transform: uppercase;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        
-        &.status-pending   { 
-            color: #d97706;
-            border-color: #f59e0b;
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-        }
-        &.status-paid      { 
-            color: #059669;
-            border-color: #10b981;
-            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
-        }
-        &.status-shipped   { 
-            color: #2563eb;
-            border-color: #3b82f6;
-            background: linear-gradient(135deg, #dbeafe, #93c5fd);
-        }
-        &.status-completed { 
-            color: #047857;
-            border-color: #10b981;
-            background: linear-gradient(135deg, #ccfbf1, #99f6e4);
-        }
-        &.status-cancelled { 
-            color: #dc2626;
-            border-color: #ef4444;
-            background: linear-gradient(135deg, #fee2e2, #fecaca);
-        }
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        border: 1px solid transparent;
-        text-transform: uppercase;
-        
-        &.status-pending   { 
-            color: $amber; 
-            border-color: rgba($amber, .4); 
-            background: linear-gradient(135deg, rgba($amber, .15), rgba($amber, .08)); 
-        }
-        &.status-paid      { 
-            color: $green; 
-            border-color: rgba($green, .4); 
-            background: linear-gradient(135deg, rgba($green, .15), rgba($green, .08)); 
-        }
-        &.status-shipped   { 
-            color: $blue;  
-            border-color: rgba($blue, .4);  
-            background: linear-gradient(135deg, rgba($blue, .15), rgba($blue, .08)); 
-        }
-        &.status-completed { 
-            color: #008874; 
-            border-color: rgba(#008874, .4); 
-            background: linear-gradient(135deg, rgba(#008874, .15), rgba(#008874, .08)); 
-        }
-        &.status-cancelled { 
-            color: $rose;  
-            border-color: rgba($rose, .4);  
-            background: linear-gradient(135deg, rgba($rose, .15), rgba($rose, .08)); 
-        }
-    }
 
     &__footer {
         display: flex;
@@ -526,7 +468,7 @@ $zinc: #71717a;
         }
     }
 
-    &.status-paid {
+    &.status-processing {
         background: linear-gradient(135deg, #e6fffb, #f0fffc);
         color: #08979c;
         border-color: #87e8de;

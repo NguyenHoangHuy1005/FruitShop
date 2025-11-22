@@ -13,7 +13,6 @@ const notificationSchema = new mongoose.Schema(
             required: true,
             enum: [
                 "order_created",      // Đơn hàng được tạo thành công
-                "order_paid",         // Đơn hàng đã thanh toán
                 "order_processing",   // Đơn hàng đang xử lý
                 "order_shipping",     // Đơn hàng đang giao
                 "order_completed",    // Đơn hàng hoàn tất

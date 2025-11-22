@@ -45,8 +45,8 @@ const Dashboard = () => {
   
   // Calculate order success rate
   const orderByStatus = stats.orderByStatus || {};
-  const successOrders = (orderByStatus.completed || 0) + (orderByStatus.shipped || 0) + (orderByStatus.paid || 0);
-  const failedOrders = orderByStatus.cancelled || 0;
+  const successOrders = (orderByStatus.completed || 0) + (orderByStatus.shipping || 0) + (orderByStatus.processing || 0) + (orderByStatus.delivered || 0);
+  const failedOrders = (orderByStatus.cancelled || 0) + (orderByStatus.expired || 0);
   const successRate = countOrders > 0 ? ((successOrders / countOrders) * 100).toFixed(1) : 0;
   const failedRate = countOrders > 0 ? ((failedOrders / countOrders) * 100).toFixed(1) : 0;
 
@@ -79,9 +79,11 @@ const Dashboard = () => {
   // 🎨 màu cố định theo trạng thái
   const statusColors = {
     pending: "#FF9800",
-    paid: "#9C27B0",
-    shipped: "#4CAF50",
+    processing: "#9C27B0",
+    shipping: "#4CAF50",
+    delivered: "#009688",
     completed: "#2196F3",
+    expired: "#795548",
     cancelled: "#F44336",
   };
 
@@ -395,9 +397,11 @@ const Dashboard = () => {
                     <td>
                       <span className={`status-badge ${order.status}`}>
                         {order.status === 'pending' ? '⏳ Chờ' :
-                         order.status === 'paid' ? '💳 Đã thanh toán' :
-                         order.status === 'shipped' ? '🚚 Đang giao' :
+                         order.status === 'processing' ? '🛠️ Đang xử lý' :
+                         order.status === 'shipping' || order.status === 'shipped' ? '🚚 Đang giao' :
+                         order.status === 'delivered' ? '📦 Đã giao' :
                          order.status === 'completed' ? '✅ Hoàn thành' :
+                         order.status === 'expired' ? '⏰ Hết hạn' :
                          order.status === 'cancelled' ? '❌ Đã hủy' : order.status}
                       </span>
                     </td>

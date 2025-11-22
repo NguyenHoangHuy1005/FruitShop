@@ -1,0 +1,23 @@
+@use "../styles/tokens" as tokens;
+
+.shipper-delivering {
+  max-width: 900px;
+
+  h1 {
+    margin-bottom: 12px;
+  }
+
+  p {
+    margin: 6px 0;
+    color: tokens.$muted;
+  }
+
+  a {
+    color: tokens.$accent;
+    font-weight: 600;
+  }
+
+  .order-actions {
+    justify-content: flex-start;
+  }
+}

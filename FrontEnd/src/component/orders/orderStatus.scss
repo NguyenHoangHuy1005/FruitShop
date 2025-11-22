@@ -1,0 +1,101 @@
+@use "sass:color";
+
+// mau trang thai dung color.scale de dieu chinh
+$order-status-palette: (
+  pending: #facc15,
+  expired: #9ca3af,
+  processing: #2563eb,
+  shipping: #06b6d4,
+  delivered: #4ade80,
+  completed: #15803d,
+  cancelled: color.scale(#ef4444, $saturation: -18%, $lightness: -6%),
+);
+
+.order-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  background: #f8fafc;
+  color: #0f172a;
+
+  &--sm { padding: 4px 8px; font-size: 11px; }
+  &--lg { padding: 8px 12px; font-size: 13px; }
+}
+
+@each $name, $c in $order-status-palette {
+  .order-status-tag--#{$name} {
+    color: color.scale($c, $lightness: -32%);
+    background: color.scale($c, $lightness: 45%, $alpha: -40%);
+    border-color: color.scale($c, $lightness: -6%, $alpha: -35%);
+    box-shadow: 0 0 0 1px color.scale($c, $lightness: 20%, $alpha: -50%) inset;
+  }
+}
+
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.action-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  color: #0f172a;
+  background: #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16) inset;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--compact {
+    padding: 8px 12px;
+    border-radius: 10px;
+  }
+}
+
+@mixin action-variant($name, $color) {
+  .action-btn--#{$name} {
+    background: color.scale($color, $lightness: 6%, $alpha: -10%);
+    color: color.scale($color, $lightness: -34%);
+    border-color: color.scale($color, $lightness: -6%, $alpha: -25%);
+    box-shadow: 0 10px 24px color.scale($color, $alpha: -70%);
+
+    &:hover:not(:disabled) {
+      background: color.scale($color, $lightness: -2%, $alpha: -5%);
+    }
+  }
+}
+
+@include action-variant("confirm", #16a34a);   // nut Da nhan duoc hang
+@include action-variant("review", #334155);    // nut Danh gia san pham
+@include action-variant("reorder", #22c55e);   // nut Dat lai don nay
+@include action-variant("accept", #2563eb);    // nut Nhan don
+@include action-variant("delivered", #16a34a); // nut Giao thanh cong
+@include action-variant("fail", color.scale(#ef4444, $saturation: -12%));
+@include action-variant("cancel", #f59e0b);    // nut Huy don

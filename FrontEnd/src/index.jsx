@@ -10,6 +10,7 @@ import "@fontsource/be-vietnam-pro/400.css";
 import "@fontsource/be-vietnam-pro/500.css";
 import "@fontsource/be-vietnam-pro/700.css";
 import ChatWidget from "./component/chat/ChatWidget";
+import { useLocation } from "react-router-dom";
 
 import SplashScreen from "../src/component/modals/SplashScreen";
 
@@ -19,6 +20,13 @@ import "react-toastify/dist/ReactToastify.css";
 
 // dY"? Import API instance ?`??? set token
 import { API } from "./component/redux/apiRequest";
+
+const ChatWidgetGate = () => {
+  const location = useLocation();
+  const isShipper = location.pathname.startsWith("/shipper");
+  if (isShipper) return null;
+  return <ChatWidget />;
+};
 
 function MainApp() {
   const [loading, setLoading] = useState(true);
@@ -54,7 +62,7 @@ function MainApp() {
             draggable
             theme="colored"   //  n???n cA3 mA?u theo type (warning = vA?ng, error = ?`???)
           />
-          <ChatWidget />
+          <ChatWidgetGate />
         </BrowserRouter>
       </PersistGate>
     </Provider>

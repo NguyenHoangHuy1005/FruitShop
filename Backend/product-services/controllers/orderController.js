@@ -4,6 +4,7 @@ const Carts = require("../models/Carts");
 const Order = require("../models/Order");
 const Coupon = require("../models/Coupon");
 const Stock = require("../models/Stock");
+const SpoilageRecord = require("../models/SpoilageRecord");
 const Reservation = require("../models/Reservation");
 const ImportItem = require("../../admin-services/models/ImportItem");
 const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer");
@@ -63,6 +64,7 @@ const readBearer = (req) => {
     return t.toLowerCase().startsWith("bearer ") ? t.slice(7).trim() : t;
 };
 const JWT_SECRET = process.env.JWT_ACCESS_KEY || process.env.JWT_SECRET;
+const AUTO_COMPLETE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Tính tổng tiền đơn (theo giỏ)
 async function calcTotals(cart, couponCode) {
@@ -127,21 +129,18 @@ async function calcTotals(cart, couponCode) {
 const restoreInventory = async (orderDoc) => {
     if (!orderDoc) return;
     for (const it of orderDoc.items || []) {
-        // Nếu có batchId, giảm soldQuantity của batch đó
         if (it.batchId) {
             await ImportItem.findOneAndUpdate(
                 { _id: it.batchId },
                 { $inc: { soldQuantity: -it.quantity } }
             );
-            
-            // Cập nhật trạng thái sản phẩm dựa trên remainingQuantity
+
             const batch = await ImportItem.findById(it.batchId).lean();
             if (batch) {
                 const remaining = Math.max(0, (batch.quantity || 0) - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0));
                 await _updateProductStatus(it.product, remaining);
             }
         } else {
-            // Fallback: nếu không có batchId, dùng Stock model cũ
             await Stock.findOneAndUpdate(
                 { product: it.product },
                 { $inc: { onHand: it.quantity } }
@@ -154,11 +153,85 @@ const restoreInventory = async (orderDoc) => {
     }
 };
 
-const autoCancelExpiredOrders = async (extraFilter = {}) => {
+const recordSpoilageReturn = async ({ batch, productId, orderId, quantity, shipperId }) => {
+    try {
+        await SpoilageRecord.create({
+            product: productId,
+            batch: batch?._id || batch,
+            order: orderId,
+            quantity,
+            reason: "expired_on_return",
+            expiryDate: batch?.expiryDate || null,
+            recordedBy: shipperId || null,
+        });
+    } catch (err) {
+        console.error("[spoilage] Cannot record expired_on_return:", err?.message || err);
+    }
+};
+
+const restoreInventoryAfterShipperCancel = async (orderDoc, shipperId) => {
+    if (!orderDoc) return;
+    const now = new Date();
+
+    for (const it of orderDoc.items || []) {
+        const qty = Math.max(0, Number(it.quantity) || 0);
+        if (!qty) continue;
+        const productId = it?.product?._id || it?.product || null;
+
+        if (it.batchId) {
+            const batch = await ImportItem.findById(it.batchId);
+            if (!batch) continue;
+
+            const sold = Math.max(0, Number(batch.soldQuantity) || 0);
+            const decSold = Math.min(qty, sold);
+            const expired = batch.expiryDate ? new Date(batch.expiryDate) <= now : false;
+
+            const update = { $inc: { soldQuantity: -decSold } };
+            if (expired) {
+                update.$inc.damagedQuantity = qty;
+            }
+
+            await ImportItem.findByIdAndUpdate(batch._id, update);
+            const refreshed = await ImportItem.findById(batch._id).lean();
+            const remaining = Math.max(0, (refreshed?.quantity || 0) - (refreshed?.soldQuantity || 0) - (refreshed?.damagedQuantity || 0));
+            await _updateProductStatus(productId, remaining);
+
+            if (expired) {
+                await recordSpoilageReturn({
+                    batch,
+                    productId,
+                    orderId: orderDoc._id,
+                    quantity: qty,
+                    shipperId,
+                });
+            }
+        } else if (productId) {
+            await Stock.findOneAndUpdate(
+                { product: productId },
+                { $inc: { onHand: qty } },
+                { upsert: true }
+            );
+            const stockDoc = await Stock.findOne({ product: productId }).lean();
+            const onHand = Math.max(0, Number(stockDoc?.onHand) || 0);
+            await _updateProductStatus(productId, onHand);
+        }
+    }
+};
+
+const isShipperUser = async (userId) => {
+    if (!userId) return false;
+    const u = await User.findById(userId).select("admin isAdmin roles shipper").lean();
+    return !!(u?.admin || u?.isAdmin || u?.shipper || (Array.isArray(u?.roles) && u.roles.includes("shipper")));
+};
+
+const autoExpireOrders = async (extraFilter = {}) => {
     const now = new Date();
     const filter = {
         status: "pending",
-        paymentDeadline: { $ne: null, $lte: now },
+        $or: [
+            { autoConfirmAt: { $ne: null, $lte: now } },
+            { autoConfirmAt: null, paymentDeadline: { $ne: null, $lte: now } }
+        ],
         ...extraFilter,
     };
 
@@ -170,30 +243,90 @@ const autoCancelExpiredOrders = async (extraFilter = {}) => {
         try {
             await restoreInventory(order);
         } catch (err) {
-            console.error("[order] restoreInventory failed while auto-cancelling:", err);
+            console.error("[order] restoreInventory failed while auto-expiring:", err);
         }
 
-        order.status = "cancelled";
+        order.status = "expired";
+        order.autoConfirmAt = null;
         order.paymentDeadline = null;
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
-            autoCancelledAt: new Date(),
+            autoExpiredAt: new Date(),
             cancelReason: "timeout",
         };
         try {
             order.markModified("paymentMeta");
         } catch (_) { }
+
+        // Release checkout reservation if still active
+        try {
+            const reservation = await Reservation.findOne({
+                user: order.user,
+                type: "checkout",
+                status: "active"
+            });
+            if (reservation) {
+                reservation.status = "released";
+                reservation.releasedAt = new Date();
+                await reservation.save();
+            }
+        } catch (resErr) {
+            console.error("[order] autoExpireOrders release reservation failed:", resErr);
+        }
+
         try {
             await order.save();
             updatedIds.push(order._id);
         } catch (err) {
-            console.error("[order] autoCancelExpiredOrders save error:", err);
+            console.error("[order] autoExpireOrders save error:", err);
         }
     }
 
     return updatedIds;
 };
 
+const autoCompleteOrders = async (extraFilter = {}) => {
+    const now = new Date();
+    const filter = {
+        status: "delivered",
+        autoCompleteAt: { $ne: null, $lte: now },
+        ...extraFilter,
+    };
+
+    const orders = await Order.find(filter);
+    if (!orders.length) return [];
+
+    const updatedIds = [];
+    for (const order of orders) {
+        order.status = "completed";
+        order.completedAt = new Date();
+        order.autoCompleteAt = null;
+        if (order.paymentType === "COD" && !order.paymentCompletedAt) {
+            order.paymentCompletedAt = new Date();
+        }
+        try { order.markModified("paymentMeta"); } catch (_) { }
+        try {
+            await order.save();
+            updatedIds.push(order._id);
+        } catch (err) {
+            console.error("[order] autoCompleteOrders save error:", err);
+        }
+
+        if (order.user) {
+            const orderIdShort = String(order._id).slice(-8).toUpperCase();
+            createNotification(
+                order.user,
+                "order_completed",
+                "Đơn hàng đã hoàn tất",
+                `Đơn hàng #${orderIdShort} đã tự động hoàn tất sau khi giao hàng.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_completed notification:", err));
+        }
+    }
+
+    return updatedIds;
+};
 
 exports.createOrder = async (req, res) => {
     let decremented = [];
@@ -495,21 +628,20 @@ exports.createOrder = async (req, res) => {
         const amount = { subtotal, shipping, discount, total, totalItems: items.length };
 
         // ===== 3) Tạo đơn =====
-        const paymentDeadline = paymentMethod === "COD" ? null : new Date(Date.now() + 10 * 60 * 1000);
-        
-        // COD orders are immediately marked as 'paid' since customer confirmed order
-        // BANK orders remain 'pending' until payment confirmation
-        const initialStatus = paymentMethod === "COD" ? "paid" : "pending";
-
+        const isOnlinePayment = paymentMethod !== "COD";
+        const paymentDeadline = isOnlinePayment ? new Date(Date.now() + 10 * 60 * 1000) : null;
         const order = await Order.create({
             user: userId || cart.user || null,
             customer: { name: customerName, address, phone, email, note: note || "" },
             items,
             amount,
-            status: initialStatus,
+            status: isOnlinePayment ? "pending" : "processing",
+            paymentType: paymentMethod,
             payment: paymentMethod,
             paymentDeadline,
-            paymentCompletedAt: paymentMethod === "COD" ? new Date() : null,
+            autoConfirmAt: paymentDeadline,
+            paymentCompletedAt: null,
+            autoCompleteAt: null,
         });
         createdOrder = order;
         
@@ -710,25 +842,28 @@ exports.createOrder = async (req, res) => {
     }
 };
 
-// USer hủy đơn (chỉ được hủy đơn của mình, và chỉ khi đơn đang pending)
+// User cancel order (only allowed while processing)
 exports.cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.user?.id || null; // lấy từ token (middleware verifyToken)
+        const userId = req.user?.id || null; // from token (middleware verifyToken)
 
         const order = await Order.findOne({ _id: id, user: userId });
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-        if (order.status !== "pending") {
-        return res.status(400).json({ message: "Đơn hàng không thể hủy ở trạng thái hiện tại." });
+        if (order.status !== "processing") {
+        return res.status(400).json({ message: "Chỉ các đơn hàng đang xử lý mới có thể hủy." });
         }
 
-        // 🔄 Trả lại tồn kho
+        // Return items to stock
         await restoreInventory(order);
 
-        // 🔴 Đổi trạng thái đơn
+        // Update order state
         order.status = "cancelled";
         order.paymentDeadline = null;
+        order.autoConfirmAt = null;
+        order.autoCompleteAt = null;
+        order.shipperId = null;
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
@@ -739,13 +874,13 @@ exports.cancelOrder = async (req, res) => {
         } catch (_) { }
         await order.save();
 
-        // Tạo thông báo hủy đơn
+        // Notify user
         if (userId) {
             createNotification(
                 userId,
                 "order_cancelled",
                 "Đơn hàng đã bị hủy",
-                `Đơn hàng #${String(order._id).slice(-8).toUpperCase()} đã được hủy thành công. Kho hàng đã được hoàn lại.`,
+                `Đơn hàng #${String(order._id).slice(-8).toUpperCase()} đã được hủy. Kho hàng đã được hoàn lại.`,
                 order._id,
                 "/orders"
             ).catch(err => console.error("[notification] Failed to create order_cancelled notification:", err));
@@ -758,8 +893,202 @@ exports.cancelOrder = async (req, res) => {
     }
 };
 
+// Shipper list orders for shipper app
+exports.shipperListOrders = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
 
-// ===== SỬA Ở ĐÂY: verify bằng JWT_ACCESS_KEY và lấy Bearer chuẩn =====
+        await autoExpireOrders();
+        await autoCompleteOrders();
+
+        const statusParam = req.query?.status;
+        const statuses = statusParam ? String(statusParam).split(",") : null;
+        const statusList = statuses
+            ? statuses.map((s) => String(s).trim()).filter(Boolean)
+            : ["processing", "shipping", "delivered", "completed", "cancelled"];
+
+        const filter = { status: { $in: statusList } };
+        filter.$or = [
+            { shipperId: userId },
+            { status: "processing", shipperId: null },
+        ];
+
+        const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
+        return res.json({ ok: true, orders });
+    } catch (err) {
+        console.error("shipperListOrders error:", err);
+        return res.status(500).json({ message: "Lỗi server khi tải đơn cho shipper." });
+    }
+};
+
+// Shipper picks up order for delivery
+exports.shipperAcceptOrder = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
+
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        if (order.status !== "processing") {
+            return res.status(400).json({ message: "Chỉ đơn đang xử lý mới được nhận giao." });
+        }
+        if (order.shipperId && String(order.shipperId) !== String(userId)) {
+            return res.status(409).json({ message: "Đơn hàng đã được gán cho shipper khác." });
+        }
+
+        order.shipperId = userId;
+        order.status = "shipping";
+        order.autoCompleteAt = null;
+        await order.save();
+
+        if (order.user) {
+            const orderIdShort = String(order._id).slice(-8).toUpperCase();
+            createNotification(
+                order.user,
+                "order_shipping",
+                "Đơn hàng đang giao",
+                `Đơn hàng #${orderIdShort} đang được vận chuyển.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_shipping notification:", err));
+        }
+
+        return res.json({ ok: true, order });
+    } catch (err) {
+        console.error("shipperAcceptOrder error:", err);
+        return res.status(500).json({ message: "Lỗi server khi nhận giao đơn." });
+    }
+};
+
+// Shipper marks order delivered
+exports.shipperDeliveredOrder = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
+
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        if (order.status !== "shipping") {
+            return res.status(400).json({ message: "Chỉ đơn đang giao mới có thể xác nhận đã giao." });
+        }
+        if (order.shipperId && String(order.shipperId) !== String(userId)) {
+            return res.status(403).json({ message: "Bạn không phải shipper của đơn này." });
+        }
+        if (!order.shipperId) order.shipperId = userId;
+
+        order.status = "delivered";
+        order.deliveredAt = new Date();
+        order.autoCompleteAt = new Date(Date.now() + AUTO_COMPLETE_AFTER_MS);
+        if (order.paymentType === "COD" && !order.paymentCompletedAt) {
+            order.paymentCompletedAt = new Date();
+        }
+        await order.save();
+
+        if (order.user) {
+            const orderIdShort = String(order._id).slice(-8).toUpperCase();
+            createNotification(
+                order.user,
+                "order_delivered",
+                "Đơn hàng đã giao",
+                `Đơn hàng #${orderIdShort} đã được giao. Vui lòng xác nhận trong 3 ngày.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_delivered notification:", err));
+        }
+
+        return res.json({ ok: true, order });
+    } catch (err) {
+        console.error("shipperDeliveredOrder error:", err);
+        return res.status(500).json({ message: "Lỗi server khi xác nhận giao hàng." });
+    }
+};
+
+// Shipper marks order cancelled (customer refused)
+exports.shipperCancelOrder = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
+
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        if (order.status !== "shipping") {
+            return res.status(400).json({ message: "Chỉ đơn đang giao mới được hủy bỏ." });
+        }
+        if (order.shipperId && String(order.shipperId) !== String(userId)) {
+            return res.status(403).json({ message: "Bạn không phải shipper của đơn này." });
+        }
+        if (!order.shipperId) order.shipperId = userId;
+
+        await restoreInventoryAfterShipperCancel(order, userId);
+
+        order.status = "cancelled";
+        order.autoCompleteAt = null;
+        order.paymentDeadline = null;
+        order.autoConfirmAt = null;
+        order.paymentMeta = {
+            ...(order.paymentMeta || {}),
+            cancelledAt: new Date(),
+            cancelReason: "customer_refused",
+            cancelledBy: "shipper",
+        };
+        try { order.markModified("paymentMeta"); } catch (_) { }
+        await order.save();
+
+        if (order.user) {
+            const orderIdShort = String(order._id).slice(-8).toUpperCase();
+            createNotification(
+                order.user,
+                "order_cancelled",
+                "Đơn hàng bị hủy khi giao",
+                `Đơn hàng #${orderIdShort} bị hủy do khách không nhận.`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_cancelled notification:", err));
+        }
+
+        return res.json({ ok: true, order });
+    } catch (err) {
+        console.error("shipperCancelOrder error:", err);
+        return res.status(500).json({ message: "Lỗi server khi hủy đơn giao hàng." });
+    }
+};
+
+// User confirms delivered -> completed
+exports.userConfirmDelivered = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập." });
+
+        const order = await Order.findOne({ _id: req.params.id, user: userId });
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+        if (order.status !== "delivered") {
+            return res.status(400).json({ message: "Chỉ đơn đã giao mới được xác nhận hoàn tất." });
+        }
+
+        order.status = "completed";
+        order.completedAt = new Date();
+        order.autoCompleteAt = null;
+        if (!order.paymentCompletedAt) {
+            order.paymentCompletedAt = new Date();
+        }
+        await order.save();
+
+        return res.json({ ok: true, order });
+    } catch (err) {
+        console.error("userConfirmDelivered error:", err);
+        return res.status(500).json({ message: "Lỗi server khi xác nhận nhận hàng." });
+    }
+};
+
 exports.myOrders = async (req, res) => {
     const token = readBearer(req);                // <— dùng helper
     if (!token) return res.status(401).json({ message: "Cần đăng nhập để xem đơn hàng của bạn." });
@@ -770,7 +1099,8 @@ exports.myOrders = async (req, res) => {
         const userId = payload?.id || payload?._id || null;
         if (!userId) return res.status(401).json({ message: "Phiên đăng nhập hết hạn hoặc token không hợp lệ." });
 
-        await autoCancelExpiredOrders({ user: userId });
+        await autoExpireOrders({ user: userId });
+        await autoCompleteOrders({ user: userId });
         const orders = await Order.find({ user: userId }).sort({ createdAt: -1 }).lean();
         return res.json(orders);
     } catch {
@@ -807,7 +1137,8 @@ exports.adminList = async (req, res) => {
         if (to) filter.createdAt.$lte = new Date(to);
     }
 
-    await autoCancelExpiredOrders();
+    await autoExpireOrders();
+    await autoCompleteOrders();
 
     const [total, rows] = await Promise.all([
         Order.countDocuments(filter),
@@ -821,25 +1152,35 @@ exports.adminList = async (req, res) => {
 };
 
 exports.adminGetOne = async (req, res) => {
-    await autoCancelExpiredOrders({ _id: req.params.id });
+    await autoExpireOrders({ _id: req.params.id });
+    await autoCompleteOrders({ _id: req.params.id });
     const doc = await Order.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     return res.json(doc);
 };
 
 exports.adminUpdate = async (req, res) => {
-    const { status, payment, paymentDeadline, paymentCompletedAt, paymentMeta } = req.body || {};
+    const {
+        status, payment, paymentDeadline, paymentCompletedAt, paymentMeta,
+        paymentType, shipperId, deliveredAt, completedAt,
+        autoConfirmAt, autoCompleteAt
+    } = req.body || {};
     const update = {};
-    if (status) update.status = status;   // pending|paid|shipped|completed|cancelled
-    if (payment) update.payment = payment; // COD|BANK|VNPAY
+    if (status) update.status = status;   // pending|expired|processing|shipping|delivered|completed|cancelled
+    if (payment) update.payment = payment; // legacy payment info
+    if (paymentType) update.paymentType = paymentType;
     if (paymentDeadline !== undefined) update.paymentDeadline = paymentDeadline;
+    if (autoConfirmAt !== undefined) update.autoConfirmAt = autoConfirmAt;
     if (paymentCompletedAt !== undefined) update.paymentCompletedAt = paymentCompletedAt;
     if (paymentMeta !== undefined) update.paymentMeta = paymentMeta;
+    if (shipperId !== undefined) update.shipperId = shipperId;
+    if (deliveredAt !== undefined) update.deliveredAt = deliveredAt;
+    if (completedAt !== undefined) update.completedAt = completedAt;
+    if (autoCompleteAt !== undefined) update.autoCompleteAt = autoCompleteAt;
     if (!Object.keys(update).length) {
         return res.status(400).json({ message: "Không có trường nào để cập nhật." });
     }
     
-    // Lấy đơn hàng trước khi update để so sánh status
     const oldOrder = await Order.findById(req.params.id).lean();
     
     const doc = await Order.findByIdAndUpdate(
@@ -849,16 +1190,15 @@ exports.adminUpdate = async (req, res) => {
     ).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     
-    // Tạo thông báo khi status thay đổi
     if (oldOrder && doc.user && status && status !== oldOrder.status) {
         const orderId = String(doc._id).slice(-8).toUpperCase();
         let notifType, notifTitle, notifMessage;
         
         switch (status) {
-            case "paid":
-                notifType = "order_paid";
-                notifTitle = "Đơn hàng đã thanh toán";
-                notifMessage = `Đơn hàng #${orderId} đã được thanh toán thành công.`;
+            case "pending":
+                notifType = "order_pending";
+                notifTitle = "Đơn hàng chờ thanh toán";
+                notifMessage = `Đơn hàng #${orderId} đang chờ thanh toán online.`;
                 break;
             case "processing":
                 notifType = "order_processing";
@@ -868,17 +1208,27 @@ exports.adminUpdate = async (req, res) => {
             case "shipping":
                 notifType = "order_shipping";
                 notifTitle = "Đơn hàng đang giao";
-                notifMessage = `Đơn hàng #${orderId} đang trên đường giao đến bạn.`;
+                notifMessage = `Đơn hàng #${orderId} đang được vận chuyển.`;
+                break;
+            case "delivered":
+                notifType = "order_delivered";
+                notifTitle = "Đơn hàng đã giao";
+                notifMessage = `Đơn hàng #${orderId} đã giao, vui lòng xác nhận nhận hàng.`;
                 break;
             case "completed":
                 notifType = "order_completed";
                 notifTitle = "Đơn hàng hoàn tất";
-                notifMessage = `Đơn hàng #${orderId} đã được giao thành công. Cảm ơn bạn đã mua hàng!`;
+                notifMessage = `Đơn hàng #${orderId} đã hoàn tất. Cảm ơn bạn!`;
                 break;
             case "cancelled":
                 notifType = "order_cancelled";
-                notifTitle = "Đơn hàng đã bị hủy";
+                notifTitle = "Đơn hàng bị hủy";
                 notifMessage = `Đơn hàng #${orderId} đã bị hủy bởi quản trị viên.`;
+                break;
+            case "expired":
+                notifType = "order_expired";
+                notifTitle = "Đơn hàng hết hạn thanh toán";
+                notifMessage = `Đơn hàng #${orderId} hết hạn thanh toán và đã hủy tự động.`;
                 break;
         }
         
@@ -897,7 +1247,6 @@ exports.adminUpdate = async (req, res) => {
     return res.json({ ok: true, data: doc });
 };
 
-// Thống kê cho admin
 exports.adminStats = async (req, res) => {
     try {
         // 🔥 Lấy selectedMonth từ query params (YYYY-MM format)
@@ -924,7 +1273,7 @@ exports.adminStats = async (req, res) => {
         let totalCost = 0;
         
         for (const o of filteredOrders) {
-            if (!["paid", "shipped", "completed"].includes(o.status)) continue;
+            if (!["processing", "shipping", "delivered", "completed"].includes(o.status)) continue;
             
             // Doanh thu = amount.total
             const orderRevenue = o.amount?.total || 0;
@@ -977,7 +1326,7 @@ exports.adminStats = async (req, res) => {
         const d = new Date(o.createdAt);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (!revenueByMonth[key]) revenueByMonth[key] = 0;
-        if (["paid", "shipped", "completed"].includes(o.status)) {
+        if (["processing", "shipping", "delivered", "completed"].includes(o.status)) {
             revenueByMonth[key] += o.amount?.total || 0;
         }
         }
@@ -1199,6 +1548,27 @@ exports.adminStats = async (req, res) => {
     }
 };
 
+// Manual triggers for cron/maintenance
+exports.runAutoExpireOrders = async (req, res) => {
+    try {
+        const ids = await autoExpireOrders(req.body?.filter || {});
+        return res.json({ ok: true, count: ids.length, ids });
+    } catch (err) {
+        console.error("runAutoExpireOrders error:", err);
+        return res.status(500).json({ message: "Lỗi khi tự động hết hạn đơn hàng" });
+    }
+};
 
+exports.runAutoCompleteOrders = async (req, res) => {
+    try {
+        const ids = await autoCompleteOrders(req.body?.filter || {});
+        return res.json({ ok: true, count: ids.length, ids });
+    } catch (err) {
+        console.error("runAutoCompleteOrders error:", err);
+        return res.status(500).json({ message: "Lỗi khi tự động hoàn thành đơn hàng" });
+    }
+};
 
-
+// Expose maintenance utilities
+exports.autoExpireOrders = autoExpireOrders;
+exports.autoCompleteOrders = autoCompleteOrders;

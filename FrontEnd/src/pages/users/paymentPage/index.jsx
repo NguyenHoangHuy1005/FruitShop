@@ -101,7 +101,7 @@ const PaymentPendingView = memo(() => {
                 loading: false,
                 error: "",
                 order: res.order,
-                deadline: res.order?.paymentDeadline || null,
+                deadline: res.order?.autoConfirmAt || res.order?.paymentDeadline || null,
                 remainingMs: res.remainingMs || 0,
                 expired: !!res.expired,
             });
@@ -146,7 +146,7 @@ const PaymentPendingView = memo(() => {
                 const res = await fetchPaymentSession(id, user?.accessToken, dispatch);
                 
                 // Nếu đã thanh toán, chuyển sang trang success
-                if (res.order?.status === "paid") {
+                if (res.order?.status === "processing") {
                     if (pollingIntervalRef.current) {
                         clearInterval(pollingIntervalRef.current);
                         pollingIntervalRef.current = null;
@@ -349,7 +349,7 @@ const PaymentPendingView = memo(() => {
         );
     }
 
-    const isCancelled = state.order.status === "cancelled";
+    const isCancelled = state.order.status === "cancelled" || state.order.status === "expired";
 
     return (
         <>
@@ -547,7 +547,7 @@ const PaymentSuccessView = memo(() => {
     const [state, setState] = useState({ loading: true, error: "", order: location.state?.order || null });
 
     useEffect(() => {
-        if (state.order && state.order.status === "paid") {
+        if (state.order && state.order.status === "processing") {
             setState((prev) => ({ ...prev, loading: false }));
             return;
         }
@@ -556,7 +556,7 @@ const PaymentSuccessView = memo(() => {
             try {
                 const res = await fetchPaymentSession(id, user?.accessToken, dispatch);
                 if (cancelled) return;
-                if (res.order?.status !== "paid") {
+                if (res.order?.status === "pending") {
                     const redirectPath = ROUTERS.USER.PAYMENT.replace(":id", id);
                     navigate(redirectPath, { replace: true });
                     return;
@@ -644,7 +644,7 @@ const PaymentSuccessView = memo(() => {
                         </div>
                         <h1 className="payment-success-title">Thanh toán thành công!</h1>
                         <div className="payment-success-badge">
-                            <span className="badge-paid">Paid</span>
+                            <span className="badge-processing">Dang xu ly</span>
                         </div>
                     </div>
 

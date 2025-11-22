@@ -31,4 +31,13 @@ export const ROUTERS = {
     INVOICES: `${ADMIN_PATH}/invoices`,
     CONTENT: `${ADMIN_PATH}/content`,
   },
+  SHIPPER: {
+    ROOT: "/shipper",
+    LOGIN: "/shipper/login",
+    DASHBOARD: "/shipper/dashboard",
+    ORDERS: "/shipper/orders",
+    ORDER_DETAIL: "/shipper/orders/:id",
+    DELIVERING: "/shipper/delivering",
+    PROFILE: "/shipper/profile",
+  },
 };

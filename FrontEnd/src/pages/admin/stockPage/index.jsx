@@ -10,9 +10,17 @@ import {
     addSupplier,
     getBatchDetails,
     updateBatchQuantity,
+    getWarehouses,
+    addWarehouse,
 } from "../../../component/redux/apiRequest";
 import { useDispatch } from "react-redux";
 import ImportForm from "../../../component/modals/ImportModal/ImportForm";
+
+const NAME_WITH_NUMBER_REGEX = /^[\p{L}\d\s]+$/u;
+const CONTACT_NAME_REGEX = /^[\p{L}\s]+$/u;
+const PHONE_REGEX = /^\d{10}$/;
+const GMAIL_REGEX = /^[A-Za-z0-9]+@gmail\.com$/i;
+const sanitizePhoneInput = (value) => (value || "").replace(/\D/g, "").slice(0, 10);
 
 /* --------------------- Modal Quản lý NCC --------------------- */
 function SupplierManagerModal({
@@ -33,6 +41,8 @@ function SupplierManagerModal({
     });
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [touched, setTouched] = useState({});
 
     useEffect(() => {
         if (open) {
@@ -40,6 +50,8 @@ function SupplierManagerModal({
             setFilters({ name: "", phone: "", email: "" });
             setForm({ name: "", contact_name: "", phone: "", email: "", address: "" });
             setError("");
+            setFieldErrors({});
+            setTouched({});
         }
     }, [open, initialTab]);
 
@@ -55,17 +67,72 @@ function SupplierManagerModal({
         });
     }, [suppliers, filters]);
 
-    const validate = () => {
-        if (!form.name.trim()) return "Tên NCC là bắt buộc.";
-        if (!/^(0|\+84)\d{9}$/.test(form.phone || "")) return "Số điện thoại không hợp lệ (0xxxxxxxxx hoặc +84xxxxxxxxx).";
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email || "")) return "Email không hợp lệ.";
-        return "";
+    const validateField = (field, rawValue) => {
+        const value = (rawValue || "").trim();
+        switch (field) {
+        case "name":
+            if (!value) return "Tên NCC là bắt buộc.";
+            if (!NAME_WITH_NUMBER_REGEX.test(value)) return "Tên NCC chỉ được chứa chữ, số và dấu cách.";
+            return "";
+        case "phone": {
+            const normalized = sanitizePhoneInput(value);
+            if (!normalized) return "Số điện thoại là bắt buộc.";
+            if (!PHONE_REGEX.test(normalized)) return "Số điện thoại phải gồm đúng 10 chữ số.";
+            return "";
+        }
+        case "email": {
+            if (!value) return "Email là bắt buộc.";
+            const normalized = value.toLowerCase();
+            if (!GMAIL_REGEX.test(normalized)) return "Email phải có dạng ten@gmail.com và không có ký tự đặc biệt.";
+            const localPart = normalized.split("@")[0] || "";
+            if (!/^[A-Za-z0-9]+$/u.test(localPart)) return "Phần trước @ chỉ được chứa chữ và số.";
+            return "";
+        }
+        case "contact_name":
+            if (!value) return "";
+            if (!CONTACT_NAME_REGEX.test(value)) return "Tên người phụ trách chỉ được chứa chữ và dấu cách.";
+            return "";
+        default:
+            return "";
+        }
     };
 
+    const validateAllFields = () => {
+        const nextErrors = {};
+        ["name", "phone", "email", "contact_name"].forEach((field) => {
+        nextErrors[field] = validateField(field, form[field]);
+        });
+        return nextErrors;
+    };
+
+    const handleFieldChange = (field) => (event) => {
+        let value = event.target.value;
+        if (field === "phone") value = sanitizePhoneInput(value);
+        setForm((prev) => ({ ...prev, [field]: value }));
+        setError("");
+        if (touched[field]) {
+        setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, value) }));
+        }
+    };
+
+    const handleFieldBlur = (field) => () => {
+        setTouched((prev) => ({ ...prev, [field]: true }));
+        setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, form[field]) }));
+    };
+
+    const hasFieldError = (field) => touched[field] && fieldErrors[field];
     const handleAdd = async () => {
-        const msg = validate();
-        if (msg) {
-            setError(msg);
+        const nextErrors = validateAllFields();
+        const hasErrors = Object.values(nextErrors).some(Boolean);
+        if (hasErrors) {
+            setFieldErrors(nextErrors);
+            setTouched((prev) => ({
+                ...prev,
+                name: true,
+                phone: true,
+                email: true,
+                contact_name: prev.contact_name || !!form.contact_name.trim(),
+            }));
             return;
         }
         setBusy(true);
@@ -162,35 +229,60 @@ function SupplierManagerModal({
                     <label>Tên NCC *</label>
                     <input
                     type="text"
+                    className={hasFieldError("name") ? "input-error" : ""}
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={handleFieldChange("name")}
+                    onBlur={handleFieldBlur("name")}
                     />
+                    {hasFieldError("name") && (
+                        <small className="field-error-text">{fieldErrors.name}</small>
+                    )}
 
                     <label>Người liên hệ</label>
                     <input
                     type="text"
+                    className={hasFieldError("contact_name") ? "input-error" : ""}
                     value={form.contact_name}
-                    onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    onChange={handleFieldChange("contact_name")}
+                    onBlur={handleFieldBlur("contact_name")}
                     />
+                    {hasFieldError("contact_name") && (
+                        <small className="field-error-text">{fieldErrors.contact_name}</small>
+                    )}
 
                     <label>Điện thoại *</label>
                     <input
                     type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className={hasFieldError("phone") ? "input-error" : ""}
                     value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    onChange={handleFieldChange("phone")}
+                    onBlur={handleFieldBlur("phone")}
                     />
+                    {hasFieldError("phone") && (
+                        <small className="field-error-text">{fieldErrors.phone}</small>
+                    )}
 
                     <label>Email *</label>
                     <input
                     type="email"
+                    className={hasFieldError("email") ? "input-error" : ""}
                     value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onChange={handleFieldChange("email")}
+                    onBlur={handleFieldBlur("email")}
                     />
+                    {hasFieldError("email") && (
+                        <small className="field-error-text">{fieldErrors.email}</small>
+                    )}
 
                     <label>Địa chỉ</label>
                     <textarea
                     value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    onChange={(e) => {
+                            setError("");
+                            setForm({ ...form, address: e.target.value });
+                        }}
                     />
 
                     <div className="modal-actions">
@@ -201,6 +293,293 @@ function SupplierManagerModal({
                     </div>
                 </>
                 )}
+
+
+                <div className="modal-actions mt-8">
+                    <button className="btn outline" onClick={onClose}>Đóng</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* --------------------- Modal Quản lý kho --------------------- */
+function WarehouseManagerModal({
+    open,
+    onClose,
+    warehouses,
+    onAddSuccess,
+    initialTab = "list",
+}) {
+    const [tab, setTab] = useState(initialTab);
+    const [filters, setFilters] = useState({ name: "", address: "", phone: "" });
+    const [form, setForm] = useState({
+        name: "",
+        address: "",
+        phone: "",
+        contactName: "",
+        note: "",
+    });
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [touched, setTouched] = useState({});
+
+    useEffect(() => {
+        if (open) {
+            setTab(initialTab);
+            setFilters({ name: "", address: "", phone: "" });
+            setForm({
+                name: "",
+                address: "",
+                phone: "",
+                contactName: "",
+                note: "",
+            });
+            setError("");
+            setFieldErrors({});
+            setTouched({});
+        }
+    }, [open, initialTab]);
+
+    const filtered = useMemo(() => {
+        const name = filters.name.trim().toLowerCase();
+        const addr = filters.address.trim().toLowerCase();
+        const phone = filters.phone.trim().toLowerCase();
+        return (Array.isArray(warehouses) ? warehouses : []).filter((w) => {
+            const okName = !name || (w.name || "").toLowerCase().includes(name);
+            const okAddr = !addr || (w.address || "").toLowerCase().includes(addr);
+            const okPhone = !phone || (w.phone || "").toLowerCase().includes(phone);
+            return okName && okAddr && okPhone;
+        });
+    }, [warehouses, filters]);
+
+    const validateField = (field, rawValue) => {
+        const value = (rawValue || "").trim();
+        switch (field) {
+        case "name":
+            if (!value) return "Tên kho là bắt buộc.";
+            if (!NAME_WITH_NUMBER_REGEX.test(value)) return "Tên kho chỉ được chứa chữ, số và dấu cách.";
+            return "";
+        case "address":
+            if (!value) return "Địa chỉ kho là bắt buộc.";
+            return "";
+        case "phone": {
+            const normalized = sanitizePhoneInput(value);
+            if (!normalized) return "Số điện thoại là bắt buộc.";
+            if (!PHONE_REGEX.test(normalized)) return "Số điện thoại phải gồm đúng 10 chữ số.";
+            return "";
+        }
+        case "contactName":
+            if (!value) return "";
+            if (!CONTACT_NAME_REGEX.test(value)) return "Tên người phụ trách chỉ được chứa chữ và dấu cách.";
+            return "";
+        default:
+            return "";
+        }
+    };
+
+    const validateAllFields = () => {
+        const nextErrors = {};
+        ["name", "address", "phone", "contactName"].forEach((field) => {
+        nextErrors[field] = validateField(field, form[field]);
+        });
+        return nextErrors;
+    };
+
+    const handleFieldChange = (field) => (event) => {
+        let value = event.target.value;
+        if (field === "phone") value = sanitizePhoneInput(value);
+        setForm((prev) => ({ ...prev, [field]: value }));
+        setError("");
+        if (touched[field]) {
+        setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, value) }));
+        }
+    };
+
+    const handleFieldBlur = (field) => () => {
+        setTouched((prev) => ({ ...prev, [field]: true }));
+        setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, form[field]) }));
+    };
+
+    const hasFieldError = (field) => touched[field] && fieldErrors[field];
+    const handleAdd = async () => {
+        const nextErrors = validateAllFields();
+        const hasErrors = Object.values(nextErrors).some(Boolean);
+        if (hasErrors) {
+            setFieldErrors(nextErrors);
+            setTouched((prev) => ({
+                ...prev,
+                name: true,
+                address: true,
+                phone: true,
+                contactName: prev.contactName || !!form.contactName.trim(),
+            }));
+            return;
+        }
+        setBusy(true);
+        setError("");
+        try {
+            const created = await addWarehouse({
+                name: form.name,
+                address: form.address,
+                phone: form.phone,
+                contactName: form.contactName,
+                note: form.note,
+            });
+            onAddSuccess?.(created);
+            setTab("list");
+            setForm({ name: "", address: "", phone: "", contactName: "", note: "" });
+        } catch (err) {
+            setError(err?.message || "Lỗi lưu kho.");
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    if (!open) return null;
+    return (
+        <div className="modal-backdrop">
+            <div className="modal modal-lg">
+                <div className="modal-header">
+                    <h3>Quản lý kho</h3>
+                    <div className="tabs">
+                        <button
+                            className={`tab ${tab === "list" ? "active" : ""}`}
+                            onClick={() => setTab("list")}
+                        >
+                            Danh sách
+                        </button>
+                        <button
+                            className={`tab ${tab === "add" ? "active" : ""}`}
+                            onClick={() => setTab("add")}
+                        >
+                            Thêm mới
+                        </button>
+                    </div>
+                </div>
+
+                {tab === "list" && (
+                    <>
+                        <div className="filters">
+                            <input
+                                placeholder="Lọc theo tên..."
+                                value={filters.name}
+                                onChange={(e) => setFilters((f) => ({ ...f, name: e.target.value }))}
+                            />
+                            <input
+                                placeholder="Lọc theo địa chỉ..."
+                                value={filters.address}
+                                onChange={(e) => setFilters((f) => ({ ...f, address: e.target.value }))}
+                            />
+                            <input
+                                placeholder="Lọc theo số điện thoại..."
+                                value={filters.phone}
+                                onChange={(e) => setFilters((f) => ({ ...f, phone: e.target.value }))}
+                            />
+                        </div>
+
+                        <div className="supplier-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Tên kho</th>
+                                        <th>Địa chỉ</th>
+                                        <th>Số điện thoại</th>
+                                        <th>Người phụ trách</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filtered.map((w) => (
+                                        <tr key={w._id}>
+                                            <td>{w.name}</td>
+                                            <td>{w.address}</td>
+                                            <td>{w.phone || "—"}</td>
+                                            <td>{w.contactName || "—"}</td>
+                                            <td>{w.note || "—"}</td>
+                                        </tr>
+                                    ))}
+                                    {!filtered.length && (
+                                        <tr><td colSpan={5} className="no-data">Không có kho phù hợp</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
+
+                                {tab === "add" && (
+                <>
+                    {error && <div className="error">{error}</div>}
+
+                    <label>Tên kho *</label>
+                    <input
+                        type="text"
+                        className={hasFieldError("name") ? "input-error" : ""}
+                        value={form.name}
+                        onChange={handleFieldChange("name")}
+                        onBlur={handleFieldBlur("name")}
+                    />
+                    {hasFieldError("name") && (
+                        <small className="field-error-text">{fieldErrors.name}</small>
+                    )}
+
+                    <label>Địa chỉ *</label>
+                    <textarea
+                        className={hasFieldError("address") ? "input-error" : ""}
+                        value={form.address}
+                        onChange={handleFieldChange("address")}
+                        onBlur={handleFieldBlur("address")}
+                    />
+                    {hasFieldError("address") && (
+                        <small className="field-error-text">{fieldErrors.address}</small>
+                    )}
+
+                    <label>Sốđiện thoại *</label>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className={hasFieldError("phone") ? "input-error" : ""}
+                        value={form.phone}
+                        onChange={handleFieldChange("phone")}
+                        onBlur={handleFieldBlur("phone")}
+                    />
+                    {hasFieldError("phone") && (
+                        <small className="field-error-text">{fieldErrors.phone}</small>
+                    )}
+
+                    <label>Người phụ trách</label>
+                    <input
+                        type="text"
+                        className={hasFieldError("contactName") ? "input-error" : ""}
+                        value={form.contactName}
+                        onChange={handleFieldChange("contactName")}
+                        onBlur={handleFieldBlur("contactName")}
+                    />
+                    {hasFieldError("contactName") && (
+                        <small className="field-error-text">{fieldErrors.contactName}</small>
+                    )}
+
+                    <label>Ghi chú</label>
+                    <textarea
+                        value={form.note}
+                        onChange={(e) => {
+                                setError("");
+                                setForm({ ...form, note: e.target.value });
+                            }}
+                    />
+
+                    <div className="modal-actions">
+                        <button className="btn special" disabled={busy} onClick={handleAdd}>
+                            {busy ? "Đang lưu..." : "Lưu kho"}
+                        </button>
+                        <button className="btn outline" onClick={() => setTab("list")}>Hủy</button>
+                    </div>
+                </>
+                )}
+
 
                 <div className="modal-actions mt-8">
                     <button className="btn outline" onClick={onClose}>Đóng</button>
@@ -223,6 +602,7 @@ const StockManagerPage = () => {
     const [filterStatus, setFilterStatus] = useState("all"); // "all", "valid", "expiring", "expired", "soldout"
 
     const [suppliers, setSuppliers] = useState([]);
+    const [warehouses, setWarehouses] = useState([]);
 
     // modal nhập phiếu
     const [showModal, setShowModal] = useState(false);
@@ -230,9 +610,13 @@ const StockManagerPage = () => {
 
     // modal quản lý NCC (hợp nhất danh sách + thêm mới)
     const [supplierManager, setSupplierManager] = useState({ open: false, initialTab: "list" });
+    const [warehouseManager, setWarehouseManager] = useState({ open: false, initialTab: "list" });
 
     const openSupplierManager = useCallback((tab = "list") => {
         setSupplierManager({ open: true, initialTab: tab });
+    }, []);
+    const openWarehouseManager = useCallback((tab = "list") => {
+        setWarehouseManager({ open: true, initialTab: tab });
     }, []);
 
     const load = async () => {
@@ -266,6 +650,16 @@ const StockManagerPage = () => {
             setSuppliers(Array.isArray(s) ? s : []);
         } catch (e) {
             console.error("Lỗi load suppliers:", e);
+        }
+        })();
+    }, []);
+    useEffect(() => {
+        (async () => {
+        try {
+            const w = await getWarehouses();
+            setWarehouses(Array.isArray(w) ? w : []);
+        } catch (e) {
+            console.error("Lỗi load warehouses:", e);
         }
         })();
     }, []);
@@ -632,6 +1026,13 @@ const StockManagerPage = () => {
                     title="Quản lý/Thêm NCC"
                 >
                     Quản lý NCC
+                </button>
+                <button
+                    className="btn outline"
+                    onClick={() => openWarehouseManager("list")}
+                    title="Quản lý kho"
+                >
+                    Quản lý kho
                 </button>
 
                 {busy && <span className="busy">Đang xử lý...</span>}
@@ -1010,6 +1411,15 @@ const StockManagerPage = () => {
                 onClose={() => setSupplierManager({ open: false, initialTab: "list" })}
                 onAddSuccess={(newS) => {
                     setSuppliers((prev) => [...prev, newS]);
+                }}
+            />
+            <WarehouseManagerModal
+                open={warehouseManager.open}
+                initialTab={warehouseManager.initialTab}
+                warehouses={warehouses}
+                onClose={() => setWarehouseManager({ open: false, initialTab: "list" })}
+                onAddSuccess={(newW) => {
+                    setWarehouses((prev) => [...prev, newW]);
                 }}
             />
         </div>

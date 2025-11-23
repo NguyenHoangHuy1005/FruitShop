@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./style.scss";
 
+const resolveRole = (user) => {
+    if (user?.admin) return "admin";
+    if (user?.shipper || (Array.isArray(user?.roles) && user.roles.includes("shipper"))) return "shipper";
+    return "user";
+};
+
 const RoleModal = ({ user, onClose, onSubmit }) => {
-    const [role, setRole] = useState(user.admin ? "admin" : "user");
+    const [role, setRole] = useState(resolveRole(user));
+
+    useEffect(() => {
+        setRole(resolveRole(user));
+    }, [user]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit({ admin: role === "admin" });
+        onSubmit({ role });
     };
 
     return (
@@ -25,7 +35,8 @@ const RoleModal = ({ user, onClose, onSubmit }) => {
                             onChange={(e) => setRole(e.target.value)}
                             className="role-select"
                         >
-                            <option value="user">User (Người dùng)</option>
+                            <option value="user">User (Khách hàng)</option>
+                            <option value="shipper">Shipper (Giao hàng)</option>
                             <option value="admin">Admin (Quản trị viên)</option>
                         </select>
                     </div>

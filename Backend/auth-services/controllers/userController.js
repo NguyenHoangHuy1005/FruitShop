@@ -80,6 +80,8 @@ const userController = {
                         phone: 1,
                         createdAt: 1,
                         admin: 1,
+                        shipper: 1,
+                        roles: 1,
                         totalOrders: 1
                     }
                 }
@@ -120,31 +122,51 @@ const userController = {
 
     updateUserRole: async (req, res) => {
         try {
-            const { admin } = req.body;
-            
-            // Kiểm tra xem user có quyền admin không
+            const rawRole = String(req.body?.role || "").trim().toLowerCase();
+            const allowedRoles = ["user", "admin", "shipper"];
+            let targetRole = allowedRoles.includes(rawRole) ? rawRole : "";
+
+            if (!targetRole) {
+                if (req.body?.admin === true) targetRole = "admin";
+                else if (req.body?.shipper === true) targetRole = "shipper";
+                else targetRole = "user";
+            }
+
             if (!req.user.admin) {
                 return res.status(403).json({ message: "Chỉ admin mới có quyền phân quyền." });
             }
 
-            // Không cho phép tự phân quyền cho chính mình
             if (req.params.id === req.user.id) {
                 return res.status(400).json({ message: "Không thể thay đổi quyền của chính mình." });
             }
 
-            const user = await User.findByIdAndUpdate(
-                req.params.id,
-                { admin: admin === true },
-                { new: true, runValidators: true }
-            ).select("-password");
-
-            if (!user) {
+            const existingUser = await User.findById(req.params.id);
+            if (!existingUser) {
                 return res.status(404).json({ message: "Không tìm thấy người dùng." });
             }
 
-            res.status(200).json({ 
-                message: `Đã ${admin ? "cấp" : "thu hồi"} quyền admin cho ${user.username}`,
-                user 
+            const rolesSet = new Set(
+                Array.isArray(existingUser.roles) ? existingUser.roles.filter((r) => r !== "shipper") : []
+            );
+            if (targetRole === "shipper") rolesSet.add("shipper");
+
+            const updates = {
+                admin: targetRole === "admin",
+                shipper: targetRole === "shipper",
+                roles: Array.from(rolesSet),
+            };
+
+            const user = await User.findByIdAndUpdate(
+                req.params.id,
+                updates,
+                { new: true, runValidators: true }
+            ).select("-password");
+
+            const roleLabel = targetRole === "admin" ? "admin" : targetRole === "shipper" ? "shipper" : "user";
+
+            res.status(200).json({
+                message: `✅ Cập nhật vai trò ${roleLabel} cho ${user.username}`,
+                user,
             });
         } catch (error) {
             console.error("Update role error:", error);

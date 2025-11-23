@@ -44,7 +44,7 @@ $main: map.get(theme.$theme-colors, "main");
         background-color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         border-radius: 10px;
-        overflow: hidden;
+        overflow: visible;
 
         th,
         td {
@@ -154,6 +154,12 @@ $main: map.get(theme.$theme-colors, "main");
                 background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
                 color: #1e3a8a;
                 box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+            }
+
+            &.shipper {
+                background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+                color: #064e3b;
+                box-shadow: 0 2px 4px rgba(52, 211, 153, 0.3);
             }
         }
 

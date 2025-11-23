@@ -1086,6 +1086,17 @@ export const getAllSuppliers = async () => {
     return res.data; // [{_id, name, ...}]
 };
 
+// Danh sA�ch kho (admin)
+export const getWarehouses = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/warehouse", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
 // Tải file hoá đơn (blob)
 export const downloadInvoiceBlob = async (receiptId) => {
     const token = await ensureAccessToken(null);
@@ -1107,6 +1118,17 @@ export const addSupplier = async (payload) => {
     });
     if (res.status !== 201) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data; // { _id, name, ... }
+};
+
+// ThA�m kho
+export const addWarehouse = async (payload) => {
+    const token = await ensureAccessToken(null);
+    const res = await API.post("/warehouse", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 201) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
 };
 
 // Lấy danh sách hóa đơn

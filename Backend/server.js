@@ -126,6 +126,7 @@ const userRoute = require('./auth-services/routes/user');
 const productRoute = require('./admin-services/routes/product');
 const uploadRoutes = require('./admin-services/routes/image');
 const supplierRoutes = require('./admin-services/routes/supplier');
+const warehouseRoutes = require('./admin-services/routes/warehouse');
 // product
 const cartRoutes = require('./product-services/routes/cart');
 const orderRoutes = require('./product-services/routes/order');
@@ -155,6 +156,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api/product', productRoute); // admin CRUD
 app.use('/api/supplier', supplierRoutes);
+app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/stock', stockRoutes);
 
 // ---- Public/User ----

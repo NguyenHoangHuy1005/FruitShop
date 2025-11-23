@@ -49,15 +49,15 @@ const OrderActions = ({
     if (status === "delivered") {
       pushAction("confirm", "Đã nhận được hàng", "action-btn--confirm", onConfirmReceived);
     }
-    if (status === "completed") {
-      if (onReview !== noop) {
-        pushAction("review", "Đánh giá sản phẩm", "action-btn--review", onReview);
-      }
-      if (onReorder !== noop) {
-        pushAction("reorder", "Đặt lại đơn này", "action-btn--reorder", onReorder);
-      }
+    if (status === "completed" && onReview !== noop) {
+      pushAction("review", "Đánh giá sản phẩm", "action-btn--review", onReview);
     }
-    if (status === "processing" && onCancel !== noop) {
+    const reorderableStatuses = ["completed", "cancelled", "expired"];
+    if (reorderableStatuses.includes(status) && onReorder !== noop) {
+      pushAction("reorder", "Đặt lại đơn này", "action-btn--reorder", onReorder);
+    }
+    const cancellableStatuses = ["pending", "pending_payment"];
+    if (cancellableStatuses.includes(status) && onCancel !== noop) {
       pushAction("cancel", "Hủy đơn", "action-btn--cancel", onCancel);
     }
   }

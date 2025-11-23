@@ -2,7 +2,7 @@ import "./style.scss";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { API } from "../../../component/redux/apiRequest";
+import { API, getWarehouses } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
 import { formatter } from "../../../utils/fomater";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
@@ -73,6 +73,17 @@ const resolveCancelNote = (order) => {
   return "Đơn đã bị hủy";
 };
 
+const describeWarehouse = (warehouse) => {
+  if (!warehouse) return "";
+  const name = warehouse.name || "Kho";
+  const address = warehouse.address || "";
+  const base = address ? `${name} - ${address}` : name;
+  if (warehouse.phone) {
+    return `${base} (ĐT: ${warehouse.phone})`;
+  }
+  return base;
+};
+
 const normalizeOrderStatus = (status) => {
   const raw = String(status || "").toLowerCase();
   if (!raw) return "";
@@ -97,8 +108,10 @@ const OrderAdminPage = () => {
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
     const [selectedOrder, setSelectedOrder] = useState(null);
-    const [pickupAddress, setPickupAddress] = useState("");
+    const [manualPickupAddress, setManualPickupAddress] = useState("");
     const [preparing, setPreparing] = useState(false);
+    const [warehouses, setWarehouses] = useState([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
 
     const [isDark, setIsDark] = useState(() => {
         return localStorage.getItem("theme") === "dark";
@@ -134,6 +147,18 @@ const OrderAdminPage = () => {
     }, [user?.accessToken, user?.admin, navigate]);
 
     useEffect(() => {
+        if (!user?.accessToken || user?.admin !== true) return;
+        (async () => {
+            try {
+                const list = await getWarehouses();
+                setWarehouses(Array.isArray(list) ? list : []);
+            } catch (err) {
+                console.error("Lỗi tải danh sách kho:", err);
+            }
+        })();
+    }, [user?.accessToken, user?.admin]);
+
+    useEffect(() => {
         let alive = true;
         (async () => {
             setLoading(true); setErr("");
@@ -163,6 +188,22 @@ const OrderAdminPage = () => {
     }, [page, limit, q, status, fromDate, toDate, headers]);
 
   const pages = Math.max(1, Math.ceil(total / limit));
+  const selectedOrderKey = selectedOrder?._id || null;
+  const selectedWarehouse = useMemo(
+    () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
+    [warehouses, selectedWarehouseId]
+  );
+  const manualAddressFilled = manualPickupAddress.trim().length > 0;
+  const hasPickupAddressInput = Boolean(
+    selectedWarehouse ||
+    manualAddressFilled ||
+    (selectedOrder?.pickupAddress && selectedOrder.pickupAddress.trim())
+  );
+
+  useEffect(() => {
+    setManualPickupAddress("");
+    setSelectedWarehouseId("");
+  }, [selectedOrderKey]);
 
   // + ADD: chỉ lọc theo createdAt để hiển thị
   const viewRows = useMemo(() => {
@@ -357,22 +398,54 @@ const OrderAdminPage = () => {
                                         Xác nhận đơn hàng và nhập địa chỉ lấy hàng cho shipper. Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái "Chờ nhận" và hiển thị cho shipper.
                                     </p>
                                     <div className="form-group">
+                                        <label>Chọn kho đã lưu</label>
+                                        <select
+                                            className="form-control"
+                                            value={selectedWarehouseId}
+                                            onChange={(e) => {
+                                                setSelectedWarehouseId(e.target.value);
+                                                if (e.target.value) {
+                                                    setManualPickupAddress("");
+                                                }
+                                            }}
+                                            disabled={manualAddressFilled}
+                                        >
+                                            <option value="">-- Chọn kho có sẵn --</option>
+                                            {warehouses.map((w) => (
+                                                <option key={w._id} value={w._id}>
+                                                    {w.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {manualAddressFilled && <small className="help-text">Xóa địa chỉ nhập tay để chọn kho.</small>}
+                                    </div>
+                                    <div className="form-group">
                                         <label>Địa chỉ lấy hàng cho shipper *</label>
                                         <input
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: 789 Fruit Shop, phường Sài Gòn, Tp.HCM"
-                                            value={pickupAddress || selectedOrder.pickupAddress || ""}
-                                            onChange={(e) => setPickupAddress(e.target.value)}
+                                            value={manualPickupAddress || selectedOrder.pickupAddress || ""}
+                                            onChange={(e) => setManualPickupAddress(e.target.value)}
+                                            disabled={!!selectedWarehouseId}
                                         />
+                                        {!!selectedWarehouseId && <small className="help-text">Đang dùng địa chỉ từ kho đã lưu.</small>}
                                     </div>
+                                    {selectedWarehouse && (
+                                        <div className="info-card info-card--full">
+                                            <label>Kho đã chọn</label>
+                                            <strong>{describeWarehouse(selectedWarehouse)}</strong>
+                                        </div>
+                                    )}
                                     <button
                                         className="btn btn-primary btn-prepare"
-                                        disabled={preparing || !(pickupAddress || selectedOrder.pickupAddress)}
+                                        disabled={preparing || !hasPickupAddressInput}
                                         onClick={async () => {
-                                            const address = pickupAddress || selectedOrder.pickupAddress;
+                                            const address = selectedWarehouse
+                                                ? describeWarehouse(selectedWarehouse)
+                                                : (manualPickupAddress || selectedOrder.pickupAddress || "");
                                             if (!address || !address.trim()) {
-                                                alert("Vui lòng nhập địa chỉ lấy hàng!");
+                                                alert("Vui lòng cung cấp địa chỉ lấy hàng!");
                                                 return;
                                             }
                                             try {
@@ -385,8 +458,8 @@ const OrderAdminPage = () => {
                                                 if (res.status === 200) {
                                                     alert("Đơn hàng đã được xác nhận!");
                                                     setSelectedOrder(null);
-                                                    setPickupAddress("");
-                                                    // Reload data
+                                                    setManualPickupAddress("");
+                                                    setSelectedWarehouseId("");
                                                     window.location.reload();
                                                 } else {
                                                     alert(res.data?.message || "Có lỗi xảy ra");

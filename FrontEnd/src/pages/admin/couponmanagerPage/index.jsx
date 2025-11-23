@@ -3,7 +3,6 @@ import "./style.scss";
 import {
     getAllCoupons,
     createCoupon,
-    deleteCoupon,
     toggleCoupon,
     extendCoupon,
     getAllProduct,
@@ -497,24 +496,6 @@ const CouponManagerPage = () => {
                                 title="Tăng lượt dùng và/hoặc dời ngày hết hạn"
                             >
                                 Gia hạn
-                            </button>
-
-                            {/* Xóa */}
-                            <button
-                                className="btn-delete"
-                                onClick={async () => {
-                                if (window.confirm("Xóa coupon này?")) {
-                                    try {
-                                    await deleteCoupon(c._id);
-                                    await loadCoupons();
-                                    } catch (e) {
-                                    console.error("Delete lỗi:", e);
-                                    alert("Xóa thất bại!");
-                                    }
-                                }
-                                }}
-                            >
-                                Xóa
                             </button>
                             </td>
                         </tr>

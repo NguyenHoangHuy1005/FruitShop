@@ -71,6 +71,17 @@ const UserManagerPage = () => {
     console.log("Danh sách user:", userList);
     console.log("Chi tiết user đầu tiên:", userList?.[0]);
 
+    const hasShipperRole = (u) =>
+        !!(u?.shipper || (Array.isArray(u?.roles) && u.roles.includes("shipper")));
+
+    const buildRoleBadges = (u) => {
+        const badges = [];
+        if (u?.admin) badges.push({ key: "admin", label: "Admin" });
+        if (hasShipperRole(u)) badges.push({ key: "shipper", label: "Shipper" });
+        if (!badges.length) badges.push({ key: "user", label: "User" });
+        return badges;
+    };
+
     const viewUsers = (Array.isArray(userList) ? userList : []).filter((u) => {
         const key = q.trim().toLowerCase();
         const from = toStartOfDay(fromDate);
@@ -162,9 +173,11 @@ const UserManagerPage = () => {
                                         <td>{u.email || "-"}</td>
                                         <td>{u.phone || "-"}</td>
                                         <td>
-                                            <span className={`role-badge ${u.admin ? 'admin' : 'user'}`}>
-                                                {u.admin ? '👑 Admin' : '👤 User'}
-                                            </span>
+                                            {buildRoleBadges(u).map((badge) => (
+                                                <span key={badge.key} className={`role-badge ${badge.key}`}>
+                                                    {badge.label}
+                                                </span>
+                                            ))}
                                         </td>
                                         <td>{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
                                         <td>{u.totalOrders}</td>

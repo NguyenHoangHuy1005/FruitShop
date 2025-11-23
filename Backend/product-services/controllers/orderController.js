@@ -252,7 +252,7 @@ const autoExpireOrders = async (extraFilter = {}) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             autoExpiredAt: new Date(),
-            cancelReason: "timeout",
+            cancelReason: "hết hạn thanh toán",
         };
         try {
             order.markModified("paymentMeta");
@@ -847,7 +847,7 @@ exports.createOrder = async (req, res) => {
     }
 };
 
-// User cancel order (only allowed while processing)
+// User cancel order (pending confirmation/payment)
 exports.cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
@@ -856,8 +856,9 @@ exports.cancelOrder = async (req, res) => {
         const order = await Order.findOne({ _id: id, user: userId });
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-        if (order.status !== "processing") {
-        return res.status(400).json({ message: "Chỉ các đơn hàng đang xử lý mới có thể hủy." });
+        const cancellableStatuses = ["pending", "pending_payment"];
+        if (!cancellableStatuses.includes(order.status)) {
+        return res.status(400).json({ message: "Chỉ các đơn chờ xác nhận hoặc chờ thanh toán mới có thể hủy." });
         }
 
         // Return items to stock
@@ -872,7 +873,7 @@ exports.cancelOrder = async (req, res) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
-            cancelReason: "user_cancelled",
+            cancelReason: "người dùng hủy",
         };
         try {
             order.markModified("paymentMeta");
@@ -1054,7 +1055,7 @@ exports.shipperCancelOrder = async (req, res) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
-            cancelReason: "customer_refused",
+            cancelReason: "khách không nhận hàng",
             cancelledBy: "shipper",
         };
         try { order.markModified("paymentMeta"); } catch (_) { }

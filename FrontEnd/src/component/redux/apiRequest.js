@@ -21,6 +21,20 @@ import {
 } from './productSlice';
 
 import { cartStart, cartSuccess, cartFailure } from "./cartSlice";
+import {
+    fetchBannerStart,
+    fetchBannerSuccess,
+    fetchBannerFailure,
+    mutateBannerStart,
+    mutateBannerSuccess,
+    mutateBannerFailure,
+    deleteBannerStart,
+    deleteBannerSuccess,
+    deleteBannerFailure,
+    fetchActiveBannerStart,
+    fetchActiveBannerSuccess,
+    fetchActiveBannerFailure,
+} from "./bannerSlice";
 // Tạo axios instance để dễ đổi baseURL / bật cookie
 const API = axios.create({
     baseURL: import.meta?.env?.VITE_API_BASE || "http://localhost:3000/api",
@@ -577,19 +591,11 @@ export const addToCart = async (productId, quantity = 1, dispatch) => {
 // Cập nhật số lượng 1 item (theo productId)
 // CHO PHÉP qty = 0 (BE của bạn xóa item khi qty = 0)
 export const updateCartItem = async (productId, quantity, dispatch) => {
-    dispatch(cartStart());
     try {
-        if (!productId) throw new Error("Thiếu productId");
+        if (!productId) throw new Error("Thi?u productId");
 
-        // Chuẩn hoá số lượng: số nguyên, không âm
         const qty = Number.isFinite(quantity) ? Math.max(0, Math.floor(quantity)) : 0;
-
-        // Lấy URL cuối cùng để debug (không gửi request)
         const url = API.getUri({ url: `/cart/item/${productId}` });
-        // Log trước khi bắn request để bạn thấy URL/Body
-        console.log("PUT", url, { quantity: qty });
-
-        // Dùng validateStatus để tự xử lý 4xx, tránh Axios ném lỗi mù
         const res = await API.put(
             `/cart/item/${productId}`,
             { quantity: qty },
@@ -598,24 +604,23 @@ export const updateCartItem = async (productId, quantity, dispatch) => {
 
         if (res.status >= 200 && res.status < 300) {
             dispatch(cartSuccess(res.data));
-            return;
+            return { ok: true, data: res.data };
         }
 
-        // 4xx/5xx: hiện thông điệp rõ ràng
-        const msg = res?.data?.message || `HTTP ${res.status} tại ${url}`;
+        const msg = res?.data?.message || `HTTP ${res.status} t?i ${url}`;
         console.error("updateCartItem FAIL ->", { status: res.status, data: res.data, url });
         dispatch(cartFailure(msg));
-        alert(msg);
+        toast.error(msg);
+        return { ok: false, message: msg };
     } catch (e) {
         const url = API.getUri({ url: `/cart/item/${productId}` });
         console.error("updateCartItem NETWORK ERROR ->", { url, error: e });
-        const msg = e?.response?.data?.message || e?.message || "Lỗi mạng khi cập nhật giỏ!";
+        const msg = e?.response?.data?.message || e?.message || "L?i m?ng khi c?p nh?t gi?!";
         dispatch(cartFailure(msg));
-        alert(msg);
+        toast.error(msg);
+        return { ok: false, message: msg };
     }
 };
-
-
 
 // Xóa 1 item khỏi giỏ
 export const removeCartItem = async (productId, dispatch) => {
@@ -1086,6 +1091,16 @@ export const getAllSuppliers = async () => {
     return res.data; // [{_id, name, ...}]
 };
 
+const ensureAdminSession = async (dispatch, navigate) => {
+    const ensured = await ensureAccessToken(null, dispatch, navigate, true);
+    if (ensured) return ensured;
+    const headerToken = API?.defaults?.headers?.common?.Authorization;
+    if (typeof headerToken === "string" && headerToken.trim()) {
+        return headerToken;
+    }
+    return null;
+};
+
 // Danh sA�ch kho (admin)
 export const getWarehouses = async () => {
     const token = await ensureAccessToken(null);
@@ -1389,5 +1404,166 @@ export const confirmDelivered = async (orderId, token) => {
     );
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
     return res.data;
+};
+
+/* ======================= BANNER MANAGEMENT ======================= */
+
+const bannerErrorMessage = (error, fallback) =>
+    error?.response?.data?.message || error?.message || fallback;
+
+const buildBannerQuery = (params = {}) => {
+    const query = {};
+    Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === "" || Number.isNaN(value)) return;
+        query[key] = value;
+    });
+    return query;
+};
+
+export const fetchAdminBanners = async (dispatch, params = {}) => {
+    dispatch(fetchBannerStart());
+    try {
+        const token = await ensureAdminSession(dispatch);
+        if (!token) throw new Error("Vui lòng đăng nhập lại để xem banner");
+        const res = await API.get("/banner", { params: buildBannerQuery(params) });
+        dispatch(fetchBannerSuccess(res.data));
+        return res.data;
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể tải danh sách banner");
+        dispatch(fetchBannerFailure(message));
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const createBannerEntry = async (payload, dispatch, query) => {
+    dispatch(mutateBannerStart("create"));
+    try {
+        const token = await ensureAdminSession(dispatch);
+        if (!token) throw new Error("Vui lòng đăng nhập lại để tạo banner");
+        const res = await API.post("/banner", payload);
+        dispatch(mutateBannerSuccess());
+        toast.success("Tạo banner mới thành công");
+        await fetchAdminBanners(dispatch, query);
+        return res.data?.banner;
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể tạo banner mới");
+        dispatch(mutateBannerFailure(message));
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const updateBannerEntry = async (bannerId, payload, dispatch, query) => {
+    dispatch(mutateBannerStart("update"));
+    try {
+        const token = await ensureAdminSession(dispatch);
+        if (!token) throw new Error("Vui lòng đăng nhập lại để cập nhật banner");
+        const res = await API.put(`/banner/${bannerId}`, payload);
+        dispatch(mutateBannerSuccess());
+        toast.success("Cập nhật banner thành công");
+        await fetchAdminBanners(dispatch, query);
+        return res.data?.banner;
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể cập nhật banner");
+        dispatch(mutateBannerFailure(message));
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const toggleBannerActive = async (bannerId, isActive, dispatch, query) => {
+    dispatch(mutateBannerStart("toggle"));
+    try {
+        const token = await ensureAdminSession(dispatch);
+        if (!token) throw new Error("Vui lòng đăng nhập lại để chỉnh trạng thái banner");
+        await API.patch(`/banner/${bannerId}/status`, { isActive });
+        dispatch(mutateBannerSuccess());
+        toast.success(isActive ? "Đã kích hoạt banner" : "Đã ẩn banner");
+        await fetchAdminBanners(dispatch, query);
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể cập nhật trạng thái banner");
+        dispatch(mutateBannerFailure(message));
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const deleteBannerEntry = async (bannerId, dispatch, query) => {
+    dispatch(deleteBannerStart());
+    try {
+        const token = await ensureAdminSession(dispatch);
+        if (!token) throw new Error("Vui lòng đăng nhập lại để xóa banner");
+        await API.delete(`/banner/${bannerId}`);
+        dispatch(deleteBannerSuccess());
+        toast.success("Đã xóa banner");
+        await fetchAdminBanners(dispatch, query);
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể xóa banner");
+        dispatch(deleteBannerFailure(message));
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const uploadBannerAsset = async ({ file, imageUrl, type = "imageDesktop" }, dispatch) => {
+    const token = await ensureAdminSession(dispatch);
+    if (!token) throw new Error("Vui lòng đăng nhập lại để tải ảnh");
+
+    const form = new FormData();
+    form.append("type", type);
+    if (imageUrl) form.append("imageUrl", imageUrl);
+    if (file) form.append(type, file);
+
+    try {
+        const res = await API.post("/banner/upload", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        if (!res.data?.url) throw new Error("Upload banner failed");
+        return res.data.url;
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Tải ảnh banner thất bại");
+        toast.error(message);
+        throw error;
+    }
+};
+
+export const fetchActiveBanners = async (dispatch, position, params = {}) => {
+    if (!position) return { banners: [], meta: {} };
+    dispatch(fetchActiveBannerStart());
+    try {
+        const res = await API.get("/banner/active", {
+            params: buildBannerQuery({ position, ...params }),
+        });
+        const normalized = res?.data?.data ?? res?.data ?? {};
+        const payload = Array.isArray(normalized)
+            ? { banners: normalized, meta: {} }
+            : normalized;
+        dispatch(fetchActiveBannerSuccess({ ...payload, position }));
+        return payload;
+    } catch (error) {
+        const message = bannerErrorMessage(error, "Không thể tải banner hiển thị");
+        dispatch(fetchActiveBannerFailure(message));
+        console.error("fetchActiveBanners error:", error);
+        return { banners: [], meta: {} };
+    }
+};
+
+export const recordBannerView = async (bannerId) => {
+    if (!bannerId) return;
+    try {
+        await API.post(`/banner/${bannerId}/view`);
+    } catch (error) {
+        console.warn("recordBannerView error:", error?.response?.data || error?.message || error);
+    }
+};
+
+export const recordBannerClick = async (bannerId) => {
+    if (!bannerId) return;
+    try {
+        await API.post(`/banner/${bannerId}/click`);
+    } catch (error) {
+        console.warn("recordBannerClick error:", error?.response?.data || error?.message || error);
+    }
 };
 

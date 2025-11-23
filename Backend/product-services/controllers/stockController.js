@@ -1311,7 +1311,7 @@ exports.getPublicBatchesByProduct = async (req, res) => {
         { expiryDate: { $gt: now } } // Còn hạn
       ]
     })
-      .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate')
+      .select('quantity soldQuantity damagedQuantity sellingPrice unitPrice importDate expiryDate')
       .sort({ createdAt: -1 })
       .lean();
 

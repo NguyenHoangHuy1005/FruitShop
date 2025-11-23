@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { formatter } from "../../../utils/fomater";
 import { AiOutlineClose } from "react-icons/ai";
 import "./style.scss";
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { ROUTERS } from '../../../utils/router';
@@ -11,11 +11,37 @@ import { useDispatch, useSelector } from "react-redux";
 import { ensureCart, updateCartItem, removeCartItem, validateCoupon, getMyReservation, releaseReservation, confirmCheckoutReservation, API } from "../../../component/redux/apiRequest";
 import { setCoupon } from "../../../component/redux/cartSlice";
 
+const computeItemFinalPrice = (item) => {
+    const locked = Number(item.lockedPrice) || Number(item.price) || 0;
+    const discountPct = Number(item.discountPercent) || 0;
+    return discountPct > 0
+        ? Math.round(locked * (100 - discountPct) / 100)
+        : Math.round(locked);
+};
+
+const buildCartSnapshot = (items, baseCart) => {
+    const clonedItems = items.map((it) => ({ ...it }));
+    const totals = clonedItems.reduce(
+        (acc, cur) => {
+            const qty = Number(cur.quantity) || 0;
+            acc.totalItems += qty;
+            acc.subtotal += computeItemFinalPrice(cur) * qty;
+            return acc;
+        },
+        { totalItems: 0, subtotal: 0 }
+    );
+
+    return {
+        ...(baseCart || {}),
+        items: clonedItems,
+        summary: { ...(baseCart?.summary || {}), ...totals },
+    };
+};
 
 const ShoppingCart = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const cart = useSelector((s) => s.cart?.data);
+    const storeCart = useSelector((s) => s.cart?.data);
     const user = useSelector((s) => s.auth?.login?.currentUser);
     const [couponCode, setCouponCode] = useState("");
     const [discount, setDiscount] = useState(0);
@@ -33,11 +59,41 @@ const ShoppingCart = () => {
     //     setSelectedIds(new Set(ids));
     // }, [cart?.items]);
 
+    const [optimisticCart, setOptimisticCart] = useState(null);
+
+    const cart = useMemo(() => {
+        if (optimisticCart) return optimisticCart;
+        return storeCart;
+    }, [storeCart, optimisticCart]);
+
+    useEffect(() => {
+        setOptimisticCart(null);
+    }, [storeCart]);
+
     const getId = (it) => {
         if (typeof it.product === "object" && it.product) {
             return String(it.product._id || it.product.id || it.product);
         }
         return String(it.product);
+    };
+
+    const applyOptimisticQuantity = (productId, qty) => {
+        setOptimisticCart((prev) => {
+            const base = prev || storeCart || {};
+            const sourceItems = Array.isArray(base.items)
+                ? base.items.map((item) => ({ ...item }))
+                : Array.isArray(storeCart?.items)
+                ? storeCart.items.map((item) => ({ ...item }))
+                : [];
+            const idx = sourceItems.findIndex((it) => getId(it) === productId);
+            if (idx >= 0) {
+                sourceItems[idx] = { ...sourceItems[idx], quantity: qty };
+            } else if (storeCart?.items) {
+                const original = storeCart.items.find((it) => getId(it) === productId);
+                if (original) sourceItems.push({ ...original, quantity: qty });
+            }
+            return buildCartSnapshot(sourceItems, base || storeCart || {});
+        });
     };
 
     const toggleOne = (id) => {
@@ -108,27 +164,26 @@ const ShoppingCart = () => {
 
     const handleQtyChange = (productId, raw) => {
         const q = Math.max(0, parseInt(raw, 10) || 0);
-        
-        // 🔥 Kiểm tra không vượt quá availableStock
-        const item = cart?.items?.find(it => getId(it) === productId);
-        console.log('🛒 Qty change:', { productId, newQty: q, item, availableStock: item?.availableStock });
-        
+
+        const item =
+            cart?.items?.find((it) => getId(it) === productId) ||
+            storeCart?.items?.find((it) => getId(it) === productId);
+
         if (item?.availableStock !== undefined && q > item.availableStock) {
             toast.warning(`Chỉ còn ${item.availableStock} ${item.unit || "kg"} có thể đặt`);
             return;
         }
 
-        // // Nếu nhập 0 -> hỏi trước khi xoá
-        // if (q === 0) {
-        // const ok = window.confirm("Số lượng = 0 sẽ xoá sản phẩm khỏi giỏ. Tiếp tục?");
-        // if (!ok) return; // không gọi API
-        // }
+        applyOptimisticQuantity(productId, q);
 
-        // Debounce 300ms
         if (timersRef.current[productId]) clearTimeout(timersRef.current[productId]);
-        timersRef.current[productId] = setTimeout(() => {
-            updateCartItem(productId, q, dispatch);
-        }, 300);
+        timersRef.current[productId] = setTimeout(async () => {
+            const result = await updateCartItem(productId, q, dispatch);
+            if (!result?.ok) {
+                setOptimisticCart(null);
+                ensureCart(dispatch);
+            }
+        }, 250);
     };
 
     const applyCoupon = async () => {

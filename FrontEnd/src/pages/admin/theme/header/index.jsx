@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTERS } from "../../../../utils/router";
 import { RiLogoutBoxFill } from "react-icons/ri";
 import { FaCartShopping, FaFileInvoice } from "react-icons/fa6";
-import { MdDashboard, MdDiscount} from "react-icons/md";
+import { MdDashboard, MdDiscount } from "react-icons/md";
 import { GrUserManager } from "react-icons/gr";
 import { AiFillProduct } from "react-icons/ai";
 import { HiDocumentText } from "react-icons/hi";

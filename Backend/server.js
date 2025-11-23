@@ -139,6 +139,7 @@ const paymentRoutes = require('./payment-services/routes/payment');
 const articleRoutes = require('./content-services/routes/article');
 const reviewRoutes = require('./content-services/routes/review');
 const commentRoutes = require('./content-services/routes/comment');
+const bannerRoutes = require('./content-services/routes/banner');
 // auth-services
 const notificationRoutes = require('./auth-services/routes/notification');
 const chatRoutes = require('./auth-services/routes/chat');
@@ -169,6 +170,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/article', articleRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/comment', commentRoutes);
+app.use('/api/banner', bannerRoutes);
 
 // 404 JSON
 app.use((req, res) => res.status(404).json({ message: 'Not Found', path: req.originalUrl }));

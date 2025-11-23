@@ -3,6 +3,7 @@ import authReducer from "../redux/authSlice";
 import userReducer from "../redux/userSlice";
 import productReducer from "../redux/productSlice";
 import cartReducer from "./cartSlice";
+import bannerReducer from "./bannerSlice";
 import {
   persistStore,
   persistReducer,
@@ -25,6 +26,7 @@ const rootReducer = combineReducers({
   user: userReducer,
   product: productReducer,
   cart: cartReducer,
+  banner: bannerReducer,
 });
 const persistedReducer = persistReducer(persistConfig, rootReducer)
 

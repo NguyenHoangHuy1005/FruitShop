@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import ReactionBar from "../../../component/reactionBar";
 import { uploadImageFile, uploadArticleImage } from "../../../component/redux/apiRequest";
+import BannerManagerPage from "../bannerManagerPage";
 import "./style.scss";
 
 const ContentManagementPage = () => {
@@ -861,6 +862,12 @@ const ContentManagementPage = () => {
         >
           Đánh giá ({reviews.length})
         </button>
+        <button
+          className={activeTab === "banners" ? "active" : ""}
+          onClick={() => setActiveTab("banners")}
+        >
+          Banner
+        </button>
       </div>
 
       {/* ARTICLES TAB */}
@@ -1232,6 +1239,12 @@ const ContentManagementPage = () => {
           )}
         </div>
       )}
+      {activeTab === "banners" && (
+        <div className="tab-content banner-tab">
+          <BannerManagerPage />
+        </div>
+      )}
+
     </div>
     </div>
   );

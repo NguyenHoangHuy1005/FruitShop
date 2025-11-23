@@ -240,6 +240,7 @@ const autoExpireOrders = async (extraFilter = {}) => {
 
     const updatedIds = [];
     for (const order of expiredOrders) {
+        clearPendingPaymentRelease(order._id);
         try {
             await restoreInventory(order);
         } catch (err) {
@@ -326,6 +327,44 @@ const autoCompleteOrders = async (extraFilter = {}) => {
     }
 
     return updatedIds;
+};
+
+const pendingPaymentWatchers = new Map();
+
+const schedulePendingPaymentRelease = (orderId, deadline) => {
+    if (!orderId || !deadline) return;
+    const key = String(orderId);
+    const release = async () => {
+        pendingPaymentWatchers.delete(key);
+        try {
+            await autoExpireOrders({ _id: orderId });
+        } catch (err) {
+            console.error("[order] pending payment auto-expire failed:", err);
+        }
+    };
+
+    const delay = deadline.getTime() - Date.now();
+    if (pendingPaymentWatchers.has(key)) {
+        clearTimeout(pendingPaymentWatchers.get(key));
+    }
+
+    if (delay <= 0) {
+        setImmediate(release);
+        return;
+    }
+
+    const timer = setTimeout(release, delay);
+    pendingPaymentWatchers.set(key, timer);
+};
+
+const clearPendingPaymentRelease = (orderId) => {
+    if (!orderId) return;
+    const key = String(orderId);
+    const timer = pendingPaymentWatchers.get(key);
+    if (timer) {
+        clearTimeout(timer);
+        pendingPaymentWatchers.delete(key);
+    }
 };
 
 exports.createOrder = async (req, res) => {
@@ -454,7 +493,7 @@ exports.createOrder = async (req, res) => {
                     type: "checkout",
                     status: "active",
                     items: checkoutItems,
-                    expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 phút
+                    expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 phút
                 });
 
                 console.log("✅ Đã tạo checkout reservation mới:", checkoutReservation._id);
@@ -649,6 +688,9 @@ exports.createOrder = async (req, res) => {
             autoCompleteAt: null,
         });
         createdOrder = order;
+        if (isOnlinePayment && paymentDeadline) {
+            schedulePendingPaymentRelease(order._id, paymentDeadline);
+        }
         
         // Generate QR code immediately for BANK payment
         if (paymentMethod === "BANK") {
@@ -828,6 +870,7 @@ exports.createOrder = async (req, res) => {
             
             // Xóa order rác nếu đã tạo
             if (createdOrder?._id) {
+                clearPendingPaymentRelease(createdOrder._id);
                 await Order.findByIdAndDelete(createdOrder._id);
             }
         } catch (rbErr) {
@@ -860,6 +903,9 @@ exports.cancelOrder = async (req, res) => {
         if (!cancellableStatuses.includes(order.status)) {
         return res.status(400).json({ message: "Chỉ các đơn chờ xác nhận hoặc chờ thanh toán mới có thể hủy." });
         }
+
+        // stop pending auto-expire timer if any
+        clearPendingPaymentRelease(order._id);
 
         // Return items to stock
         await restoreInventory(order);
@@ -1201,6 +1247,7 @@ exports.adminPrepareOrder = async (req, res) => {
         }
 
         // Chuyển trạng thái sang processing (chờ shipper nhận)
+        clearPendingPaymentRelease(order._id);
         order.status = "processing";
         
         // Đánh dấu thời gian xác nhận
@@ -1265,6 +1312,16 @@ exports.adminUpdate = async (req, res) => {
         { new: true, runValidators: true }
     ).lean();
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+
+    if (status) {
+        if (["pending", "pending_payment"].includes(status) && doc.paymentDeadline) {
+            schedulePendingPaymentRelease(doc._id, new Date(doc.paymentDeadline));
+        } else {
+            clearPendingPaymentRelease(doc._id);
+        }
+    } else if (paymentDeadline !== undefined && doc.status === "pending_payment" && doc.paymentDeadline) {
+        schedulePendingPaymentRelease(doc._id, new Date(doc.paymentDeadline));
+    }
     
     if (oldOrder && doc.user && status && status !== oldOrder.status) {
         const orderId = String(doc._id).slice(-8).toUpperCase();

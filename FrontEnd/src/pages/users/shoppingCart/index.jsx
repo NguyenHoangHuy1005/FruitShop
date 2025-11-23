@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import { ROUTERS } from '../../../utils/router';
 import { useDispatch, useSelector } from "react-redux";
-import { ensureCart, updateCartItem, removeCartItem, validateCoupon, getMyReservation, releaseReservation, confirmCheckoutReservation, API } from "../../../component/redux/apiRequest";
+import { ensureCart, updateCartItem, removeCartItem, validateCoupon, confirmCheckoutReservation, API } from "../../../component/redux/apiRequest";
 import { setCoupon } from "../../../component/redux/cartSlice";
 
 const computeItemFinalPrice = (item) => {
@@ -36,6 +36,16 @@ const buildCartSnapshot = (items, baseCart) => {
         items: clonedItems,
         summary: { ...(baseCart?.summary || {}), ...totals },
     };
+};
+
+const isItemSelectable = (item) => {
+    if (!item) return false;
+    const quantity = Number(item.quantity) || 0;
+    if (quantity <= 0) return false;
+    if (typeof item.availableStock === "number") {
+        return item.availableStock > 0;
+    }
+    return true;
 };
 
 const ShoppingCart = () => {
@@ -96,7 +106,8 @@ const ShoppingCart = () => {
         });
     };
 
-    const toggleOne = (id) => {
+    const toggleOne = (id, disabled = false) => {
+        if (disabled) return;
         setSelectedIds((prev) => {
             const s = new Set(prev);
             if (s.has(id)) s.delete(id);
@@ -105,17 +116,22 @@ const ShoppingCart = () => {
         });
     };
 
-    const allRowIds = (cart?.items || []).map(getId);
-    const allSelected = allRowIds.length > 0 && allRowIds.every((id) => selectedIds.has(id));
+    const selectableIds = useMemo(() => {
+        return (cart?.items || [])
+            .filter(isItemSelectable)
+            .map(getId);
+    }, [cart?.items]);
+
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
     const toggleAll = () => {
         setSelectedIds(() => {
             if (allSelected) return new Set();
-            return new Set(allRowIds);
+            return new Set(selectableIds);
         });
     };
 
     useEffect(() => {
-        const currentIds = new Set((cart?.items || []).map(getId));
+        const currentIds = new Set(selectableIds);
         setSelectedIds((prev) => {
             const next = new Set();
             let changed = false;
@@ -134,10 +150,12 @@ const ShoppingCart = () => {
 
             return next;
         });
-    }, [cart?.items]);
+    }, [selectableIds]);
 
     // NEW: danh sách mục đã chọn + tổng tiền theo mục chọn
-    const selectedItems = (cart?.items || []).filter((it) => selectedIds.has(getId(it)));
+    const selectedItems = (cart?.items || []).filter(
+        (it) => selectedIds.has(getId(it)) && isItemSelectable(it)
+    );
     const selectedSubtotal = selectedItems.reduce(
         (sum, it) => {
             // Sử dụng lockedPrice nếu có, nếu không dùng price
@@ -254,12 +272,16 @@ const ShoppingCart = () => {
             if (latestCartRes.status !== 200) throw new Error(latestCartRes?.data?.message || "Không thể kiểm tra giỏ hàng");
 
             const latestItems = Array.isArray(latestCartRes.data?.items) ? latestCartRes.data.items : [];
-            const missingIds = selectedProductIds.filter(
-                (id) => !latestItems.some((item) => getId(item) === id && Number(item.quantity) > 0)
-            );
+            const soldOutIds = selectedProductIds.filter((id) => {
+                const latest = latestItems.find((item) => getId(item) === id);
+                if (!latest) return true;
+                if (typeof latest.availableStock === "number" && latest.availableStock <= 0) return true;
+                const qty = Number(latest.quantity) || 0;
+                return qty <= 0;
+            });
 
-            if (missingIds.length) {
-                toast.warn("Một số sản phẩm đã thay đổi trên hệ thống. Vui lòng kiểm tra lại giỏ hàng.");
+            if (soldOutIds.length) {
+                toast.warn("Một số sản phẩm vừa hết hàng. Vui lòng kiểm tra lại giỏ hàng.");
                 await ensureCart(dispatch);
                 return;
             }
@@ -338,13 +360,30 @@ const ShoppingCart = () => {
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.has(productId)}
-                                                onChange={() => toggleOne(productId)}
+                                                onChange={() => toggleOne(productId, it.availableStock === 0)}
+                                                disabled={it.availableStock === 0}
                                             />
                                         </td>
                                         <td className="shopping__cart__item">
                                             <Link to={`/product/detail/${productId}`} className="item-name">
                                                 <img src={imgSrc || "/placeholder.png"} alt={name} />
                                                 <span className="item-name__text">{name}</span>
+                                                {typeof it.availableStock === "number" && it.availableStock <= 5 && (
+                                                    <span
+                                                        className="item-name__stock"
+                                                        style={{
+                                                            display: "block",
+                                                            marginTop: 4,
+                                                            fontSize: 12,
+                                                            color: it.availableStock === 0 ? "#e74c3c" : "#d35400",
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                    {it.availableStock === 0
+                                                        ? "❌ Sản phẩm đã hết hàng"
+                                                        : `⚠️ Còn lại ${it.availableStock} sản phẩm`}
+                                                    </span>
+                                                )}
                                             </Link>
                                         </td>
                                         <td>{it.unit || "kg"}</td>
@@ -378,6 +417,7 @@ const ShoppingCart = () => {
                                                 max={it.availableStock || 9999}
                                                 step={1}
                                                 value={it.quantity} // controlled
+                                                disabled={it.availableStock === 0}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     const num = parseInt(val, 10);
@@ -400,16 +440,6 @@ const ShoppingCart = () => {
                                                 style={{ width: 80 }}
                                                 title={it.availableStock ? `Tối đa ${it.availableStock} ${it.unit || "kg"}` : ""}
                                             />
-                                            {it.availableStock !== undefined && it.availableStock < 50 && (
-                                                <div style={{ 
-                                                    fontSize: '11px', 
-                                                    color: it.availableStock < 10 ? '#e74c3c' : '#f39c12', 
-                                                    marginTop: '4px',
-                                                    fontWeight: '500'
-                                                }}>
-                                                    {it.availableStock === 0 ? '❌ Hết hàng' : `⚠️ Còn ${it.availableStock} ${it.unit || "kg"}`}
-                                                </div>
-                                            )}
                                         </td>
                                         <td>
                                             {(() => {
@@ -427,14 +457,6 @@ const ShoppingCart = () => {
                                                 className="link-btn"
                                                 title="Xóa"
                                                 onClick={async () => {
-                                                    // Release reservation trước khi xóa
-                                                    if (it.reservationId) {
-                                                        try {
-                                                            await releaseReservation(it.reservationId);
-                                                        } catch (error) {
-                                                            console.error('Failed to release reservation:', error);
-                                                        }
-                                                    }
                                                     removeCartItem(productId, dispatch);
                                                 }}
                                             >

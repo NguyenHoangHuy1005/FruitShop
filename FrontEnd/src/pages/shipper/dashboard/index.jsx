@@ -99,7 +99,12 @@ const Dashboard = () => {
                   <td><OrderStatusTag status={o.status} /></td>
                   <td>{formatter(o.amount?.total || 0)}</td>
                   <td>
-                    <Link to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}>Chi tiết</Link>
+                    <Link
+                      className="shipper-detail-link"
+                      to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}
+                    >
+                      Chi tiết
+                    </Link>
                   </td>
                 </tr>
               ))}

@@ -3,7 +3,6 @@ const Carts = require("../models/Carts");
 const Product = require("../../admin-services/models/Product");
 const ImportItem = require("../../admin-services/models/ImportItem");
 const Stock = require("../models/Stock");
-const Reservation = require("../models/Reservation");
 const { getAvailableBatches, getAvailableQuantity } = require("./reservationController");
 const { computeBatchPricing } = require("../utils/batchPricing");
 
@@ -57,6 +56,11 @@ function ensureCartCookie(req, res) {
         });
     }
     return cartKey;
+}
+
+function resolveCartSessionKey(req, res, userId) {
+    if (userId) return `user-${userId}`;
+    return ensureCartCookie(req, res);
 }
 
 async function getOrCreateCart(req, res) {
@@ -126,6 +130,8 @@ function recalc(cart) {
 }
 
 exports.getCart = async (req, res) => {
+    const userId = getUserIdFromToken(req);
+    const sessionKey = resolveCartSessionKey(req, res, userId);
     const cart = await getOrCreateCart(req, res);
     
     // 🔥 Populate availableStock cho mỗi item từ batch
@@ -133,26 +139,21 @@ exports.getCart = async (req, res) => {
     for (const item of cart.items) {
         if (item.batchId) {
             try {
-                const batch = await ImportItem.findById(item.batchId);
-                if (batch) {
-                    const displayStock = batch.quantity - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0);
-                    item.availableStock = Math.max(0, displayStock);
-                } else {
-                    item.availableStock = 0;
-                }
+                const available = await getAvailableQuantity(item.batchId, userId, sessionKey);
+                item.availableStock = Math.max(0, available);
             } catch (err) {
                 console.error('Error fetching batch stock:', err);
                 item.availableStock = 0;
             }
         } else {
-            // Fallback to Stock model nếu chưa có batch
             try {
                 const stock = await Stock.findOne({ product: item.product });
-                item.availableStock = stock?.onHand || 0;
+                item.availableStock = Math.max(0, Number(stock?.onHand) || 0);
             } catch (err) {
                 item.availableStock = 0;
             }
         }
+        item.isOutOfStock = item.availableStock === 0;
     }
     
     return res.json(cart);
@@ -216,6 +217,8 @@ exports.updateItem = async (req, res) => {
     const { quantity } = req.body || {};
     const qty = Math.max(0, Number(quantity) || 0);
 
+    const userId = getUserIdFromToken(req);
+    const sessionKey = resolveCartSessionKey(req, res, userId);
     const cart = await getOrCreateCart(req, res);
 
     // ✅ tìm item trong giỏ
@@ -248,21 +251,17 @@ exports.updateItem = async (req, res) => {
         let availableStock = 0;
         
         if (item.batchId) {
-            // Có batch => check displayStock
-            const batch = await ImportItem.findById(item.batchId);
-            if (batch) {
-                availableStock = batch.quantity - (batch.soldQuantity || 0) - (batch.damagedQuantity || 0);
-                availableStock = Math.max(0, availableStock);
-            }
+            availableStock = await getAvailableQuantity(item.batchId, userId, sessionKey);
         } else {
-            // Fallback: check Stock.onHand
             const stock = await Stock.findOne({ product: productId }).lean();
             availableStock = Number(stock?.onHand) || 0;
         }
 
+        availableStock = Math.max(0, availableStock);
+
         if (qty > availableStock) {
             if (availableStock === 0) {
-                cart.items = cart.items.filter((i) => i !== item); // hết hàng => xóa khỏi giỏ
+                item.quantity = 0;
                 finalQuantity = 0;
             } else {
                 item.quantity = availableStock; // hạ về mức tồn
@@ -328,158 +327,3 @@ exports.clearCart = async (req, res) => {
 
 
 exports.getOrCreateCart = getOrCreateCart;
-
-// ====== Helper: Tạo reservation khi add to cart ======
-async function createCartReservation(req, productId, quantity) {
-    try {
-        const userId = getUserIdFromToken(req);
-        const sessionKey = getSessionKey(req) || req.cookies?.CART_ID;
-
-        const product = await Product.findById(productId);
-        if (!product) {
-            return { success: false, message: "Sản phẩm không tồn tại" };
-        }
-
-        // Lấy batch available theo FEFO
-        const batches = await getAvailableBatches(productId);
-        
-        let activeBatch = null;
-        let availableQty = 0;
-        
-        if (batches.length > 0) {
-            // Có ImportItem → dùng batch
-            activeBatch = batches[0];
-            availableQty = await getAvailableQuantity(activeBatch._id);
-            
-            if (availableQty < quantity) {
-                return { 
-                    success: false, 
-                    message: `Chỉ còn ${availableQty} ${product.unit || "kg"} có thể đặt`
-                };
-            }
-        } else {
-            // Chưa có ImportItem → fallback dùng Product.price, không validate stock
-            console.warn(`Product ${productId} chưa có ImportItem, dùng giá fallback`);
-            // Không set activeBatch → batchId sẽ là null
-        }
-
-        // Tìm hoặc tạo reservation
-        const pricing = computeBatchPricing(activeBatch || {}, product);
-        const lockedPrice = pricing.basePrice;
-        const discountPercent = pricing.discountPercent || 0;
-
-        let reservation = await Reservation.findOne({
-            $or: [
-                { user: userId },
-                { sessionKey: sessionKey }
-            ],
-            type: "cart",
-            status: "active"
-        });
-
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
-        if (reservation) {
-            const existingItemIndex = reservation.items.findIndex(
-                item => item.product.toString() === productId.toString()
-            );
-
-            if (existingItemIndex >= 0) {
-
-                const existing = reservation.items[existingItemIndex];
-
-                existing.quantity += quantity;
-
-                existing.lockedPrice = lockedPrice;
-
-                existing.discountPercent = discountPercent;
-
-                if (activeBatch) {
-
-                    existing.batchId = activeBatch._id;
-
-                }
-
-            } else {
-                reservation.items.push({
-                    product: productId,
-                    batchId: activeBatch?._id || null, // Có thể null nếu chưa có ImportItem
-                    quantity: quantity,
-                    lockedPrice: lockedPrice,
-                    discountPercent: discountPercent,
-                    unit: product.unit || "kg"
-                });
-            }
-            
-            reservation.expiresAt = expiresAt;
-            await reservation.save();
-        } else {
-            reservation = await Reservation.create({
-                user: userId,
-                sessionKey: sessionKey,
-                type: "cart",
-                status: "active",
-                items: [{
-                    product: productId,
-                    batchId: activeBatch?._id || null, // Có thể null nếu chưa có ImportItem
-                    quantity: quantity,
-                    lockedPrice: lockedPrice,
-                    discountPercent: discountPercent,
-                    unit: product.unit || "kg"
-                }],
-                expiresAt: expiresAt
-            });
-        }
-
-        return {
-            success: true,
-            reservation: reservation,
-            batchId: activeBatch?._id || null, // ✅ Thêm batchId
-            lockedPrice: lockedPrice,
-            discountPercent: discountPercent
-        };
-    } catch (error) {
-        console.error("Error in createCartReservation:", error);
-        return { success: false, message: "Lỗi khi tạo reservation" };
-    }
-}
-
-exports.createCartReservation = createCartReservation;
-
-
-async function syncReservationQuantity(req, productId, quantity) {
-    try {
-        const userId = getUserIdFromToken(req);
-        const sessionKey = getSessionKey(req);
-
-        const reservation = await Reservation.findOne({
-            $or: [
-                { user: userId },
-                { sessionKey: sessionKey },
-            ],
-            type: "cart",
-            status: "active",
-        });
-
-        if (!reservation) return;
-
-        const idx = reservation.items.findIndex(
-            (item) => item.product.toString() === String(productId)
-        );
-        if (idx === -1) return;
-
-        if (quantity <= 0) {
-            reservation.items.splice(idx, 1);
-            if (reservation.items.length === 0) {
-                reservation.status = "released";
-                reservation.releasedAt = new Date();
-            }
-        } else {
-            reservation.items[idx].quantity = quantity;
-            reservation.items[idx].updatedAt = new Date();
-        }
-
-        await reservation.save();
-    } catch (error) {
-        console.error("syncReservationQuantity error:", error);
-    }
-}

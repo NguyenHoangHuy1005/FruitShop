@@ -1,12 +1,86 @@
 @use "../styles/tokens" as tokens;
 
+.shipper-profile__grid {
+  display: grid;
+  gap: 20px;
+  max-width: 720px;
+}
+
 .shipper-profile__card {
   display: grid;
   gap: 12px;
   font-size: 15px;
 
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    color: tokens.$ink;
+  }
+
   strong {
     color: tokens.$muted;
     margin-right: 6px;
+  }
+}
+
+.shipper-profile__hint {
+  margin: 0;
+  font-size: 13px;
+  color: tokens.$muted;
+}
+
+.shipper-profile__form {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-weight: 600;
+    color: tokens.$ink;
+  }
+
+  input {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(tokens.$border, 0.8);
+    background: rgba(tokens.$surface, 0.9);
+    font-size: 15px;
+  }
+}
+
+.shipper-profile__inline-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shipper-profile__otp {
+  flex: 1;
+  min-width: 140px;
+}
+
+.shipper-profile__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.shipper-profile__status {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: tokens.$muted;
+
+  &--success {
+    color: tokens.$success;
+  }
+
+  &--error {
+    color: tokens.$error;
   }
 }

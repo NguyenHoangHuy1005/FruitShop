@@ -67,7 +67,7 @@ exports.reserveForCart = async (req, res) => {
 
     // Tính toán số lượng có thể reserve từ batch đầu tiên
     const activeBatch = batches[0];
-    const availableQty = await getAvailableQuantity(activeBatch._id);
+    const availableQty = await getAvailableQuantity(activeBatch._id, userId, sessionKey);
     
     if (availableQty < quantity) {
       return res.status(400).json({ 
@@ -86,7 +86,7 @@ exports.reserveForCart = async (req, res) => {
       status: "active"
     });
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
 
     // Lấy giá và discount hiện tại
     const pricing = computeBatchPricing(activeBatch, product);
@@ -187,6 +187,42 @@ exports.confirmForCheckout = async (req, res) => {
       return res.status(400).json({ message: "Không có sản phẩm nào được chọn" });
     }
 
+    const ownerFilter = userId ? { user: userId } : { sessionKey };
+    const now = new Date();
+
+    await Reservation.updateMany(
+      {
+        ...ownerFilter,
+        type: "checkout",
+        status: "active",
+        expiresAt: { $lte: now },
+      },
+      {
+        $set: {
+          status: "expired",
+          releasedAt: now,
+        },
+      }
+    );
+
+    const activeCheckoutReservations = await Reservation.find({
+      ...ownerFilter,
+      type: "checkout",
+      status: "active",
+      expiresAt: { $gt: now },
+    }).sort({ createdAt: -1 });
+
+    const personalReservedByBatch = new Map();
+    for (const reservation of activeCheckoutReservations) {
+      for (const item of reservation.items || []) {
+        if (!item?.batchId) continue;
+        const qty = Number(item.quantity) || 0;
+        if (!qty) continue;
+        const key = String(item.batchId);
+        personalReservedByBatch.set(key, (personalReservedByBatch.get(key) || 0) + qty);
+      }
+    }
+
     // Validate về gắn batch FEFO
     const reservationItems = [];
     for (const item of cartItems) {
@@ -197,46 +233,90 @@ exports.confirmForCheckout = async (req, res) => {
       }
 
       const batches = await getAvailableBatches(productId);
-      let chosenBatch = null;
-      let availableQty = 0;
+      const allocations = [];
+      let remainingQty = item.quantity;
+      let totalAvailable = 0;
 
       for (const batch of batches) {
-        const qty = await getAvailableQuantity(batch._id);
-        if (qty >= item.quantity) {
-          chosenBatch = batch;
-          availableQty = qty;
-          break;
+        if (remainingQty <= 0) break;
+        const batchKey = String(batch._id);
+        const baseQty = await getAvailableQuantity(batch._id, userId, sessionKey);
+        const personalQty = personalReservedByBatch.get(batchKey) || 0;
+        const effectiveQty = baseQty + personalQty;
+        if (effectiveQty <= 0) continue;
+
+        totalAvailable += effectiveQty;
+        const takeQty = Math.min(effectiveQty, remainingQty);
+        if (takeQty > 0) {
+          allocations.push({ batch, quantity: takeQty });
+          remainingQty -= takeQty;
+          if (personalQty > 0) {
+            const usedFromPersonal = Math.min(personalQty, takeQty);
+            const remainingPersonal = personalQty - usedFromPersonal;
+            if (remainingPersonal > 0) {
+              personalReservedByBatch.set(batchKey, remainingPersonal);
+            } else {
+              personalReservedByBatch.delete(batchKey);
+            }
+          }
         }
       }
 
-      if (!chosenBatch) {
-        // Không đủ ở bất kỳ batch nào
-        const fallbackQty = availableQty || 0;
+      if (remainingQty > 0) {
+        const fallbackQty = totalAvailable || 0;
         return res.status(400).json({
-          message: `Sản phẩm "${productDoc?.name || productId}" không đủ hàng (cần ${fallbackQty}).`,
+          message: `Sản phẩm "${productDoc?.name || productId}" không đủ hàng (chỉ còn ${fallbackQty}).`,
           productId,
+          availableQuantity: fallbackQty,
+          requestedQuantity: item.quantity,
         });
       }
 
-      const pricing = computeBatchPricing(chosenBatch, productDoc);
-      reservationItems.push({
-        product: productId,
-        batchId: chosenBatch._id,
-        quantity: item.quantity,
-        lockedPrice: pricing.basePrice,
-        discountPercent: pricing.discountPercent || 0,
-        unit: productDoc.unit || "kg",
+      for (const allocation of allocations) {
+        const pricing = computeBatchPricing(allocation.batch, productDoc);
+        reservationItems.push({
+          product: productId,
+          batchId: allocation.batch._id,
+          quantity: allocation.quantity,
+          lockedPrice: pricing.basePrice,
+          discountPercent: pricing.discountPercent || 0,
+          unit: productDoc.unit || "kg",
+        });
+      }
+    }
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+    let checkoutReservation = activeCheckoutReservations[0] || null;
+
+    if (checkoutReservation) {
+      checkoutReservation.items = reservationItems;
+      checkoutReservation.expiresAt = expiresAt;
+      checkoutReservation.sessionKey = sessionKey;
+      if (userId && !checkoutReservation.user) {
+        checkoutReservation.user = userId;
+      }
+      checkoutReservation.status = "active";
+      await checkoutReservation.save();
+    } else {
+      checkoutReservation = await Reservation.create({
+        user: userId || null,
+        sessionKey,
+        type: "checkout",
+        status: "active",
+        items: reservationItems,
+        expiresAt,
       });
     }
 
-    const checkoutReservation = await Reservation.create({
-      user: userId || null,
-      sessionKey,
-      type: "checkout",
-      status: "active",
-      items: reservationItems,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 ph?t
-    });
+    if (activeCheckoutReservations.length > 1) {
+      const redundant = activeCheckoutReservations.slice(1).map((res) => res._id).filter(Boolean);
+      if (redundant.length) {
+        await Reservation.updateMany(
+          { _id: { $in: redundant } },
+          { $set: { status: "released", releasedAt: new Date() } }
+        );
+      }
+    }
 
     return res.json({
       success: true,
@@ -494,9 +574,11 @@ async function getAvailableBatches(productId) {
 /**
  * Tính số lượng available của một batch (trừ reserved & sold)
  */
-async function getAvailableQuantity(batchId) {
+async function getAvailableQuantity(batchId, userId = null, sessionKey = null) {
   const batch = await ImportItem.findById(batchId);
   if (!batch) return 0;
+
+  const now = new Date();
 
   // Tính số lượng đã sold (từ orders completed)
   const Order = require("../models/Order");
@@ -515,22 +597,42 @@ async function getAvailableQuantity(batchId) {
   });
 
   // Tính số lượng đã reserved (active reservations)
+  await Reservation.updateMany(
+    {
+      "items.batchId": batchId,
+      status: "active",
+      expiresAt: { $lte: now },
+    },
+    { $set: { status: "expired", releasedAt: now } }
+  );
+
   const activeReservations = await Reservation.find({
     "items.batchId": batchId,
-    status: "active"
+    status: "active",
+    expiresAt: { $gt: now },
   }).lean();
 
   let totalReserved = 0;
+  let reservedSelf = 0;
+  const normalizedUserId = userId ? String(userId) : null;
+  const normalizedSessionKey = sessionKey ? String(sessionKey) : null;
+
   activeReservations.forEach(reservation => {
+    const isSameUser = normalizedUserId && reservation.user && String(reservation.user) === normalizedUserId;
+    const isSameSession = normalizedSessionKey && reservation.sessionKey === normalizedSessionKey;
     reservation.items.forEach(item => {
-      if (item.batchId.toString() === batchId.toString()) {
-        totalReserved += item.quantity;
+      if (item.batchId && item.batchId.toString() === batchId.toString()) {
+        const qty = Number(item.quantity) || 0;
+        totalReserved += qty;
+        if (isSameUser || isSameSession) {
+          reservedSelf += qty;
+        }
       }
     });
   });
 
   const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-  const available = Math.max(0, effectiveQty - totalSold - totalReserved);
+  const available = Math.max(0, effectiveQty - totalSold - totalReserved + reservedSelf);
 
   return available;
 }

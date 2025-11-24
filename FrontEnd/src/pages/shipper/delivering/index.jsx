@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatter } from "../../../utils/fomater";
 import { ROUTERS } from "../../../utils/router";
-import { fetchShipperOrders, shipperDeliveredOrder, shipperCancelOrder } from "../../../component/redux/apiRequest";
+import {
+  fetchShipperOrders,
+  shipperDeliveredOrder,
+  shipperCancelOrder,
+} from "../../../component/redux/apiRequest";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
 import OrderActions from "../../../component/orders/OrderActions";
+import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "../theme.scss";
 import "./style.scss";
+
+const DEFAULT_CANCEL_REASON = "Khách không nhận hàng";
 
 const Delivering = () => {
   const [orders, setOrders] = useState([]);
@@ -14,7 +21,7 @@ const Delivering = () => {
   const [error, setError] = useState("");
   const [actionState, setActionState] = useState({ id: null, key: "" });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -25,11 +32,18 @@ const Delivering = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const unsub = subscribeOrderUpdates(() => {
+      load();
+    });
+    return unsub;
+  }, [load]);
 
   const resetAction = () => setActionState({ id: null, key: "" });
 
@@ -48,7 +62,18 @@ const Delivering = () => {
   const handleCancel = async (id) => {
     try {
       setActionState({ id, key: "fail" });
-      await shipperCancelOrder(id);
+      const value = window.prompt("Nhập lý do hủy đơn", DEFAULT_CANCEL_REASON);
+      if (value === null) {
+        resetAction();
+        return;
+      }
+      const reason = value.trim();
+      if (!reason) {
+        alert("Vui lòng nhập lý do hợp lệ.");
+        resetAction();
+        return;
+      }
+      await shipperCancelOrder(id, reason);
       await load();
     } catch (e) {
       alert(e?.message || "Hủy đơn thất bại.");
@@ -93,7 +118,9 @@ const Delivering = () => {
                 <td>{o.customer?.name}</td>
                 <td>{o.customer?.address}</td>
                 <td>{formatter(o.amount?.total || 0)}</td>
-                <td><OrderStatusTag status={o.status} /></td>
+                <td>
+                  <OrderStatusTag status={o.status} />
+                </td>
                 <td className="shipper-orders__actions">
                   <OrderActions
                     order={o}

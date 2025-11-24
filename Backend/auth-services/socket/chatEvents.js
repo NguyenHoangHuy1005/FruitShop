@@ -1,4 +1,6 @@
 const CHAT_ADMIN_ROOM = "chat-admins";
+const ORDER_ADMIN_ROOM = "order-admins";
+const ORDER_SHIPPER_ROOM = "order-shippers";
 
 const buildUserRoomName = (userId) => {
   const id = typeof userId === "string" ? userId : userId?.toString?.() || "";
@@ -54,12 +56,34 @@ const emitConversationUpdate = (summary) => {
   ioRef.to(CHAT_ADMIN_ROOM).emit("chat:conversation", summary);
 };
 
+const emitOrderUpdate = ({ order, userId, shipperId, event = "updated" }) => {
+  if (!ioRef || !order) return;
+  const payload = { event, order };
+  const targetRooms = new Set();
+
+  if (userId) {
+    targetRooms.add(buildUserRoomName(userId));
+  }
+  if (shipperId) {
+    targetRooms.add(buildUserRoomName(shipperId));
+  }
+
+  targetRooms.forEach((room) => {
+    ioRef.to(room).emit("order:update", payload);
+  });
+  ioRef.to(ORDER_ADMIN_ROOM).emit("order:update", payload);
+  ioRef.to(ORDER_SHIPPER_ROOM).emit("order:update", payload);
+};
+
 module.exports = {
   CHAT_ADMIN_ROOM,
+  ORDER_ADMIN_ROOM,
+  ORDER_SHIPPER_ROOM,
   buildUserRoomName,
   setChatIO,
   emitChatMessageCreated,
   emitChatMessageUpdated,
   emitChatMessageRemoved,
   emitConversationUpdate,
+  emitOrderUpdate,
 };

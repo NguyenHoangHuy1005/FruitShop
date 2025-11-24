@@ -24,6 +24,15 @@ const REFRESH_LONG_MS = 30 * 24 * 60 * 60 * 1000;   // 30 ngày
 const generate6Digit = () =>
   String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 
+const hasShipperRole = (user) => {
+  if (!user) return false;
+  if (user.shipper) return true;
+  if (user.roles && Array.isArray(user.roles)) {
+    return user.roles.includes("shipper");
+  }
+  return false;
+};
+
 const COOKIE_OPTS = {
     httpOnly: true,
     secure: isProd,
@@ -43,6 +52,7 @@ function genAccessToken(user) {
         { 
             id: user._id, 
             admin: !!(user.admin || user.isAdmin),
+            shipper: hasShipperRole(user),
             username: user.username,
             email: user.email
         },
@@ -56,6 +66,7 @@ function genRefreshToken(user, ttlMs, remember = false) {
         { 
             id: user._id, 
             admin: !!(user.admin || user.isAdmin), 
+            shipper: hasShipperRole(user),
             remember: !!remember,
             username: user.username,
             email: user.email

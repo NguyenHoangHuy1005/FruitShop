@@ -13,6 +13,7 @@ import {
 import OrderStatusTag, { normalizeOrderStatus } from "../../../component/orders/OrderStatusTag";
 import OrderActions from "../../../component/orders/OrderActions";
 import { ROUTERS } from "../../../utils/router";
+import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "./style.scss";
 
 const formatDateTime = (iso) => {
@@ -101,6 +102,13 @@ const OrdersPage = () => {
   const detailActionKey = actionState.id === selectedOrderKey ? actionState.key : "";
 
   const refresh = () => setReloadTick((t) => t + 1);
+
+  useEffect(() => {
+    const unsub = subscribeOrderUpdates(() => {
+      setReloadTick((t) => t + 1);
+    });
+    return unsub;
+  }, []);
 
   const handleConfirmReceived = async (orderId) => {
     try {
@@ -438,7 +446,7 @@ const toggleOpen = (id) => {
                   <div className="order-detail-body">
                     {detailStatus === "cancelled" && (
                       <div className="order-cancel-reason">
-                        <strong>Ly do huy:</strong> {cancelReason || "Khong co ly do"}
+                        <strong>Lý do hủy:</strong> {cancelReason || "Không có lý do"}
                       </div>
                     )}
                     <section className="detail-section detail-section--grid">

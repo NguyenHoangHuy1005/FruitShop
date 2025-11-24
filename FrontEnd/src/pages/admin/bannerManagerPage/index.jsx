@@ -448,10 +448,10 @@ const BannerManagerPage = () => {
                   <td>
                     <span className={`status-badge ${banner.isCurrentlyActive ? "active" : banner.isActive ? "scheduled" : "disabled"}`}>
                       {banner.isCurrentlyActive
-                        ? "Showing now"
+                        ? "Hiển thị"
                         : banner.isActive
-                        ? "Scheduled"
-                        : "Disabled"}
+                        ? "Lên lịch"
+                        : "Vô hiệu hóa"}
                     </span>
                   </td>
                   <td>

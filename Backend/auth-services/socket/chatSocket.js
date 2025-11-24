@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const ChatMessage = require("../models/ChatMessage");
-const { setChatIO, CHAT_ADMIN_ROOM, buildUserRoomName } = require("./chatEvents");
+const User = require("../models/User");
+const { setChatIO, CHAT_ADMIN_ROOM, ORDER_ADMIN_ROOM, ORDER_SHIPPER_ROOM, buildUserRoomName } = require("./chatEvents");
 const { broadcastNewChatMessage } = require("./chatRealtime");
 const { formatChatMessage } = require("../utils/chatFormatter");
 
@@ -56,17 +57,33 @@ const registerChatSockets = (io) => {
     }
   });
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const userId = socket.user?.id;
     if (!userId) {
       socket.disconnect(true);
       return;
     }
 
+    try {
+      const existing = await User.findById(userId).select("shipper roles admin isAdmin").lean();
+      if (existing) {
+        const hasShipper = !!(existing.shipper || (Array.isArray(existing.roles) && existing.roles.includes("shipper")));
+        socket.user.shipper = socket.user.shipper || hasShipper;
+        socket.user.admin =
+          socket.user.admin || !!(existing.admin || existing.isAdmin);
+      }
+    } catch (err) {
+      console.error("[socket] failed to lookup user role:", err?.message || err);
+    }
+
     if (socket.user?.admin) {
       socket.join(CHAT_ADMIN_ROOM);
+      socket.join(ORDER_ADMIN_ROOM);
     } else {
       socket.join(buildUserRoomName(userId));
+      if (socket.user?.shipper) {
+        socket.join(ORDER_SHIPPER_ROOM);
+      }
     }
 
     socket.on("chat:send", async (payload = {}, callback = () => {}) => {

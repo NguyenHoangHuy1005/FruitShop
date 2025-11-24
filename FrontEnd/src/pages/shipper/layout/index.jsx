@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
+import ShipperOrderRealtimeBridge from "../OrderRealtimeBridge";
 import "../theme.scss";
 import "./style.scss";
 
@@ -16,6 +17,7 @@ const ShipperLayout = ({ children }) => {
 
   return (
     <div className="shipper-shell">
+      <ShipperOrderRealtimeBridge />
       <header className="shipper-shell__header">
         <div className="shipper-shell__brand">Shipper</div>
         <nav className="shipper-shell__nav">

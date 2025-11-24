@@ -4,6 +4,63 @@
   margin-top: 12px;
 }
 
+.shipper-filters {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+
+    label {
+      font-size: 13px;
+      color: tokens.$muted;
+      font-weight: 500;
+    }
+
+    input,
+    select {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid tokens.$border;
+      font-size: 14px;
+      background: tokens.$surface;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        border-color: tokens.$accent;
+        outline: none;
+        box-shadow: 0 0 0 1px rgba(tokens.$accent, 0.2);
+      }
+    }
+  }
+
+  .shipper-refresh {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid tokens.$accent;
+    background: tokens.$accent;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
 .shipper-orders__actions .order-actions {
   justify-content: flex-start;
 }
@@ -27,4 +84,61 @@
   background-color: #e8f5e9;
   color: #388e3c;
   border: 1px solid #81c784;
+}
+
+.shipper-address {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: tokens.$ink;
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+
+    button {
+      border: 1px solid tokens.$border;
+      background: tokens.$soft-surface;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+
+      &:hover {
+        border-color: tokens.$accent;
+      }
+    }
+  }
+}
+
+.shipper-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: tokens.$ink;
+
+  p {
+    margin: 0;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  button {
+    align-self: flex-start;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    background: tokens.$accent;
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
 }

@@ -5,14 +5,11 @@ import { io } from "socket.io-client";
 import { API } from "../redux/apiRequest";
 import ChatWindow from "./ChatWindow";
 import "./chatWidget.scss";
+import { getSocketBaseUrl } from "../../utils/socket";
+import { dispatchOrderUpdateEvent } from "../../utils/orderRealtime";
 
 const buildSeenKey = (isAdmin, targetId) =>
   `${isAdmin ? "CHAT_SEEN_ADMIN" : "CHAT_SEEN_USER"}:${targetId || "self"}`;
-
-const getSocketBaseUrl = () => {
-  const apiBase = import.meta?.env?.VITE_API_BASE || "http://localhost:3000/api";
-  return apiBase.replace(/\/api\/?$/, "");
-};
 
 const readSeenTimestamp = (key) => {
   try {
@@ -411,6 +408,10 @@ const ChatWidget = () => {
     });
   }, []);
 
+  const handleOrderRealtime = useCallback((payload = {}) => {
+    dispatchOrderUpdateEvent(payload);
+  }, []);
+
   useEffect(() => {
     const token = currentUser?.accessToken;
     if (!currentUser || !token) {
@@ -435,6 +436,7 @@ const ChatWidget = () => {
     socket.on("disconnect", handleDisconnect);
     socket.on("chat:message", handleSocketMessage);
     socket.on("chat:conversation", handleConversationEvent);
+    socket.on("order:update", handleOrderRealtime);
     socket.on("connect_error", handleError);
 
     return () => {
@@ -442,12 +444,13 @@ const ChatWidget = () => {
       socket.off("disconnect", handleDisconnect);
       socket.off("chat:message", handleSocketMessage);
       socket.off("chat:conversation", handleConversationEvent);
+      socket.off("order:update", handleOrderRealtime);
       socket.off("connect_error", handleError);
       socket.disconnect();
       socketRef.current = null;
       setSocketConnected(false);
     };
-  }, [currentUser, handleConversationEvent, handleSocketMessage, disconnectSocket]);
+  }, [currentUser, handleConversationEvent, handleSocketMessage, handleOrderRealtime, disconnectSocket]);
 
   const sendMessageViaSocket = useCallback((payload) => {
     const socket = socketRef.current;

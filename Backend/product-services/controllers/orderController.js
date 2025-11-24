@@ -10,6 +10,48 @@ const ImportItem = require("../../admin-services/models/ImportItem");
 const { sendOrderConfirmationMail } = require("../../auth-services/utils/mailer");
 const { getOrCreateCart } = require("./cartController");
 const { createNotification } = require("../../auth-services/controllers/notificationController");
+const { emitOrderUpdate } = require("../../auth-services/socket/chatEvents");
+
+const normalizeId = (raw) => {
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  if (raw._id) return raw._id.toString();
+  if (typeof raw.toString === "function") return raw.toString();
+  return null;
+};
+
+const buildRealtimeOrderPayload = (orderDoc) => {
+  if (!orderDoc) return null;
+  const plain =
+    typeof orderDoc.toObject === "function" ? orderDoc.toObject() : orderDoc;
+  const userId = normalizeId(plain.user);
+  const shipperId = normalizeId(plain.shipperId);
+
+  return {
+    id: normalizeId(plain._id || plain.id),
+    status: plain.status,
+    userId,
+    shipperId,
+    paymentType: plain.paymentType || plain.paymentMethod || "COD",
+    amount: plain.amount || {},
+    customer: plain.customer || null,
+    pickupAddress: plain.pickupAddress || "",
+    deliveredAt: plain.deliveredAt || null,
+    updatedAt: plain.updatedAt || null,
+    createdAt: plain.createdAt || null,
+  };
+};
+
+const broadcastOrderUpdate = (orderDoc, event = "updated") => {
+  const payload = buildRealtimeOrderPayload(orderDoc);
+  if (!payload) return;
+  emitOrderUpdate({
+    event,
+    userId: payload.userId,
+    shipperId: payload.shipperId,
+    order: payload,
+  });
+};
 
 // Helper function to get or generate session key
 function getSessionKey(req) {
@@ -252,7 +294,7 @@ const autoExpireOrders = async (extraFilter = {}) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             autoExpiredAt: new Date(),
-            cancelReason: "timeout",
+            cancelReason: "hết hạn thanh toán",
         };
         try {
             order.markModified("paymentMeta");
@@ -789,6 +831,8 @@ exports.createOrder = async (req, res) => {
             ).catch(err => console.error("[notification] Failed to create order_created notification:", err));
         }
 
+        broadcastOrderUpdate(order, "created");
+
         return res.status(201).json({
             ok: true,
             message: "Đặt hàng thành công!",
@@ -872,12 +916,13 @@ exports.cancelOrder = async (req, res) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
-            cancelReason: "user_cancelled",
+            cancelReason: "người dùng tự hủy đơn",
         };
         try {
             order.markModified("paymentMeta");
         } catch (_) { }
         await order.save();
+        broadcastOrderUpdate(order, "cancelled");
 
         // Notify user
         if (userId) {
@@ -962,6 +1007,7 @@ exports.shipperAcceptOrder = async (req, res) => {
         order.status = "shipping";
         order.autoCompleteAt = null;
         await order.save();
+        broadcastOrderUpdate(order, "shipper_accept");
 
         if (order.user) {
             const orderIdShort = String(order._id).slice(-8).toUpperCase();
@@ -1007,6 +1053,7 @@ exports.shipperDeliveredOrder = async (req, res) => {
             order.paymentCompletedAt = new Date();
         }
         await order.save();
+        broadcastOrderUpdate(order, "delivered");
 
         if (order.user) {
             const orderIdShort = String(order._id).slice(-8).toUpperCase();
@@ -1045,6 +1092,9 @@ exports.shipperCancelOrder = async (req, res) => {
         }
         if (!order.shipperId) order.shipperId = userId;
 
+        const rawReason = typeof req.body?.reason === "string" ? req.body.reason : "";
+        const cancelReason = rawReason.trim().slice(0, 200) || "khách hàng từ chối nhận hàng";
+
         await restoreInventoryAfterShipperCancel(order, userId);
 
         order.status = "cancelled";
@@ -1054,11 +1104,12 @@ exports.shipperCancelOrder = async (req, res) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
-            cancelReason: "customer_refused",
+            cancelReason,
             cancelledBy: "shipper",
         };
         try { order.markModified("paymentMeta"); } catch (_) { }
         await order.save();
+        broadcastOrderUpdate(order, "shipper_cancel");
 
         if (order.user) {
             const orderIdShort = String(order._id).slice(-8).toUpperCase();
@@ -1066,7 +1117,9 @@ exports.shipperCancelOrder = async (req, res) => {
                 order.user,
                 "order_cancelled",
                 "Đơn hàng bị hủy khi giao",
-                `Đơn hàng #${orderIdShort} bị hủy do khách không nhận.`,
+                cancelReason
+                    ? `Đơn hàng #${orderIdShort} bị hủy: ${cancelReason}.`
+                    : `Đơn hàng #${orderIdShort} bị hủy khi giao.`,
                 order._id,
                 "/orders"
             ).catch(err => console.error("[notification] Failed to create order_cancelled notification:", err));
@@ -1098,6 +1151,7 @@ exports.userConfirmDelivered = async (req, res) => {
             order.paymentCompletedAt = new Date();
         }
         await order.save();
+        broadcastOrderUpdate(order, "completed");
 
         return res.json({ ok: true, order });
     } catch (err) {
@@ -1208,6 +1262,7 @@ exports.adminPrepareOrder = async (req, res) => {
         order.markModified('paymentMeta');
 
         await order.save();
+        broadcastOrderUpdate(order, "processing");
 
         // Tạo thông báo cho user
         if (order.user) {
@@ -1319,6 +1374,7 @@ exports.adminUpdate = async (req, res) => {
         }
     }
     
+    broadcastOrderUpdate(doc, "admin_update");
     return res.json({ ok: true, data: doc });
 };
 

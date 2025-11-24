@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchShipperOrders } from "../../../component/redux/apiRequest";
 import { formatter } from "../../../utils/fomater";
 import { ROUTERS } from "../../../utils/router";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
+import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "../theme.scss";
 import "./style.scss";
 
@@ -12,7 +13,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -23,31 +24,59 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
-  const counts = useMemo(() => {
-    const summary = { processing: 0, shipping: 0, deliveredToday: 0, cancelled: 0 };
+  useEffect(() => {
+    const unsub = subscribeOrderUpdates(() => {
+      load();
+    });
+    return unsub;
+  }, [load]);
+
+  const metrics = useMemo(() => {
     const today = new Date().toDateString();
+    const summary = {
+      processing: 0,
+      shipping: 0,
+      deliveredToday: 0,
+      cancelled: 0,
+      codOutstanding: 0,
+      deliveredTodayValue: 0,
+    };
+
     orders.forEach((o) => {
       const status = String(o.status || "").toLowerCase();
+      const total = Number(o.amount?.total || 0);
+      const paymentMethod = (o.paymentMethod || o.paymentType || "COD").toUpperCase();
+
       if (status === "processing") summary.processing += 1;
       if (status === "shipping") summary.shipping += 1;
       if (status === "cancelled") summary.cancelled += 1;
-      if (status === "delivered") {
+
+      if ((status === "shipping" || status === "processing") && paymentMethod === "COD") {
+        summary.codOutstanding += total;
+      }
+
+      if (status === "delivered" || status === "completed") {
         const deliveredAt = o.deliveredAt || o.updatedAt || o.createdAt;
         if (deliveredAt && new Date(deliveredAt).toDateString() === today) {
           summary.deliveredToday += 1;
+          summary.deliveredTodayValue += total;
         }
       }
     });
+
     return summary;
   }, [orders]);
 
-  const shippingOrders = orders.filter((o) => o.status === "shipping");
+  const shippingOrders = useMemo(
+    () => orders.filter((o) => String(o.status).toLowerCase() === "shipping"),
+    [orders]
+  );
 
   if (loading) return <p>Dang tai du lieu...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
@@ -59,19 +88,29 @@ const Dashboard = () => {
       <div className="shipper-stats">
         <div className="shipper-card">
           <div className="shipper-card__label">Chờ nhận</div>
-          <div className="shipper-card__value">{counts.processing || 0}</div>
+          <div className="shipper-card__value">{metrics.processing || 0}</div>
         </div>
         <div className="shipper-card">
           <div className="shipper-card__label">Đang giao</div>
-          <div className="shipper-card__value">{counts.shipping || 0}</div>
+          <div className="shipper-card__value">{metrics.shipping || 0}</div>
         </div>
         <div className="shipper-card">
           <div className="shipper-card__label">Đã giao hôm nay</div>
-          <div className="shipper-card__value">{counts.deliveredToday || 0}</div>
+          <div className="shipper-card__value">{metrics.deliveredToday || 0}</div>
         </div>
         <div className="shipper-card">
-          <div className="shipper-card__label">Đã hủy</div>
-          <div className="shipper-card__value">{counts.cancelled || 0}</div>
+          <div className="shipper-card__label">Đơn bị hủy</div>
+          <div className="shipper-card__value">{metrics.cancelled || 0}</div>
+        </div>
+        <div className="shipper-card">
+          <div className="shipper-card__label">COD đang giao</div>
+          <div className="shipper-card__value">{formatter(metrics.codOutstanding || 0)}</div>
+        </div>
+        <div className="shipper-card">
+          <div className="shipper-card__label">Giá trị giao hôm nay</div>
+          <div className="shipper-card__value">
+            {formatter(metrics.deliveredTodayValue || 0)}
+          </div>
         </div>
       </div>
       <div className="shipper-section">
@@ -96,13 +135,12 @@ const Dashboard = () => {
                 <tr key={o._id}>
                   <td>#{String(o._id).slice(-8).toUpperCase()}</td>
                   <td>{o.customer?.name}</td>
-                  <td><OrderStatusTag status={o.status} /></td>
+                  <td>
+                    <OrderStatusTag status={o.status} />
+                  </td>
                   <td>{formatter(o.amount?.total || 0)}</td>
                   <td>
-                    <Link
-                      className="shipper-detail-link"
-                      to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}
-                    >
+                    <Link className="shipper-detail-link" to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}>
                       Chi tiết
                     </Link>
                   </td>
@@ -112,7 +150,6 @@ const Dashboard = () => {
           </table>
         )}
       </div>
-
 
       {shippingOrders.length > 0 && (
         <div className="shipper-section">

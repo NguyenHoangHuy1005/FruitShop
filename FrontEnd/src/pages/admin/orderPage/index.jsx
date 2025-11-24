@@ -6,6 +6,7 @@ import { API, getWarehouses } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
 import { formatter } from "../../../utils/fomater";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
+import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 
 const formatDateTime = (iso) => {
   try {
@@ -112,6 +113,7 @@ const OrderAdminPage = () => {
     const [preparing, setPreparing] = useState(false);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
+    const [refreshTick, setRefreshTick] = useState(0);
 
     const [isDark, setIsDark] = useState(() => {
         return localStorage.getItem("theme") === "dark";
@@ -133,6 +135,13 @@ const OrderAdminPage = () => {
         if (isDark) document.body.classList.add("dark");
         else document.body.classList.remove("dark");
     }, [isDark]);
+
+    useEffect(() => {
+        const unsub = subscribeOrderUpdates(() => {
+            setRefreshTick((t) => t + 1);
+        });
+        return unsub;
+    }, []);
 
   const headers = useMemo(() => {
     const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
@@ -185,7 +194,7 @@ const OrderAdminPage = () => {
             setLoading(false);
         })();
         return () => { alive = false; };
-    }, [page, limit, q, status, fromDate, toDate, headers]);
+    }, [page, limit, q, status, fromDate, toDate, headers, refreshTick]);
 
   const pages = Math.max(1, Math.ceil(total / limit));
   const selectedOrderKey = selectedOrder?._id || null;

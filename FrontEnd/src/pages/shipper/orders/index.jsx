@@ -20,8 +20,6 @@ const Orders = () => {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("processing");
   const [actionState, setActionState] = useState({ id: null, key: "" });
-  const [filterDistrict, setFilterDistrict] = useState("");
-  const [filterText, setFilterText] = useState("");
 
   const load = async (tabKey = activeTab) => {
     setLoading(true);
@@ -82,26 +80,8 @@ const Orders = () => {
   const visibleOrders = useMemo(() => {
     const statuses = tabs[activeTab]?.statuses;
     if (!statuses) return orders;
-    const byStatus = orders.filter((o) => statuses.includes(String(o.status).toLowerCase()));
-
-    // Filter by district selection (HCM) or free-text address filter
-    if (!filterDistrict && !filterText) return byStatus;
-
-    const districtNorm = (filterDistrict || "").trim().toLowerCase();
-    const textNorm = (filterText || "").trim().toLowerCase();
-
-    return byStatus.filter((o) => {
-      const addr = (o.customer?.address || "" ).toString().toLowerCase();
-      let ok = true;
-      if (districtNorm) {
-        ok = addr.includes(districtNorm);
-      }
-      if (ok && textNorm) {
-        ok = addr.includes(textNorm);
-      }
-      return ok;
-    });
-  }, [orders, activeTab, filterDistrict, filterText]);
+    return orders.filter((o) => statuses.includes(String(o.status).toLowerCase()));
+  }, [orders, activeTab]);
 
   return (
     <div className="shipper-page">
@@ -117,41 +97,6 @@ const Orders = () => {
             {tab.label}
           </button>
         ))}
-      </div>
-
-      {/* Area filter for HCM - select common districts + free text */}
-      <div className="shipper-filters" style={{ margin: '12px 0', display: 'flex', gap: 12, alignItems: 'center' }}>
-        <label style={{ fontWeight: 600 }}>Lọc khu vực HCM:</label>
-        <select value={filterDistrict} onChange={(e) => setFilterDistrict(e.target.value)}>
-          <option value="">Tất cả</option>
-          <option value="quận 1">Quận 1</option>
-          <option value="quận 3">Quận 3</option>
-          <option value="quận 4">Quận 4</option>
-          <option value="quận 5">Quận 5</option>
-          <option value="quận 7">Quận 7</option>
-          <option value="quận 10">Quận 10</option>
-          <option value="quận tân bình">Quận Tân Bình</option>
-          <option value="quận bình thạnh">Quận Bình Thạnh</option>
-          <option value="thủ đức">Thủ Đức</option>
-          <option value="quận gò vấp">Quận Gò Vấp</option>
-          <option value="quận phú nhuận">Quận Phú Nhuận</option>
-          <option value="quận tân phú">Quận Tân Phú</option>
-          <option value="quận bình tân">Quận Bình Tân</option>
-          <option value="huyện nhà bè">Huyện Nhà Bè</option>
-          <option value="huyện hóc môn">Huyện Hóc Môn</option>
-          <option value="huyện bình chánh">Huyện Bình Chánh</option>
-        </select>
-
-        <label style={{ fontWeight: 600 }}>Tìm theo địa chỉ:</label>
-        <input
-          type="text"
-          placeholder="nhập phường/quận hoặc địa chỉ..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          style={{ padding: '6px 8px' }}
-        />
-
-        <button type="button" onClick={() => { setFilterDistrict(''); setFilterText(''); }} style={{ marginLeft: 8 }}>Xóa lọc</button>
       </div>
 
       {loading && <p>Đang tải đơn hàng...</p>}

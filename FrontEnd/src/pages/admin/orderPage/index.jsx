@@ -425,7 +425,7 @@ const OrderAdminPage = () => {
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: 789 Fruit Shop, phường Sài Gòn, Tp.HCM"
-                                            value={manualPickupAddress || selectedOrder.pickupAddress || ""}
+                                            // value={manualPickupAddress || selectedOrder.pickupAddress || ""}
                                             onChange={(e) => setManualPickupAddress(e.target.value)}
                                             disabled={!!selectedWarehouseId}
                                         />

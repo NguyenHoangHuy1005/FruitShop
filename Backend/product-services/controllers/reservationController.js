@@ -519,20 +519,8 @@ async function getAvailableBatches(productId) {
       { expiryDate: { $gt: now } }
     ]
   })
-    .select("quantity damagedQuantity unitPrice sellingPrice importDate expiryDate discountPercent discountStartDate discountEndDate")
+    .select("quantity soldQuantity damagedQuantity unitPrice sellingPrice importDate expiryDate discountPercent discountStartDate discountEndDate")
     .lean();
-
-  // Tính số lượng đã bán theo FEFO để xác định lô còn hàng
-  const Order = require("../models/Order");
-  const orders = await Order.find({
-    'items.product': productId,
-    status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
-  }).select('items').lean();
-
-  const totalSold = orders.reduce((sum, order) => {
-    const productItems = order.items.filter(item => item.product.toString() === productId);
-    return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
-  }, 0);
 
   // Sắp xếp theo FEFO + FIFO
   batches.sort((a, b) => {
@@ -548,13 +536,12 @@ async function getAvailableBatches(productId) {
     return expiryDiff;
   });
 
-  // Phân bổ số lượng đã bán và lọc chỉ lấy lô còn hàng
-  let remainingSold = totalSold;
+  // ✅ Sử dụng soldQuantity trực tiếp từ batch thay vì tính lại
   const batchesWithStock = [];
   
   for (const batch of batches) {
     const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-    const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
+    const soldFromThisBatch = Number(batch.soldQuantity) || 0;
     const remainingInBatch = Math.max(0, effectiveQty - soldFromThisBatch);
     
     // CHỈ thêm lô còn hàng
@@ -564,8 +551,6 @@ async function getAvailableBatches(productId) {
         remainingQuantity: remainingInBatch
       });
     }
-    
-    remainingSold -= soldFromThisBatch;
   }
 
   return batchesWithStock;
@@ -580,21 +565,9 @@ async function getAvailableQuantity(batchId, userId = null, sessionKey = null) {
 
   const now = new Date();
 
-  // Tính số lượng đã sold (từ orders completed)
-  const Order = require("../models/Order");
-  const orders = await Order.find({
-    "items.product": batch.product,
-    status: { $in: ["processing", "shipping", "delivered", "completed"] }
-  }).select("items createdAt").lean();
-
-  let totalSold = 0;
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      if (item.product.toString() === batch.product.toString()) {
-        totalSold += item.quantity;
-      }
-    });
-  });
+  // ✅ Sử dụng soldQuantity từ batch thay vì tính toán lại
+  // soldQuantity được cập nhật trong orderController khi tạo đơn
+  const soldFromBatch = Number(batch.soldQuantity) || 0;
 
   // Tính số lượng đã reserved (active reservations)
   await Reservation.updateMany(
@@ -632,7 +605,7 @@ async function getAvailableQuantity(batchId, userId = null, sessionKey = null) {
   });
 
   const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-  const available = Math.max(0, effectiveQty - totalSold - totalReserved + reservedSelf);
+  const available = Math.max(0, effectiveQty - soldFromBatch - totalReserved + reservedSelf);
 
   return available;
 }

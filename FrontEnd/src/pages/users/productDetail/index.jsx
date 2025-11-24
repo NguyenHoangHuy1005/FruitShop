@@ -18,7 +18,7 @@ import PriceDisplay from "../../../component/PriceDisplay";
 import { ROUTERS } from "../../../utils/router"; // Redux action thêm giỏ hàng
 
 import ProductReviews from "../../../component/productReviews";
-import { usePriceRange } from "../../../hooks/usePriceRange";
+import { usePriceRange, invalidatePriceRange } from "../../../hooks/usePriceRange";
 
 const ProductDetail = () => {
     const dispatch = useDispatch();
@@ -134,6 +134,30 @@ const ProductDetail = () => {
                 });
         }
     }, [id]);
+
+    // When batch info changes, proactively refresh priceRange cache so displayed
+    // price (which is driven by priceRange) updates immediately when batches change.
+    useEffect(() => {
+        if (!id) return;
+        if (!batchInfo) return;
+        // Force invalidate and refetch priceRange so PriceDisplay gets freshest data
+        try {
+            invalidatePriceRange(id).catch(() => {});
+        } catch (_) {}
+    }, [batchInfo, id]);
+
+    // Create a signature for current batches so we can force-remount PriceDisplay
+    // whenever any batch's remaining quantity (or id) changes.
+    const batchSignature = useMemo(() => {
+        if (!batchInfo || !Array.isArray(batchInfo.batches)) return String(id);
+        try {
+            return batchInfo.batches
+                .map(b => `${String(b._id)}:${Number(b.remainingQuantity || 0)}`)
+                .join('|');
+        } catch (_) {
+            return String(id);
+        }
+    }, [batchInfo, id]);
     
     useEffect(() => {
         if (id) {
@@ -307,6 +331,7 @@ const ProductDetail = () => {
                         {/* Giá từ lô hàng, fallback về giá Product */}
                         <div className="price-section">
                             <PriceDisplay 
+                                key={`${String(activeBatch?._id || id)}|${batchSignature}`}
                                 productId={id} 
                                 className="product-detail-price"
                                 fallbackPrice={product.price}

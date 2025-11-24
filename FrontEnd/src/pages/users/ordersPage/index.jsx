@@ -438,7 +438,7 @@ const toggleOpen = (id) => {
                   <div className="order-detail-body">
                     {detailStatus === "cancelled" && (
                       <div className="order-cancel-reason">
-                        <strong>Lý do hủy:</strong> {cancelReason || "Không có lý do"}
+                        <strong>Ly do huy:</strong> {cancelReason || "Khong co ly do"}
                       </div>
                     )}
                     <section className="detail-section detail-section--grid">

@@ -181,3 +181,19 @@ export const prefetchPriceRange = (productId) => {
 
   return resolvePriceRange(productId).catch(() => null);
 };
+
+// Invalidate cached priceRange for a product and refetch immediately.
+export const invalidatePriceRange = async (productId) => {
+  if (!productId) return null;
+  priceRangeCache.delete(productId);
+  try {
+    const data = await resolvePriceRange(productId);
+    // ensure cache updated
+    setCachedRange(productId, data ?? null);
+    return data ?? null;
+  } catch (err) {
+    // set null on error to avoid leaving it undefined
+    setCachedRange(productId, null);
+    throw err;
+  }
+};

@@ -737,3 +737,109 @@ body.orders-modal-open {
     white-space: nowrap;
   }
 }
+
+.order-cancel-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba($ink, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 2000;
+
+  &__panel {
+    width: min(440px, 100%);
+    border-radius: 28px;
+    padding: 24px 26px;
+    background: $surface;
+    box-shadow: 0 30px 80px rgba($ink, 0.25);
+  }
+
+  &__title {
+    margin: 0 0 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: $ink;
+  }
+
+  &__subtitle {
+    margin: 0 0 18px;
+    font-size: 14px;
+    color: $muted;
+    letter-spacing: 0.04em;
+  }
+
+  &__options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: $ink;
+
+    input[type="radio"] {
+      accent-color: $accent;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  textarea {
+    width: 100%;
+    border: 1px solid rgba($border, 0.9);
+    border-radius: 16px;
+    padding: 10px 12px;
+    font-size: 14px;
+    resize: none;
+    min-height: 80px;
+    font-family: inherit;
+  }
+
+  &__error {
+    color: $danger;
+    font-size: 13px;
+    margin: 8px 0 0;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+
+    button {
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      border: 1px solid rgba($border, 0.9);
+      background: rgba($soft-surface, 0.9);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba($ink, 0.15);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      &.confirm {
+        background: linear-gradient(120deg, $danger, color.adjust($danger, $lightness: -6%));
+        color: #fff;
+        border-color: transparent;
+      }
+    }
+  }
+}

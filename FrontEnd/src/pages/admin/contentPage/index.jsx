@@ -16,6 +16,7 @@ import ReactionBar from "../../../component/reactionBar";
 import { uploadImageFile, uploadArticleImage } from "../../../component/redux/apiRequest";
 import BannerManagerPage from "../bannerManagerPage";
 import "./style.scss";
+import { emitAdminBadgeRefresh } from "../../../utils/adminBadgeEvents";
 
 const ContentManagementPage = () => {
   const [activeTab, setActiveTab] = useState("articles");
@@ -137,6 +138,7 @@ const ContentManagementPage = () => {
       if (response.data.success) {
         toast.success("Đã duyệt bài viết");
         fetchArticles();
+        emitAdminBadgeRefresh();
       }
     } catch (error) {
       console.error("Error approving article:", error);
@@ -158,6 +160,7 @@ const ContentManagementPage = () => {
       if (response.data.success) {
         toast.success("Đã từ chối bài viết");
         fetchArticles();
+        emitAdminBadgeRefresh();
       }
     } catch (error) {
       console.error("Error rejecting article:", error);

@@ -827,10 +827,11 @@ export const fetchMyOrders = async (accessToken) => {
     return res.data;
 };
 // user hủy đơn hàng của mình
-export const cancelOrder = async (orderId, token) => {
+export const cancelOrder = async (orderId, token, reason = "") => {
+    const payload = reason ? { reason } : {};
     const res = await API.put(
         `/order/${orderId}/cancel`,
-        {},
+        payload,
         { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }
     );
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);

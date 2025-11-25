@@ -8,6 +8,12 @@ import {
   shipperDeliveredOrder,
   shipperCancelOrder,
 } from "../../../component/redux/apiRequest";
+import {
+  SHIPPER_CANCEL_REASONS,
+  DEFAULT_SHIPPER_CANCEL_REASON_TEXT,
+  DEFAULT_SHIPPER_CANCEL_REASON_VALUE,
+  resolveCancelReasonText,
+} from "../../../constants/cancelReasons";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
 import OrderActions from "../../../component/orders/OrderActions";
 import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
@@ -25,15 +31,6 @@ const paymentOptions = [
   { value: "COD", label: "COD" },
   { value: "online", label: "Thanh toán online" },
 ];
-
-const CANCEL_REASONS = [
-  { value: "customer_refused", label: "Khách không nhận hàng" },
-  { value: "cannot_contact", label: "Không liên hệ được khách" },
-  { value: "address_wrong", label: "Sai địa chỉ / không tìm thấy" },
-  { value: "delay_request", label: "Khách yêu cầu giao lại lúc khác" },
-  { value: "other", label: "Lý do khác" },
-];
-const DEFAULT_CANCEL_REASON = CANCEL_REASONS[0].label;
 
 const extractAddressForMap = (address = "") => {
   if (!address) return "";
@@ -77,7 +74,7 @@ const Orders = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [cancelDialog, setCancelDialog] = useState({ open: false, orderId: null });
-  const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0].value);
+  const [selectedReason, setSelectedReason] = useState(DEFAULT_SHIPPER_CANCEL_REASON_VALUE);
   const [customReason, setCustomReason] = useState("");
   const [cancelError, setCancelError] = useState("");
 
@@ -126,7 +123,7 @@ const Orders = () => {
 
   const openCancelDialog = (id) => {
     setCancelDialog({ open: true, orderId: id });
-    setSelectedReason(CANCEL_REASONS[0].value);
+    setSelectedReason(DEFAULT_SHIPPER_CANCEL_REASON_VALUE);
     setCustomReason("");
     setCancelError("");
   };
@@ -167,9 +164,8 @@ const Orders = () => {
 
   const handleConfirmCancel = async () => {
     const reasonText =
-      selectedReason === "other"
-        ? customReason.trim()
-        : CANCEL_REASONS.find((r) => r.value === selectedReason)?.label || DEFAULT_CANCEL_REASON;
+      resolveCancelReasonText(selectedReason, customReason, SHIPPER_CANCEL_REASONS) ||
+      DEFAULT_SHIPPER_CANCEL_REASON_TEXT;
 
     if (!reasonText) {
       setCancelError("Vui lòng nhập lý do hợp lệ.");
@@ -408,7 +404,7 @@ const Orders = () => {
           <div className="shipper-cancel-dialog__panel">
             <h3>Chọn lý do hủy đơn</h3>
             <div className="shipper-cancel-dialog__options">
-              {CANCEL_REASONS.map((reason) => (
+              {SHIPPER_CANCEL_REASONS.map((reason) => (
                 <label key={reason.value} className="shipper-cancel-dialog__option">
                   <input
                     type="radio"

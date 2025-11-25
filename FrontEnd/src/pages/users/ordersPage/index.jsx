@@ -15,6 +15,11 @@ import OrderActions from "../../../component/orders/OrderActions";
 import OrderStatusTimeline from "../../../component/orders/OrderStatusTimeline";
 import { ROUTERS } from "../../../utils/router";
 import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
+import {
+  USER_CANCEL_REASONS,
+  DEFAULT_USER_CANCEL_REASON_VALUE,
+  resolveCancelReasonText,
+} from "../../../constants/cancelReasons";
 import "./style.scss";
 
 const formatDateTime = (iso) => {
@@ -81,11 +86,30 @@ const OrdersPage = () => {
   const [actionState, setActionState] = useState({ id: null, key: "" });
   const [pendingCountdownMs, setPendingCountdownMs] = useState(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const [cancelDialog, setCancelDialog] = useState({ open: false, orderId: null, order: null });
+  const [cancelReasonValue, setCancelReasonValue] = useState(DEFAULT_USER_CANCEL_REASON_VALUE);
+  const [customCancelReason, setCustomCancelReason] = useState("");
+  const [cancelReasonError, setCancelReasonError] = useState("");
 
   const orderDetailRef = useRef(null);
 
   const setActionLoading = (id, key) => setActionState({ id, key });
   const clearActionLoading = () => setActionState({ id: null, key: "" });
+
+  const openCancelDialog = (order) => {
+    const id = order?._id || order?.id;
+    if (!id) return;
+    setCancelDialog({ open: true, orderId: String(id), order });
+    setCancelReasonValue(DEFAULT_USER_CANCEL_REASON_VALUE);
+    setCustomCancelReason("");
+    setCancelReasonError("");
+  };
+
+  const closeCancelDialog = () => {
+    setCancelDialog({ open: false, orderId: null, order: null });
+    setCancelReasonError("");
+    setCustomCancelReason("");
+  };
 
   const tokenHeader = useMemo(() => {
     const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
@@ -129,6 +153,8 @@ const OrdersPage = () => {
   const selectedOrderKey = selectedOrder ? String(selectedOrder._id || selectedOrder.id || "") : "";
   const selectedOrderTimestamp = selectedOrder?.createdAt || selectedOrder?.updatedAt;
   const detailActionKey = actionState.id === selectedOrderKey ? actionState.key : "";
+  const cancelDialogLoading =
+    cancelDialog.open && actionState.id === cancelDialog.orderId && actionState.key === "cancel";
 
   const refresh = () => setReloadTick((t) => t + 1);
 
@@ -152,13 +178,28 @@ const OrdersPage = () => {
     }
   };
 
-const handleCancelOrder = async (orderId) => {
+  const handleCancelOrder = (orderId, order) => {
     if (!orderId) return;
-    if (!window.confirm("Bạn chắc chắn muốn hủy đơn này?")) return;
+    openCancelDialog(order || selectedOrder);
+  };
+
+  const handleConfirmCancelOrder = async () => {
+    if (!cancelDialog.orderId) return;
+    const reasonText = resolveCancelReasonText(
+      cancelReasonValue,
+      customCancelReason,
+      USER_CANCEL_REASONS
+    );
+    if (!reasonText) {
+      setCancelReasonError("Vui lòng chọn hoặc nhập lý do hợp lệ.");
+      return;
+    }
+
     try {
-      setActionLoading(orderId, "cancel");
-      await cancelOrder(orderId, user?.accessToken);
+      setActionLoading(cancelDialog.orderId, "cancel");
+      await cancelOrder(cancelDialog.orderId, user?.accessToken, reasonText);
       alert("Đã hủy đơn hàng.");
+      closeCancelDialog();
       setSelectedOrderId(null);
       refresh();
     } catch (err) {
@@ -283,7 +324,10 @@ const toggleOpen = (id) => {
     return () => document.body.classList.remove("orders-modal-open");
   }, [selectedOrder]);
 
-  const closeDetail = () => setSelectedOrderId(null);
+  const closeDetail = () => {
+    setSelectedOrderId(null);
+    closeCancelDialog();
+  };
 
   useEffect(() => {
     if (!selectedOrder) return undefined;
@@ -635,6 +679,63 @@ const toggleOpen = (id) => {
                       loadingAction={detailActionKey}
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {cancelDialog.open && (
+            <div className="order-cancel-dialog">
+              <div className="order-cancel-dialog__panel">
+                <h3 className="order-cancel-dialog__title">Chọn lý do hủy đơn</h3>
+                {cancelDialog.orderId && (
+                  <p className="order-cancel-dialog__subtitle">
+                    Đơn #{String(cancelDialog.orderId).slice(-8).toUpperCase()}
+                    {typeof cancelDialog.order?.amount?.total === "number" && (
+                      <> • {formatter(cancelDialog.order.amount.total)}</>
+                    )}
+                  </p>
+                )}
+                <div className="order-cancel-dialog__options">
+                  {USER_CANCEL_REASONS.map((reason) => (
+                    <label key={reason.value} className="order-cancel-dialog__option">
+                      <input
+                        type="radio"
+                        name="userCancelReason"
+                        value={reason.value}
+                        checked={cancelReasonValue === reason.value}
+                        onChange={() => {
+                          setCancelReasonValue(reason.value);
+                          setCancelReasonError("");
+                        }}
+                      />
+                      <span>{reason.label}</span>
+                    </label>
+                  ))}
+                  {cancelReasonValue === "other" && (
+                    <textarea
+                      rows={3}
+                      placeholder="Nhập lý do khác..."
+                      value={customCancelReason}
+                      onChange={(e) => {
+                        setCustomCancelReason(e.target.value);
+                        setCancelReasonError("");
+                      }}
+                    />
+                  )}
+                </div>
+                {cancelReasonError && <p className="order-cancel-dialog__error">{cancelReasonError}</p>}
+                <div className="order-cancel-dialog__actions">
+                  <button type="button" onClick={closeCancelDialog}>
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    className="confirm"
+                    onClick={handleConfirmCancelOrder}
+                    disabled={cancelDialogLoading}
+                  >
+                    {cancelDialogLoading ? "Đang xử lý..." : "Xác nhận hủy"}
+                  </button>
                 </div>
               </div>
             </div>

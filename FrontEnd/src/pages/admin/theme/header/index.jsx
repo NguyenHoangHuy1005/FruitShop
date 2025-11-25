@@ -1,6 +1,5 @@
-import { memo } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import "./style.scss";
-import { useState } from "react";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTERS } from "../../../../utils/router";
 import { RiLogoutBoxFill } from "react-icons/ri";
@@ -12,7 +11,8 @@ import { HiDocumentText } from "react-icons/hi";
 import { useDispatch, useSelector } from 'react-redux';
 import { logout, ensureAccessToken, API } from "../../../../component/redux/apiRequest";
 import { Boxes } from "lucide-react";
-import { useEffect } from "react";
+import { subscribeOrderUpdates } from "../../../../utils/orderRealtime";
+import { ADMIN_BADGE_REFRESH_EVENT } from "../../../../utils/adminBadgeEvents";
 
 const HeaderAd = ({ children, ...props }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
@@ -22,6 +22,7 @@ const HeaderAd = ({ children, ...props }) => {
   const accessToken = user?.accessToken;
   const id = user?._id;
   const [open, setOpen] = useState(false);
+  const [navBadges, setNavBadges] = useState({ orders: 0, content: 0 });
   const toggleMenu = () => setOpen(!open);
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +45,70 @@ const HeaderAd = ({ children, ...props }) => {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [dispatch, navigate]);
+
+  const fetchBadgeCounts = useCallback(async () => {
+    if (!accessToken) {
+      setNavBadges({ orders: 0, content: 0 });
+      return;
+    }
+    try {
+      const [ordersRes, articlesRes] = await Promise.allSettled([
+        API.get("/order", {
+          params: { status: "pending", limit: 1 },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          validateStatus: () => true,
+        }),
+        API.get("/article/admin/all", {
+          params: { status: "pending", limit: 1 },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          validateStatus: () => true,
+        }),
+      ]);
+
+      const orderCount =
+        ordersRes.status === "fulfilled" && ordersRes.value.status === 200
+          ? Number(
+              ordersRes.value.data?.total ??
+                ordersRes.value.data?.count ??
+                (ordersRes.value.data?.data?.length ?? 0)
+            )
+          : 0;
+
+      const articleCount =
+        articlesRes.status === "fulfilled" && articlesRes.value.status === 200
+          ? Number(
+              articlesRes.value.data?.pagination?.total ??
+                articlesRes.value.data?.articles?.length ??
+                0
+            )
+          : 0;
+
+      setNavBadges((prev) => {
+        const next = { orders: orderCount, content: articleCount };
+        if (prev.orders === next.orders && prev.content === next.content) return prev;
+        return next;
+      });
+    } catch (err) {
+      console.warn("[admin-header] badge fetch failed:", err?.message || err);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    fetchBadgeCounts();
+    if (!accessToken) return undefined;
+    const timer = setInterval(fetchBadgeCounts, 30000);
+    return () => clearInterval(timer);
+  }, [fetchBadgeCounts, accessToken]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOrderUpdates(fetchBadgeCounts);
+    const handler = () => fetchBadgeCounts();
+    window.addEventListener(ADMIN_BADGE_REFRESH_EVENT, handler);
+    return () => {
+      unsubscribe();
+      window.removeEventListener(ADMIN_BADGE_REFRESH_EVENT, handler);
+    };
+  }, [fetchBadgeCounts]);
 
 
 
@@ -140,6 +205,11 @@ const HeaderAd = ({ children, ...props }) => {
               >
                 <span className="admin-header__nav-icon">{icon}</span>
                 <span className="admin-header__nav-label">{label}</span>
+                {!!navBadges[key] && (
+                  <span className="admin-header__nav-badge">
+                    {navBadges[key] > 99 ? "99+" : navBadges[key]}
+                  </span>
+                )}
               </button>
             );
           })}

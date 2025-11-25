@@ -73,6 +73,7 @@
       align-items: center;
       gap: 0.5rem;
       padding: 0.75rem 1.25rem;
+      padding-right: 1.6rem;
       border-radius: 10px;
       background: transparent;
       border: 2px solid transparent;
@@ -142,6 +143,25 @@
       font-weight: 600;
       position: relative;
       z-index: 1;
+    }
+
+    &-badge {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 6px 12px rgba(239, 68, 68, 0.35);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      animation: admin-header-pulse 1.2s infinite;
     }
   }
 
@@ -304,5 +324,20 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes admin-header-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.75;
   }
 }

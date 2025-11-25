@@ -8,124 +8,125 @@ import { formatter } from "../../../utils/fomater";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
 import OrderStatusTimeline from "../../../component/orders/OrderStatusTimeline";
 import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
+import { emitAdminBadgeRefresh } from "../../../utils/adminBadgeEvents";
 
 const formatDateTime = (iso) => {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso || "";
-  }
+    try {
+        const d = new Date(iso);
+        return d.toLocaleString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        });
+    } catch {
+        return iso || "";
+    }
 };
 // + ADD: chuẩn hóa đầu/cuối ngày cho lọc khoảng
 const toStartOfDay = (iso) => {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
 };
 const toEndOfDay = (iso) => {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 23, 59, 59, 999);
 };
 
 const PAYMENT_METHOD_LABELS = {
-  COD: "Thanh toán khi nhận hàng (COD)",
-  BANK: "Thanh toán trực tuyến (SePay QR)",
-  VNPAY: "Cổng VNPAY / Thẻ quốc tế",
+    COD: "Thanh toán khi nhận hàng (COD)",
+    BANK: "Thanh toán trực tuyến (SePay QR)",
+    VNPAY: "Cổng VNPAY / Thẻ quốc tế",
 };
 
 const PAYMENT_CHANNEL_LABELS = {
-  vietqr: "Quét mã VietQR - Ngân hàng nội địa",
-  card: "QR thẻ quốc tế (Visa/Mastercard)",
-  momo: "Ví MoMo",
+    vietqr: "Quét mã VietQR - Ngân hàng nội địa",
+    card: "QR thẻ quốc tế (Visa/Mastercard)",
+    momo: "Ví MoMo",
 };
 
 const PAYMENT_CANCEL_REASON_LABELS = {
-  timeout: "Tự hủy do quá hạn thanh toán",
-  user_cancelled: "Khách tự hủy đơn",
-  admin_cancelled: "Quản trị viên hủy đơn",
+    timeout: "Tự hủy do quá hạn thanh toán",
+    user_cancelled: "Khách tự hủy đơn",
+    admin_cancelled: "Quản trị viên hủy đơn",
 };
 
 const resolvePaymentLabels = (order) => {
-  // Handle both old format (string) and new format (object with gateway)
-  const methodCode = typeof order?.payment === 'object' 
-    ? order?.payment?.gateway 
-    : order?.payment;
-  const channelCode = order?.paymentMeta?.channel;
-  const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
-  const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
-    ? PAYMENT_CHANNEL_LABELS[channelCode]
-    : "";
-  return { methodLabel, channelLabel };
+    // Handle both old format (string) and new format (object with gateway)
+    const methodCode = typeof order?.payment === 'object' 
+        ? order?.payment?.gateway 
+        : order?.payment;
+    const channelCode = order?.paymentMeta?.channel;
+    const methodLabel = PAYMENT_METHOD_LABELS[methodCode] || methodCode || "Không xác định";
+    const channelLabel = channelCode && PAYMENT_CHANNEL_LABELS[channelCode]
+        ? PAYMENT_CHANNEL_LABELS[channelCode]
+        : "";
+    return { methodLabel, channelLabel };
 };
 
 const resolveCancelNote = (order) => {
-  if (!order || order.status !== "cancelled") return "";
-  const reason = order?.paymentMeta?.cancelReason;
-  if (reason && PAYMENT_CANCEL_REASON_LABELS[reason]) {
-    return PAYMENT_CANCEL_REASON_LABELS[reason];
-  }
-  return "Đơn đã bị hủy";
+    if (!order || order.status !== "cancelled") return "";
+    const reason = order?.paymentMeta?.cancelReason;
+    if (reason && PAYMENT_CANCEL_REASON_LABELS[reason]) {
+        return PAYMENT_CANCEL_REASON_LABELS[reason];
+    }
+    return "Đơn đã bị hủy";
 };
 
 const describeWarehouse = (warehouse) => {
-  if (!warehouse) return "";
-  const name = warehouse.name || "Kho";
-  const address = warehouse.address || "";
-  const base = address ? `${name} - ${address}` : name;
-  if (warehouse.phone) {
-    return `${base} (ĐT: ${warehouse.phone})`;
-  }
-  return base;
+    if (!warehouse) return "";
+    const name = warehouse.name || "Kho";
+    const address = warehouse.address || "";
+    const base = address ? `${name} - ${address}` : name;
+    if (warehouse.phone) {
+        return `${base} (ĐT: ${warehouse.phone})`;
+    }
+    return base;
 };
 
 const normalizeOrderStatus = (status) => {
-  const raw = String(status || "").toLowerCase();
-  if (!raw) return "";
-  if (raw === "shipping" || raw === "shipped") return "shipped";
-  if (raw === "completed" || raw === "complete") return "complete";
-  return raw;
+    const raw = String(status || "").toLowerCase();
+    if (!raw) return "";
+    if (raw === "shipping" || raw === "shipped") return "shipped";
+    if (raw === "completed" || raw === "complete") return "complete";
+    return raw;
 };
 
 const ADMIN_TIMELINE_TEXTS = {
-  title: "Nhật ký trạng thái",
-  actorLabel: "Người thao tác",
-  empty: "Chưa có cập nhật trạng thái.",
-  createdLabel: "Đơn được tạo",
-  defaultActor: "Hệ thống",
-  defaultNotes: {
-    created: "Khách đã đặt đơn.",
-    pending: "Đơn chờ xác nhận.",
-    pending_payment: "Đơn chờ khách thanh toán.",
-    awaiting_payment: "Đơn chờ khách thanh toán.",
-    processing: "Đã duyệt và chờ shipper nhận.",
-    shipping: "Đang giao cho khách.",
-    delivered: "Shipper xác nhận đã giao.",
-    completed: "Khách xác nhận hoàn tất.",
-    cancelled: "Đơn đã hủy.",
-    expired: "Đơn quá hạn thanh toán.",
-  },
-  actorTypes: {
-    admin: "Quản trị viên",
-    staff: "Nhân viên",
-    user: "Khách hàng",
-    guest: "Khách",
-    shipper: "Shipper",
-    system: "Hệ thống",
-  },
+    title: "Nhật ký trạng thái",
+    actorLabel: "Người thao tác",
+    empty: "Chưa có cập nhật trạng thái.",
+    createdLabel: "Đơn được tạo",
+    defaultActor: "Hệ thống",
+    defaultNotes: {
+        created: "Khách đã đặt đơn.",
+        pending: "Đơn chờ xác nhận.",
+        pending_payment: "Đơn chờ khách thanh toán.",
+        awaiting_payment: "Đơn chờ khách thanh toán.",
+        processing: "Đã duyệt và chờ shipper nhận.",
+        shipping: "Đang giao cho khách.",
+        delivered: "Shipper xác nhận đã giao.",
+        completed: "Khách xác nhận hoàn tất.",
+        cancelled: "Đơn đã hủy.",
+        expired: "Đơn quá hạn thanh toán.",
+    },
+    actorTypes: {
+        admin: "Quản trị viên",
+        staff: "Nhân viên",
+        user: "Khách hàng",
+        guest: "Khách",
+        shipper: "Shipper",
+        system: "Hệ thống",
+    },
 };
 
 
 const OrderAdminPage = () => {
-  const navigate = useNavigate();
-  const user = useSelector((s) => s.auth?.login?.currentUser);
+    const navigate = useNavigate();
+    const user = useSelector((s) => s.auth?.login?.currentUser);
 
     const [data, setData] = useState([]);
     const [total, setTotal] = useState(0);
@@ -172,10 +173,10 @@ const OrderAdminPage = () => {
         return unsub;
     }, []);
 
-  const headers = useMemo(() => {
-    const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
-    return bearer ? { Authorization: bearer } : {};
-  }, [user?.accessToken]);
+    const headers = useMemo(() => {
+        const bearer = user?.accessToken ? `Bearer ${user.accessToken}` : "";
+        return bearer ? { Authorization: bearer } : {};
+    }, [user?.accessToken]);
 
     useEffect(() => {
         if (!user?.accessToken || user?.admin !== true) {
@@ -225,81 +226,84 @@ const OrderAdminPage = () => {
         return () => { alive = false; };
     }, [page, limit, q, status, fromDate, toDate, headers, refreshTick]);
 
-  const pages = Math.max(1, Math.ceil(total / limit));
-  const selectedOrderKey = selectedOrder?._id || null;
-  const selectedWarehouse = useMemo(
-    () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
-    [warehouses, selectedWarehouseId]
-  );
-  const manualAddressFilled = manualPickupAddress.trim().length > 0;
-  const hasPickupAddressInput = Boolean(
-    selectedWarehouse ||
-    manualAddressFilled ||
-    (selectedOrder?.pickupAddress && selectedOrder.pickupAddress.trim())
-  );
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const selectedOrderKey = selectedOrder?._id || null;
+    const selectedWarehouse = useMemo(
+        () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
+        [warehouses, selectedWarehouseId]
+    );
+    const manualAddressFilled = manualPickupAddress.trim().length > 0;
+    const hasPickupAddressInput = Boolean(
+        selectedWarehouse ||
+        manualAddressFilled ||
+        (selectedOrder?.pickupAddress && selectedOrder.pickupAddress.trim())
+    );
 
-  useEffect(() => {
-    setManualPickupAddress("");
-    setSelectedWarehouseId("");
-  }, [selectedOrderKey]);
+    useEffect(() => {
+        setManualPickupAddress("");
+        setSelectedWarehouseId("");
+    }, [selectedOrderKey]);
 
-  // + ADD: chỉ lọc theo createdAt để hiển thị
-  const viewRows = useMemo(() => {
-    const from = toStartOfDay(fromDate);
-    const to   = toEndOfDay(toDate);
-    return (data || []).filter((o) => {
-      let ok = true;
-      if (ok && from) ok = new Date(o.createdAt) >= from;
-      if (ok && to)   ok = new Date(o.createdAt) <= to;
-      return ok;
-    });
-  }, [data, fromDate, toDate]);
+    // + ADD: chỉ lọc theo createdAt để hiển thị
+    const viewRows = useMemo(() => {
+        const from = toStartOfDay(fromDate);
+        const to   = toEndOfDay(toDate);
+        return (data || []).filter((o) => {
+        let ok = true;
+        if (ok && from) ok = new Date(o.createdAt) >= from;
+        if (ok && to)   ok = new Date(o.createdAt) <= to;
+        return ok;
+        });
+    }, [data, fromDate, toDate]);
 
-  // + ADD
-  const resetFilters = () => {
-    setQ("");
-    setFromDate("");
-    setToDate("");
-    setStatus("");
-    setPage(1);
-  };
+    const hasPendingOrders = useMemo(
+        () => (data || []).some((order) => order.status === "pending"),
+        [data]
+    );
 
-    return (
-        <div className="container">
-          <h2>QUẢN LÝ ĐƠN HÀNG</h2>
+    // + ADD
+    const resetFilters = () => {
+        setQ("");
+        setFromDate("");
+        setToDate("");
+        setStatus("");
+        setPage(1);
+    };
+
+        return (
+            <div className="container">
+            <h2>QUẢN LÝ ĐƠN HÀNG</h2>
             <div className="orders">
-                <div className="orders__header">
-                </div>
                 <div className="orders__toolbar">
-                  <div className="filter-field search-field">
-                    <label>TÌM KIẾM</label>
-                    <input
-                      value={q}
-                      onChange={(e) => { setPage(1); setQ(e.target.value); }}
-                      placeholder="Mã HD / Nhà cung cấp / Người nhập..."
-                    />
-                  </div>
+                    <div className="filter-field search-field">
+                            <label>TÌM KIẾM</label>
+                            <input
+                            value={q}
+                            onChange={(e) => { setPage(1); setQ(e.target.value); }}
+                            placeholder="Mã HD / Nhà cung cấp / Người nhập..."
+                            />
+                    </div>
 
-                  <div className="filter-field">
-                    <label>TỪ NGÀY</label>
-                    <input
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
-                      title="Từ ngày (theo ngày đặt)"
-                    />
-                  </div>
+                    <div className="filter-field">
+                            <label>TỪ NGÀY</label>
+                            <input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => { setPage(1); setFromDate(e.target.value); }}
+                            title="Từ ngày (theo ngày đặt)"
+                            />
+                    </div>
 
-                  <span className="dash">→</span>
+                    <span className="dash">→</span>
 
-                  <div className="filter-field">
-                    <label>ĐẾN NGÀY</label>
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => { setPage(1); setToDate(e.target.value); }}
-                      title="Đến ngày (theo ngày đặt)"
-                    />
+                    <div className="filter-field">
+                            <label>ĐẾN NGÀY</label>
+                            <input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => { setPage(1); setToDate(e.target.value); }}
+                            title="Đến ngày (theo ngày đặt)"
+                            />
                   </div>
 
                   <div className="filter-field">
@@ -308,6 +312,26 @@ const OrderAdminPage = () => {
                       <option value={10}>10 / trang</option>
                       <option value={20}>20 / trang</option>
                       <option value={50}>50 / trang</option>
+                    </select>
+                  </div>
+
+                  <div className="filter-field">
+                    <label>TRẠNG THÁI</label>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        setPage(1);
+                        setStatus(e.target.value);
+                      }}
+                    >
+                      <option value="">Tất cả</option>
+                      <option value="pending">Chờ xác nhận</option>
+                      <option value="processing">Đang chuẩn bị</option>
+                      <option value="shipping">Đang giao</option>
+                      <option value="delivered">Đã giao</option>
+                      <option value="completed">Hoàn tất</option>
+                      <option value="cancelled">Đã hủy</option>
+                      <option value="expired">Quá hạn</option>
                     </select>
                   </div>
 
@@ -509,6 +533,7 @@ const OrderAdminPage = () => {
                                                     setSelectedOrder(null);
                                                     setManualPickupAddress("");
                                                     setSelectedWarehouseId("");
+                                                    emitAdminBadgeRefresh();
                                                     window.location.reload();
                                                 } else {
                                                     alert(res.data?.message || "Có lỗi xảy ra");

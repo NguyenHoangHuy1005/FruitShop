@@ -938,7 +938,7 @@ exports.createOrder = async (req, res) => {
     }
 };
 
-// User cancel order (only allowed while processing)
+// User cancel order (pending/pending_payment/processing)
 exports.cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
@@ -947,9 +947,13 @@ exports.cancelOrder = async (req, res) => {
         const order = await Order.findOne({ _id: id, user: userId });
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-        if (order.status !== "processing") {
-        return res.status(400).json({ message: "Chỉ các đơn hàng đang xử lý mới có thể hủy." });
+        const cancellableStatuses = ["pending", "pending_payment", "processing"];
+        if (!cancellableStatuses.includes(order.status)) {
+            return res.status(400).json({ message: "Chỉ các đơn đang chờ xác nhận hoặc đang xử lý mới có thể hủy." });
         }
+
+        const rawReason = typeof req.body?.reason === "string" ? req.body.reason : "";
+        const cancelReason = rawReason.trim().slice(0, 200) || "Khách tự hủy đơn";
 
         // Return items to stock
         await restoreInventory(order);
@@ -963,20 +967,15 @@ exports.cancelOrder = async (req, res) => {
         order.paymentMeta = {
             ...(order.paymentMeta || {}),
             cancelledAt: new Date(),
-            cancelReason: "người dùng tự hủy đơn",
+            cancelReason,
+            cancelledBy: "user",
         };
         try {
             order.markModified("paymentMeta");
         } catch (_) { }
         pushHistoryToDoc(order, {
-            status: "expired",
-            note: order.paymentMeta?.cancelReason || "�?��n hA�ng h���t h���n thanh toA�n",
-            actorType: "system",
-            actorName: "System",
-        });
-        pushHistoryToDoc(order, {
             status: "cancelled",
-            note: order.paymentMeta.cancelReason,
+            note: cancelReason,
             actorType: "user",
             actorId: userId,
             actorName: req.user?.username || req.user?.email || order.customer?.name

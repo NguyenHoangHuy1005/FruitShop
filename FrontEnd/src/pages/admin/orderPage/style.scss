@@ -627,22 +627,47 @@ $zinc: #71717a;
 }
 
 .order-modal__body {
-    padding: 28px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.02), rgba(255, 255, 255, 0.95));
 }
 
 .order-info-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 28px;
+    gap: 18px;
+}
+
+.order-timeline-card {
+    padding: 20px 22px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), var(--bg));
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+    .order-status-timeline__title {
+        color: var(--text);
+    }
+
+    .timeline-content {
+        background: var(--bg);
+        border-color: var(--border);
+    }
+
+    .timeline-item--current .timeline-content {
+        border-color: rgba(0, 136, 116, 0.4);
+    }
 }
 
 .info-card {
     padding: 16px 18px;
-    background: linear-gradient(135deg, var(--bg-soft), var(--bg));
-    border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), var(--bg));
+    border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 14px;
     transition: all 0.2s ease;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 
     &:hover {
         border-color: #008874;
@@ -674,10 +699,10 @@ $zinc: #71717a;
 
 .prepare-section {
     padding: 24px;
-    background: linear-gradient(135deg, rgba(#3b82f6, 0.08), rgba(#2563eb, 0.05));
-    border: 2px solid rgba(#3b82f6, 0.2);
+    background: linear-gradient(135deg, rgba(#3b82f6, 0.08), rgba(#2563eb, 0.04));
+    border: 1px solid rgba(#3b82f6, 0.3);
     border-radius: 16px;
-    margin-bottom: 24px;
+    box-shadow: 0 12px 30px rgba(#2563eb, 0.1);
 
     h4 {
         margin: 0 0 12px;
@@ -752,10 +777,10 @@ $zinc: #71717a;
 .ready-info {
     padding: 24px;
     background: linear-gradient(135deg, rgba(#10b981, 0.1), rgba(#059669, 0.08));
-    border: 2px solid rgba(#10b981, 0.3);
+    border: 1px solid rgba(#10b981, 0.3);
     border-radius: 16px;
-    margin-bottom: 24px;
     text-align: center;
+    box-shadow: 0 12px 32px rgba(#10b981, 0.16);
 
     .ready-badge-large {
         display: inline-block;
@@ -777,8 +802,14 @@ $zinc: #71717a;
 }
 
 .order-items-section {
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), var(--bg));
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+
     h4 {
-        margin: 0 0 16px;
+        margin: 0 0 18px;
         color: var(--text);
         font-size: 18px;
         font-weight: 700;
@@ -792,6 +823,7 @@ $zinc: #71717a;
     border: 1px solid var(--border);
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 
     thead {
         background: var(--bg-soft);

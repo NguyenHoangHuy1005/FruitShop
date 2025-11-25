@@ -26,7 +26,14 @@ const paymentOptions = [
   { value: "online", label: "Thanh toán online" },
 ];
 
-const DEFAULT_CANCEL_REASON = "Khách không nhận hàng";
+const CANCEL_REASONS = [
+  { value: "customer_refused", label: "Khách không nhận hàng" },
+  { value: "cannot_contact", label: "Không liên hệ được khách" },
+  { value: "address_wrong", label: "Sai địa chỉ / không tìm thấy" },
+  { value: "delay_request", label: "Khách yêu cầu giao lại lúc khác" },
+  { value: "other", label: "Lý do khác" },
+];
+const DEFAULT_CANCEL_REASON = CANCEL_REASONS[0].label;
 
 const extractAddressForMap = (address = "") => {
   if (!address) return "";
@@ -67,17 +74,26 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [areaFilter, setAreaFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [cancelDialog, setCancelDialog] = useState({ open: false, orderId: null });
+  const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0].value);
+  const [customReason, setCustomReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const normalizedArea = areaFilter.trim().toLowerCase();
 
   const load = useCallback(
-    async (tabKey = activeTab) => {
+    async (tabKey = activeTab, overrides = {}) => {
       setLoading(true);
       setError("");
       try {
         const statuses = tabs[tabKey]?.statuses || [];
-        const res = await fetchShipperOrders(statuses);
+        const res = await fetchShipperOrders(statuses, {
+          fromDate: overrides.fromDate ?? fromDate,
+          toDate: overrides.toDate ?? toDate,
+        });
         setOrders(res.orders || []);
       } catch (e) {
         setError(e?.message || "Không thể tải danh sách đơn hàng.");
@@ -85,7 +101,7 @@ const Orders = () => {
         setLoading(false);
       }
     },
-    [activeTab]
+    [activeTab, fromDate, toDate]
   );
 
   useEffect(() => {
@@ -108,15 +124,17 @@ const Orders = () => {
 
   const resetAction = () => setActionState({ id: null, key: "" });
 
-  const requestCancelReason = () => {
-    const value = window.prompt("Nhập lý do hủy đơn", DEFAULT_CANCEL_REASON);
-    if (value === null) return null;
-    const trimmed = value.trim();
-    if (!trimmed) {
-      alert("Vui lòng nhập lý do hợp lệ.");
-      return null;
-    }
-    return trimmed;
+  const openCancelDialog = (id) => {
+    setCancelDialog({ open: true, orderId: id });
+    setSelectedReason(CANCEL_REASONS[0].value);
+    setCustomReason("");
+    setCancelError("");
+  };
+
+  const closeCancelDialog = () => {
+    setCancelDialog({ open: false, orderId: null });
+    setCustomReason("");
+    setCancelError("");
   };
 
   const handleAccept = async (id) => {
@@ -143,16 +161,26 @@ const Orders = () => {
     }
   };
 
-  const handleCancel = async (id) => {
+  const handleCancel = (id) => {
+    openCancelDialog(id);
+  };
+
+  const handleConfirmCancel = async () => {
+    const reasonText =
+      selectedReason === "other"
+        ? customReason.trim()
+        : CANCEL_REASONS.find((r) => r.value === selectedReason)?.label || DEFAULT_CANCEL_REASON;
+
+    if (!reasonText) {
+      setCancelError("Vui lòng nhập lý do hợp lệ.");
+      return;
+    }
+
     try {
-      setActionState({ id, key: "fail" });
-      const reason = requestCancelReason();
-      if (!reason) {
-        resetAction();
-        return;
-      }
-      await shipperCancelOrder(id, reason);
+      setActionState({ id: cancelDialog.orderId, key: "fail" });
+      await shipperCancelOrder(cancelDialog.orderId, reasonText);
       await load();
+      closeCancelDialog();
     } catch (e) {
       alert(e?.message || "Hủy đơn thất bại.");
     } finally {
@@ -161,6 +189,15 @@ const Orders = () => {
   };
 
   const handleRefresh = () => load(activeTab);
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setPaymentFilter("all");
+    setAreaFilter("");
+    setFromDate("");
+    setToDate("");
+    load(activeTab, { fromDate: "", toDate: "" });
+  };
 
   const handleCopyAddress = (address) => {
     if (!address || !navigator?.clipboard) return;
@@ -252,6 +289,24 @@ const Orders = () => {
             onChange={(e) => setAreaFilter(e.target.value)}
           />
         </div>
+        <div className="shipper-filters__group">
+          <label htmlFor="shipper-from">Từ ngày</label>
+          <input
+            type="date"
+            id="shipper-from"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+        </div>
+        <div className="shipper-filters__group">
+          <label htmlFor="shipper-to">Đến ngày</label>
+          <input
+            type="date"
+            id="shipper-to"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
+        </div>
         <button
           type="button"
           className="shipper-refresh"
@@ -259,6 +314,14 @@ const Orders = () => {
           disabled={loading}
         >
           Làm mới
+        </button>
+        <button
+          type="button"
+          className="shipper-refresh shipper-refresh--secondary"
+          onClick={handleClearFilters}
+          disabled={loading}
+        >
+          Xóa lọc
         </button>
       </div>
 
@@ -322,7 +385,7 @@ const Orders = () => {
                   </td>
                   <td>{formatter(o.amount?.total || 0)}</td>
                   <td className="shipper-orders__actions">
-                    <Link to={`${ROUTERS.SHIPPER.ORDERS}/${orderId}`}>Chi tiết</Link>
+                   <Link to={`${ROUTERS.SHIPPER.ORDERS}/${orderId}`}>Chi tiết</Link>
                     <OrderActions
                       order={o}
                       role="shipper"
@@ -338,6 +401,51 @@ const Orders = () => {
             })}
           </tbody>
         </table>
+      )}
+
+      {cancelDialog.open && (
+        <div className="shipper-cancel-dialog">
+          <div className="shipper-cancel-dialog__panel">
+            <h3>Chọn lý do hủy đơn</h3>
+            <div className="shipper-cancel-dialog__options">
+              {CANCEL_REASONS.map((reason) => (
+                <label key={reason.value} className="shipper-cancel-dialog__option">
+                  <input
+                    type="radio"
+                    name="cancelReason"
+                    value={reason.value}
+                    checked={selectedReason === reason.value}
+                    onChange={() => {
+                      setSelectedReason(reason.value);
+                      setCancelError("");
+                    }}
+                  />
+                  <span>{reason.label}</span>
+                </label>
+              ))}
+              {selectedReason === "other" && (
+                <textarea
+                  rows={3}
+                  placeholder="Nhập lý do khác..."
+                  value={customReason}
+                  onChange={(e) => {
+                    setCustomReason(e.target.value);
+                    setCancelError("");
+                  }}
+                />
+              )}
+            </div>
+            {cancelError && <p className="shipper-cancel-dialog__error">{cancelError}</p>}
+            <div className="shipper-cancel-dialog__actions">
+              <button type="button" onClick={closeCancelDialog}>
+                Đóng
+              </button>
+              <button type="button" className="confirm" onClick={handleConfirmCancel}>
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -12,6 +12,36 @@ const { getOrCreateCart } = require("./cartController");
 const { createNotification } = require("../../auth-services/controllers/notificationController");
 const { emitOrderUpdate } = require("../../auth-services/socket/chatEvents");
 
+const buildHistoryEntry = ({ status, note = "", actorType = "system", actorId = null, actorName = "" }) => ({
+  status: status || "",
+  note,
+  actorType,
+  actorId,
+  actorName,
+  createdAt: new Date(),
+});
+
+const pushHistoryToDoc = (orderDoc, entry) => {
+  if (!orderDoc || !entry?.status) return;
+  if (!Array.isArray(orderDoc.history)) orderDoc.history = [];
+  orderDoc.history.push(buildHistoryEntry(entry));
+  try {
+    orderDoc.markModified("history");
+  } catch (_) {}
+};
+
+const pushHistoryById = async (orderId, entry) => {
+  if (!orderId || !entry?.status) return;
+  try {
+    await Order.updateOne(
+      { _id: orderId },
+      { $push: { history: buildHistoryEntry(entry) } }
+    );
+  } catch (err) {
+    console.error("[history] failed to append entry:", err?.message || err);
+  }
+};
+
 const normalizeId = (raw) => {
   if (!raw) return null;
   if (typeof raw === "string") return raw;
@@ -346,6 +376,12 @@ const autoCompleteOrders = async (extraFilter = {}) => {
         if (order.paymentType === "COD" && !order.paymentCompletedAt) {
             order.paymentCompletedAt = new Date();
         }
+        pushHistoryToDoc(order, {
+            status: "completed",
+            note: "H��� thA�ng t��� �`��Tng hoA�n thA�nh sau khi giao.",
+            actorType: "system",
+            actorName: "System",
+        });
         try { order.markModified("paymentMeta"); } catch (_) { }
         try {
             await order.save();
@@ -690,6 +726,17 @@ exports.createOrder = async (req, res) => {
             paymentCompletedAt: null,
             autoCompleteAt: null,
         });
+        const initActorName = userId ? customerName : "Khách vãng lai";
+        order.history = [
+            buildHistoryEntry({
+                status: initialStatus,
+                note: "Đơn hàng được tạo",
+                actorType: userId ? "user" : "guest",
+                actorId: userId || cart.user || null,
+                actorName: initActorName,
+            })
+        ];
+        await order.save();
         createdOrder = order;
         
         // Generate QR code immediately for BANK payment
@@ -921,6 +968,19 @@ exports.cancelOrder = async (req, res) => {
         try {
             order.markModified("paymentMeta");
         } catch (_) { }
+        pushHistoryToDoc(order, {
+            status: "expired",
+            note: order.paymentMeta?.cancelReason || "�?��n hA�ng h���t h���n thanh toA�n",
+            actorType: "system",
+            actorName: "System",
+        });
+        pushHistoryToDoc(order, {
+            status: "cancelled",
+            note: order.paymentMeta.cancelReason,
+            actorType: "user",
+            actorId: userId,
+            actorName: req.user?.username || req.user?.email || order.customer?.name
+        });
         await order.save();
         broadcastOrderUpdate(order, "cancelled");
 
@@ -961,6 +1021,16 @@ exports.shipperListOrders = async (req, res) => {
             : ["processing", "shipping", "delivered", "completed", "cancelled"];
 
         const filter = { status: { $in: statusList } };
+        const fromRaw = req.query?.from ? new Date(req.query.from) : null;
+        const toRaw = req.query?.to ? new Date(req.query.to) : null;
+        if (fromRaw && !isNaN(fromRaw)) {
+            filter.createdAt = { ...(filter.createdAt || {}), $gte: fromRaw };
+        }
+        if (toRaw && !isNaN(toRaw)) {
+            // include entire day
+            toRaw.setHours(23, 59, 59, 999);
+            filter.createdAt = { ...(filter.createdAt || {}), $lte: toRaw };
+        }
         // Chỉ hiển thị đơn đã được admin xác nhận (processing) hoặc đơn đã được shipper này nhận
         filter.$or = [
             { shipperId: userId }, // Đơn đã được shipper này nhận (bất kể trạng thái)
@@ -968,7 +1038,7 @@ exports.shipperListOrders = async (req, res) => {
         ];
 
         const orders = await Order.find(filter)
-            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt')
+            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt history')
             .sort({ createdAt: -1 })
             .lean();
         
@@ -1006,6 +1076,13 @@ exports.shipperAcceptOrder = async (req, res) => {
         order.shipperId = userId;
         order.status = "shipping";
         order.autoCompleteAt = null;
+        pushHistoryToDoc(order, {
+            status: "shipping",
+            note: "Shipper nhận giao đơn.",
+            actorType: "shipper",
+            actorId: userId,
+            actorName: req.user?.username || req.user?.email || "Shipper"
+        });
         await order.save();
         broadcastOrderUpdate(order, "shipper_accept");
 
@@ -1052,6 +1129,13 @@ exports.shipperDeliveredOrder = async (req, res) => {
         if (order.paymentType === "COD" && !order.paymentCompletedAt) {
             order.paymentCompletedAt = new Date();
         }
+        pushHistoryToDoc(order, {
+            status: "delivered",
+            note: "Shipper xác nhận đã giao hàng.",
+            actorType: "shipper",
+            actorId: userId,
+            actorName: req.user?.username || req.user?.email || "Shipper"
+        });
         await order.save();
         broadcastOrderUpdate(order, "delivered");
 
@@ -1108,6 +1192,13 @@ exports.shipperCancelOrder = async (req, res) => {
             cancelledBy: "shipper",
         };
         try { order.markModified("paymentMeta"); } catch (_) { }
+        pushHistoryToDoc(order, {
+            status: "cancelled",
+            note: cancelReason,
+            actorType: "shipper",
+            actorId: userId,
+            actorName: req.user?.username || req.user?.email || "Shipper"
+        });
         await order.save();
         broadcastOrderUpdate(order, "shipper_cancel");
 

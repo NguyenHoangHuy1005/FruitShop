@@ -12,6 +12,7 @@ import {
 } from "../../../component/redux/apiRequest";
 import OrderStatusTag, { normalizeOrderStatus } from "../../../component/orders/OrderStatusTag";
 import OrderActions from "../../../component/orders/OrderActions";
+import OrderStatusTimeline from "../../../component/orders/OrderStatusTimeline";
 import { ROUTERS } from "../../../utils/router";
 import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "./style.scss";
@@ -37,6 +38,34 @@ const getPaymentMethodDisplay = (payment) => {
     return payment.gateway || payment.method || "COD";
   }
   return "COD";
+};
+
+const USER_TIMELINE_TEXTS = {
+  title: "Nhật ký trạng thái",
+  actorLabel: "Người thao tác",
+  empty: "Chưa có cập nhật trạng thái nào.",
+  createdLabel: "Đơn được tạo",
+  defaultActor: "Hệ thống",
+  defaultNotes: {
+    created: "Đơn hàng đã được ghi nhận.",
+    pending: "Đơn đang chờ hệ thống xác nhận.",
+    pending_payment: "Đơn đang chờ thanh toán hoàn tất.",
+    awaiting_payment: "Đơn đang chờ thanh toán hoàn tất.",
+    processing: "Shop đang chuẩn bị và bàn giao cho shipper.",
+    shipping: "Đơn đang được vận chuyển.",
+    delivered: "Đơn đã giao xong.",
+    completed: "Khách đã xác nhận hoàn tất.",
+    cancelled: "Đơn đã bị hủy.",
+    expired: "Đơn đã quá hạn thanh toán.",
+  },
+  actorTypes: {
+    admin: "Quản trị viên",
+    staff: "Nhân viên",
+    user: "Khách hàng",
+    guest: "Khách",
+    shipper: "Shipper",
+    system: "Hệ thống",
+  },
 };
 
 const OrdersPage = () => {
@@ -516,6 +545,17 @@ const toggleOpen = (id) => {
                           )}
                         </div>
                       )}
+                    </section>
+
+                    <section className="detail-section detail-section--timeline">
+                      <OrderStatusTimeline
+                        history={selectedOrder?.history}
+                        createdAt={selectedOrder?.createdAt}
+                        updatedAt={selectedOrder?.updatedAt}
+                        currentStatus={selectedOrder?.status}
+                        formatTimestamp={formatDateTime}
+                        texts={USER_TIMELINE_TEXTS}
+                      />
                     </section>
 
                     <section className="detail-section">

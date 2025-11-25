@@ -46,6 +46,7 @@ const Profile = () => {
   const [pwdForm, setPwdForm] = useState({ current: "", otp: "", newPassword: "", confirm: "" });
   const [pwdStatus, setPwdStatus] = useState(null);
   const [pwdLoading, setPwdLoading] = useState(false);
+  const [showPwdForm, setShowPwdForm] = useState(false);
 
   const disabled = !user;
 
@@ -161,6 +162,7 @@ const Profile = () => {
       if (!ok) throw new Error(error?.message || data?.message || "Đổi mật khẩu thất bại");
       setPwdStatus({ type: "success", message: data?.message || "Đổi mật khẩu thành công" });
       setPwdForm({ current: "", otp: "", newPassword: "", confirm: "" });
+      setShowPwdForm(false);
     } catch (err) {
       setPwdStatus({
         type: "error",
@@ -325,65 +327,92 @@ const Profile = () => {
             </p>
           </div>
           <StatusLine state={pwdStatus} />
-          <form className="shipper-profile__form" onSubmit={handlePasswordSubmit}>
-            <div className="shipper-profile__inline-row">
+          {showPwdForm ? (
+            <form className="shipper-profile__form" onSubmit={handlePasswordSubmit}>
+              <div className="shipper-profile__inline-row">
+                <button
+                  type="button"
+                  className="action-btn action-btn--accept"
+                  onClick={handleRequestPwdOtp}
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? "Đang gửi..." : "Gửi mã OTP"}
+                </button>
+                <input
+                  className="shipper-profile__otp"
+                  placeholder="Mã 6 số"
+                  value={pwdForm.otp}
+                  onChange={(e) =>
+                    setPwdForm((prev) => ({ ...prev, otp: normalizeOtp(e.target.value) }))
+                  }
+                />
+              </div>
+              <label>
+                <span>Mật khẩu hiện tại</span>
+                <input
+                  type="password"
+                  value={pwdForm.current}
+                  onChange={(e) => setPwdForm((prev) => ({ ...prev, current: e.target.value }))}
+                  placeholder="Nhập mật khẩu hiện tại"
+                  required
+                />
+              </label>
+              <label>
+                <span>Mật khẩu mới</span>
+                <input
+                  type="password"
+                  value={pwdForm.newPassword}
+                  onChange={(e) => setPwdForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+                  minLength={6}
+                  required
+                />
+              </label>
+              <label>
+                <span>Nhập lại mật khẩu mới</span>
+                <input
+                  type="password"
+                  value={pwdForm.confirm}
+                  onChange={(e) => setPwdForm((prev) => ({ ...prev, confirm: e.target.value }))}
+                  minLength={6}
+                  required
+                />
+              </label>
+              <div className="shipper-profile__actions">
+                <button
+                  type="submit"
+                  className="action-btn action-btn--confirm"
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? "Đang đổi..." : "Cập nhật mật khẩu"}
+                </button>
+                <button
+                  type="button"
+                  className="action-btn action-btn--cancel"
+                  onClick={() => {
+                    setShowPwdForm(false);
+                    setPwdForm({ current: "", otp: "", newPassword: "", confirm: "" });
+                    setPwdStatus(null);
+                  }}
+                  disabled={pwdLoading}
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="shipper-profile__actions">
               <button
                 type="button"
                 className="action-btn action-btn--accept"
-                onClick={handleRequestPwdOtp}
-                disabled={pwdLoading}
+                onClick={() => {
+                  setShowPwdForm(true);
+                  setPwdStatus(null);
+                }}
               >
-                {pwdLoading ? "Đang gửi..." : "Gửi mã OTP"}
-              </button>
-              <input
-                className="shipper-profile__otp"
-                placeholder="Mã 6 số"
-                value={pwdForm.otp}
-                onChange={(e) =>
-                  setPwdForm((prev) => ({ ...prev, otp: normalizeOtp(e.target.value) }))
-                }
-              />
-            </div>
-            <label>
-              <span>Mật khẩu mới</span>
-              <input
-                type="password"
-                value={pwdForm.current}
-                onChange={(e) => setPwdForm((prev) => ({ ...prev, current: e.target.value }))}
-                placeholder="Nhập mật khẩu hiện tại"
-                required
-              />
-            </label>
-            <label>
-              <span>Mật khẩu mới</span>
-              <input
-                type="password"
-                value={pwdForm.newPassword}
-                onChange={(e) => setPwdForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-                minLength={6}
-                required
-              />
-            </label>
-            <label>
-              <span>Nhập lại mật khẩu</span>
-              <input
-                type="password"
-                value={pwdForm.confirm}
-                onChange={(e) => setPwdForm((prev) => ({ ...prev, confirm: e.target.value }))}
-                minLength={6}
-                required
-              />
-            </label>
-            <div className="shipper-profile__actions">
-              <button
-                type="submit"
-                className="action-btn action-btn--confirm"
-                disabled={pwdLoading}
-              >
-                {pwdLoading ? "Đang đổi..." : "Cập nhật mật khẩu"}
+                Đổi mật khẩu
               </button>
             </div>
-          </form>
+          )}
         </section>
       </div>
     </div>

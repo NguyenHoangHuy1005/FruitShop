@@ -63,6 +63,12 @@
 
 .shipper-orders__actions .order-actions {
   justify-content: flex-start;
+  margin-top: 0;
+  gap: 10px;
+
+  .action-btn {
+    white-space: nowrap;
+  }
 }
 
 .payment-badge {

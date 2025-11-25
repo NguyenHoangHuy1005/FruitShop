@@ -1346,7 +1346,7 @@ export const updateBatchQuantity = async (batchId, quantity) => {
 };
 
 /* ======================= SHIPPER ======================= */
-export const fetchShipperOrders = async (status = "") => {
+export const fetchShipperOrders = async (status = "", options = {}) => {
     const token = await ensureAccessToken(null);
     const params = {};
     if (Array.isArray(status)) {
@@ -1354,6 +1354,8 @@ export const fetchShipperOrders = async (status = "") => {
     } else if (status) {
         params.status = status;
     }
+    if (options.fromDate) params.from = options.fromDate;
+    if (options.toDate) params.to = options.toDate;
     const res = await API.get("/order/shipper/orders", {
         params,
         headers: { Authorization: `Bearer ${token}` },

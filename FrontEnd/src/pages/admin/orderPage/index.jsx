@@ -6,6 +6,7 @@ import { API, getWarehouses } from "../../../component/redux/apiRequest";
 import { ROUTERS } from "../../../utils/router";
 import { formatter } from "../../../utils/fomater";
 import OrderStatusTag from "../../../component/orders/OrderStatusTag";
+import OrderStatusTimeline from "../../../component/orders/OrderStatusTimeline";
 import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 
 const formatDateTime = (iso) => {
@@ -91,6 +92,34 @@ const normalizeOrderStatus = (status) => {
   if (raw === "shipping" || raw === "shipped") return "shipped";
   if (raw === "completed" || raw === "complete") return "complete";
   return raw;
+};
+
+const ADMIN_TIMELINE_TEXTS = {
+  title: "Nhật ký trạng thái",
+  actorLabel: "Người thao tác",
+  empty: "Chưa có cập nhật trạng thái.",
+  createdLabel: "Đơn được tạo",
+  defaultActor: "Hệ thống",
+  defaultNotes: {
+    created: "Khách đã đặt đơn.",
+    pending: "Đơn chờ xác nhận.",
+    pending_payment: "Đơn chờ khách thanh toán.",
+    awaiting_payment: "Đơn chờ khách thanh toán.",
+    processing: "Đã duyệt và chờ shipper nhận.",
+    shipping: "Đang giao cho khách.",
+    delivered: "Shipper xác nhận đã giao.",
+    completed: "Khách xác nhận hoàn tất.",
+    cancelled: "Đơn đã hủy.",
+    expired: "Đơn quá hạn thanh toán.",
+  },
+  actorTypes: {
+    admin: "Quản trị viên",
+    staff: "Nhân viên",
+    user: "Khách hàng",
+    guest: "Khách",
+    shipper: "Shipper",
+    system: "Hệ thống",
+  },
 };
 
 
@@ -377,7 +406,7 @@ const OrderAdminPage = () => {
                         </div>
 
                         <div className="order-modal__body">
-                            <div className="order-info-grid">
+                             <div className="order-info-grid">
                                 <div className="info-card">
                                     <label>Trạng thái</label>
                                     <OrderStatusTag status={selectedOrder.status} />
@@ -398,6 +427,17 @@ const OrderAdminPage = () => {
                                     <label>Địa chỉ giao hàng</label>
                                     <strong>{selectedOrder.customer?.address}</strong>
                                 </div>
+                            </div>
+
+                            <div className="order-timeline-card">
+                                <OrderStatusTimeline
+                                    history={selectedOrder?.history}
+                                    createdAt={selectedOrder?.createdAt}
+                                    updatedAt={selectedOrder?.updatedAt}
+                                    currentStatus={selectedOrder?.status}
+                                    formatTimestamp={formatDateTime}
+                                    texts={ADMIN_TIMELINE_TEXTS}
+                                />
                             </div>
 
                             {selectedOrder.status === "pending" && (

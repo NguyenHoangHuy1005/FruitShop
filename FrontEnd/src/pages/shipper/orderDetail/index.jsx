@@ -14,7 +14,14 @@ import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "../theme.scss";
 import "./style.scss";
 
-const DEFAULT_CANCEL_REASON = "Khach khong nhan hang";
+const CANCEL_REASONS = [
+  { value: "customer_refused", label: "Khách không nhận hàng" },
+  { value: "cannot_contact", label: "Không liên hệ được khách" },
+  { value: "address_wrong", label: "Sai địa chỉ / không tìm thấy" },
+  { value: "delay_request", label: "Khách yêu cầu giao lại lúc khác" },
+  { value: "other", label: "Lý do khác" },
+];
+const DEFAULT_CANCEL_REASON = CANCEL_REASONS[0].label;
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -22,6 +29,10 @@ const OrderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionState, setActionState] = useState({ id: null, key: "" });
+  const [cancelDialog, setCancelDialog] = useState(false);
+  const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0].value);
+  const [customReason, setCustomReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,22 +95,35 @@ const OrderDetail = () => {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
+    setCancelDialog(true);
+    setSelectedReason(CANCEL_REASONS[0].value);
+    setCustomReason("");
+    setCancelError("");
+  };
+
+  const closeCancelDialog = () => {
+    setCancelDialog(false);
+    setCancelError("");
+    setCustomReason("");
+  };
+
+  const handleConfirmCancel = async () => {
+    const reasonText =
+      selectedReason === "other"
+        ? customReason.trim()
+        : CANCEL_REASONS.find((r) => r.value === selectedReason)?.label || DEFAULT_CANCEL_REASON;
+
+    if (!reasonText) {
+      setCancelError("Vui lòng nhập lý do hợp lệ.");
+      return;
+    }
+
     try {
       setActionState({ id, key: "fail" });
-      const value = window.prompt("Nhập lý do hủy đơn", DEFAULT_CANCEL_REASON);
-      if (value === null) {
-        resetAction();
-        return;
-      }
-      const reason = value.trim();
-      if (!reason) {
-        alert("Vui lòng nhập lý do hợp lệ.");
-        resetAction();
-        return;
-      }
-      await shipperCancelOrder(id, reason);
+      await shipperCancelOrder(id, reasonText);
       await load();
+      closeCancelDialog();
     } catch (e) {
       alert(e?.message || "Hủy đơn thất bại.");
     } finally {
@@ -209,6 +233,51 @@ const OrderDetail = () => {
           loadingAction={actionKey}
         />
       </div>
+
+      {cancelDialog && (
+        <div className="shipper-cancel-dialog">
+          <div className="shipper-cancel-dialog__panel">
+            <h3>Chọn lý do hủy đơn</h3>
+            <div className="shipper-cancel-dialog__options">
+              {CANCEL_REASONS.map((reason) => (
+                <label key={reason.value} className="shipper-cancel-dialog__option">
+                  <input
+                    type="radio"
+                    name="detailCancelReason"
+                    value={reason.value}
+                    checked={selectedReason === reason.value}
+                    onChange={() => {
+                      setSelectedReason(reason.value);
+                      setCancelError("");
+                    }}
+                  />
+                  <span>{reason.label}</span>
+                </label>
+              ))}
+              {selectedReason === "other" && (
+                <textarea
+                  rows={3}
+                  placeholder="Nhập lý do khác..."
+                  value={customReason}
+                  onChange={(e) => {
+                    setCustomReason(e.target.value);
+                    setCancelError("");
+                  }}
+                />
+              )}
+            </div>
+            {cancelError && <p className="shipper-cancel-dialog__error">{cancelError}</p>}
+            <div className="shipper-cancel-dialog__actions">
+              <button type="button" onClick={closeCancelDialog}>
+                Đóng
+              </button>
+              <button type="button" className="confirm" onClick={handleConfirmCancel}>
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

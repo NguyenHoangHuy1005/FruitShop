@@ -53,6 +53,17 @@ const OrderSchema = new mongoose.Schema({
     completedAt: { type: Date, default: null },
     autoConfirmAt: { type: Date, default: null },   // pending payment auto-expire deadline
     autoCompleteAt: { type: Date, default: null },  // delivered auto-complete deadline
+    history: {
+        type: [{
+            status: { type: String },
+            note: { type: String, default: "" },
+            actorType: { type: String, default: "system" },
+            actorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+            actorName: { type: String, default: "" },
+            createdAt: { type: Date, default: Date.now },
+        }],
+        default: []
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Order", OrderSchema);

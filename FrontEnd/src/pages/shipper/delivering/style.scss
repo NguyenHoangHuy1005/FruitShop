@@ -15,6 +15,33 @@
   a {
     color: tokens.$accent;
     font-weight: 600;
+    text-decoration: none;
+
+    &.shipper-backlink {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, tokens.$accent, tokens.$accent-alt);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(tokens.$accent, 0.35);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+
+      &::before {
+        content: "←";
+        font-weight: 700;
+      }
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 32px rgba(tokens.$accent, 0.4);
+      }
+    }
   }
 
   .order-actions {

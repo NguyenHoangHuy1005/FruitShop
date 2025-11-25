@@ -78,7 +78,7 @@ const Dashboard = () => {
     [orders]
   );
 
-  if (loading) return <p>Dang tai du lieu...</p>;
+  if (loading) return <p>Đang tải dữ liệu...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
 
   return (

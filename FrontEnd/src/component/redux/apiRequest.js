@@ -880,6 +880,7 @@ export const uploadAvatar = async (file, dispatch) => {
     // Bước 1: Upload ảnh lên Cloudinary
     const form = new FormData();
     form.append("images", file); // API endpoint /upload nhận field "images"
+    form.append("purpose", "avatar");
     
     const uploadRes = await API.post("/upload", form, {
         headers: { 

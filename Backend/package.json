@@ -24,9 +24,11 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1",
     "multer": "^2.0.2",
+    "nsfwjs": "^4.2.0",
     "nodemailer": "^7.0.5",
     "pdfkit": "^0.17.2",
     "react-toastify": "^11.0.5",
+    "sharp": "^0.33.4",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

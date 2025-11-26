@@ -1,14 +1,9 @@
 const express = require("express");
 const multer = require("multer");
 const sharp = require("sharp");
-let tf = null;
-let nsfw = null;
-try {
-  tf = require("@tensorflow/tfjs-node");
-  nsfw = require("nsfwjs");
-} catch (err) {
-  console.warn("[upload] tfjs-node binding not available, NSFW detection disabled:", err.message);
-}
+const axios = require("axios");
+const path = require("path");
+const nsfwScanner = require("../utils/nsfwScanner");
 const cloudinary = require("../config/cloudinaryConfig");
 
 const router = express.Router();
@@ -21,22 +16,125 @@ const MAX_GENERAL_BYTES = Number(process.env.MAX_GENERAL_UPLOAD_BYTES || 20 * 10
 const MAX_GENERAL_WIDTH = Number(process.env.MAX_GENERAL_UPLOAD_WIDTH || 6000);
 const MAX_GENERAL_HEIGHT = Number(process.env.MAX_GENERAL_UPLOAD_HEIGHT || 6000);
 
-const PORN_THRESHOLD = Number(process.env.NSFW_STRICT_THRESHOLD || 0.6);
-const SEXY_THRESHOLD = Number(process.env.NSFW_SOFT_THRESHOLD || 0.8);
+const PORN_THRESHOLD = Number(process.env.NSFW_STRICT_THRESHOLD || 0.55);
+const SEXY_THRESHOLD = Number(process.env.NSFW_SOFT_THRESHOLD || 0.7);
+const AGGREGATE_SENSITIVE_THRESHOLD = Number(process.env.NSFW_AGG_THRESHOLD || 0.45);
+const SENSITIVE_LABELS = new Set(["porn", "hentai", "sexy"]);
+const HARD_LABELS = new Set(["porn", "hentai"]);
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-let nsfwModelPromise = null;
-const getNsfwModel = () => {
-  if (!tf || !nsfw) return null;
-  if (!nsfwModelPromise) {
-    nsfwModelPromise = nsfw.load();
-  }
-  return nsfwModelPromise;
+const ensureHttpUrl = (value = "") => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}/i.test(trimmed)) return `https://${trimmed}`;
+  return trimmed;
 };
 
-const validateImageBuffer = async (file, model, limits) => {
+const DATA_URL_REGEX = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i;
+
+const parseDataUrlImage = (input, maxBytes) => {
+  const match = DATA_URL_REGEX.exec(input || "");
+  if (!match) return null;
+  const [, mime, b64] = match;
+  if (!mime) throw new Error("Data URL thiếu MIME type hợp lệ");
+  const buffer = Buffer.from(b64, "base64");
+  if (!buffer.length) throw new Error("Data URL rỗng hoặc không hợp lệ");
+  if (maxBytes && buffer.length > maxBytes) {
+    throw new Error(`Ảnh data-url vượt dung lượng tối đa ${(maxBytes / (1024 * 1024)).toFixed(1)}MB`);
+  }
+  return {
+    originalname: `inline-${Date.now()}${guessExtFromMime(mime)}`,
+    buffer,
+    size: buffer.length,
+    mimetype: mime,
+    remoteUrl: "data-url",
+  };
+};
+
+const normalizeUrlInput = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v || "").trim()).filter((v) => !!v);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]/)
+      .map((v) => v.trim())
+      .filter((v) => !!v);
+  }
+  return [];
+};
+
+const collectRemoteUrls = (body = {}) => {
+  const urls = [
+    ...normalizeUrlInput(body.imageUrl),
+    ...normalizeUrlInput(body.imageUrls),
+    ...normalizeUrlInput(body.url),
+    ...normalizeUrlInput(body.urls),
+  ];
+  const seen = new Set();
+  const result = [];
+  for (const url of urls) {
+    const normalized = url.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result.slice(0, 10);
+};
+
+const guessExtFromMime = (mime = "") => {
+  const lower = mime.toLowerCase();
+  if (lower.includes("png")) return ".png";
+  if (lower.includes("webp")) return ".webp";
+  if (lower.includes("gif")) return ".gif";
+  if (lower.includes("jpeg") || lower.includes("jpg")) return ".jpg";
+  return ".jpg";
+};
+
+const deriveNameFromUrl = (inputUrl = "") => {
+  try {
+    const parsed = new URL(inputUrl);
+    const base = path.basename(parsed.pathname) || "remote-image";
+    return decodeURIComponent(base);
+  } catch (_) {
+    return "remote-image";
+  }
+};
+
+const fetchRemoteImage = async (inputUrl, maxBytes) => {
+  const dataImage = parseDataUrlImage(inputUrl, maxBytes);
+  if (dataImage) return dataImage;
+
+  const url = ensureHttpUrl(inputUrl);
+  if (!/^https?:\/\//i.test(url || "")) {
+    throw new Error(`URL "${inputUrl}" không hợp lệ. Hỗ trợ http(s) hoặc data:image;base64,...`);
+  }
+  const res = await axios.get(url, {
+    responseType: "arraybuffer",
+    timeout: 15000,
+    maxContentLength: maxBytes || MAX_GENERAL_BYTES,
+    validateStatus: (status) => status >= 200 && status < 400,
+  });
+  const contentType = res.headers["content-type"] || "";
+  if (!contentType.startsWith("image/")) {
+    throw new Error(`URL "${url}" khA'ng phA?i lA m?t t?p a?nh (Content-Type: ${contentType || "unknown"})`);
+  }
+  const buffer = Buffer.from(res.data);
+  return {
+    originalname: deriveNameFromUrl(url) + guessExtFromMime(contentType),
+    buffer,
+    size: buffer.length,
+    mimetype: contentType,
+    remoteUrl: url,
+  };
+};
+
+const validateImageBuffer = async (file, limits) => {
   const {
     label = "ảnh",
     maxBytes = MAX_GENERAL_BYTES,
@@ -61,33 +159,62 @@ const validateImageBuffer = async (file, model, limits) => {
     );
   }
 
-  if (model && tf?.node?.decodeImage) {
-    const imageTensor = tf.node.decodeImage(file.buffer, 3);
-    const predictions = await model.classify(imageTensor);
-    imageTensor.dispose();
+  const predictions = await nsfwScanner.classifyImage(file.buffer, {
+    fileName: file?.originalname,
+  });
 
-    const sensitive = predictions.some((p) => {
-      const label = p.className.toLowerCase();
-      if ((label === "porn" || label === "hentai") && p.probability >= PORN_THRESHOLD) return true;
-      if (label === "sexy" && p.probability >= SEXY_THRESHOLD) return true;
-      return false;
-    });
+  if (Array.isArray(predictions) && predictions.length > 0) {
+    const topHit = predictions[0];
+    const aggregateSensitive = predictions.reduce((acc, p) => {
+      const labelName = String(p.label || "").toLowerCase();
+      if (SENSITIVE_LABELS.has(labelName)) return acc + (Number(p.probability) || 0);
+      return acc;
+    }, 0);
 
-    if (sensitive) {
+    const topLabel = String(topHit?.label || "").toLowerCase();
+    const topProb = Number(topHit?.probability) || 0;
+
+    const violatesHardThreshold =
+      (HARD_LABELS.has(topLabel) && topProb >= PORN_THRESHOLD) ||
+      (topLabel === "sexy" && topProb >= SEXY_THRESHOLD);
+
+    if (violatesHardThreshold || aggregateSensitive >= AGGREGATE_SENSITIVE_THRESHOLD) {
+      console.warn(
+        `[upload] sensitive image blocked "${file.originalname}" (top=${topLabel}:${topProb.toFixed(
+          2
+        )}, agg=${aggregateSensitive.toFixed(2)})`
+      );
       throw new Error(`Ảnh "${file.originalname}" bị từ chối do chứa nội dung không phù hợp`);
     }
-  } else if (!model) {
+  } else {
     console.warn(`[upload] NSFW model unavailable. Skipping sensitive check for ${file.originalname}`);
   }
 };
 
-router.post("/upload", upload.array("images", 10), async (req, res) => {
+router.get("/nsfw/health", async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
+    if ((req.query?.warmup || "").toString() === "1") {
+      await nsfwScanner.warmupModel("health_endpoint");
+    } else {
+      await nsfwScanner.ensureModelLoaded();
     }
 
-    const model = getNsfwModel();
+    return res.json({
+      ok: true,
+      status: nsfwScanner.getStatusSnapshot(),
+    });
+  } catch (err) {
+    console.error("[upload] NSFW health failed:", err?.message || err);
+    return res.status(500).json({
+      ok: false,
+      message: err?.message || "NSFW health check failed",
+      status: nsfwScanner.getStatusSnapshot(),
+    });
+  }
+});
+
+router.post("/upload", upload.array("images", 10), async (req, res) => {
+  try {
     const purposeRaw = (req.body?.purpose || req.query?.purpose || "").toString().toLowerCase();
     const isAvatarUpload = purposeRaw === "avatar";
     const limits = isAvatarUpload
@@ -104,11 +231,30 @@ router.post("/upload", upload.array("images", 10), async (req, res) => {
           maxHeight: MAX_GENERAL_HEIGHT,
         };
 
-    for (const file of req.files) {
-      await validateImageBuffer(file, model, limits);
+    const remoteUrls = collectRemoteUrls(req.body);
+    let remoteFiles = [];
+    if (remoteUrls.length) {
+      try {
+        remoteFiles = await Promise.all(
+          remoteUrls.map((url) => fetchRemoteImage(url, limits.maxBytes || MAX_GENERAL_BYTES))
+        );
+      } catch (err) {
+        console.error("[upload] Remote fetch failed:", err?.message || err);
+        return res.status(400).json({ message: err?.message || "T��?i �`a ���nh t��? URL th���t b���i" });
+      }
     }
 
-    const uploadPromises = req.files.map((file) => {
+    const inboundFiles = [...(req.files || []), ...remoteFiles];
+
+    if (!inboundFiles.length) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    for (const file of inboundFiles) {
+      await validateImageBuffer(file, limits);
+    }
+
+    const uploadPromises = inboundFiles.map((file) => {
       return new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: "uploads" },

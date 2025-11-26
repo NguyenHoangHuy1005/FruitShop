@@ -874,22 +874,27 @@ export const changePassword = async ({ currentPassword, newPassword, confirmPass
     return res.data;
 };
 
-export const uploadAvatar = async (file, dispatch) => {
+export const uploadAvatar = async (source, dispatch) => {
     const token = await ensureAccessToken(null);
-    
-    // Bước 1: Upload ảnh lên Cloudinary
+
     const form = new FormData();
-    form.append("images", file); // API endpoint /upload nhận field "images"
+    if (typeof source === "string") {
+        form.append("imageUrl", source);
+    } else if (source instanceof File || (source && source.name)) {
+        form.append("images", source);
+    } else {
+        throw new Error("Thiếu dữ liệu ảnh để tải lên");
+    }
     form.append("purpose", "avatar");
-    
+
     const uploadRes = await API.post("/upload", form, {
-        headers: { 
+        headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
+            "Content-Type": "multipart/form-data",
         },
         validateStatus: () => true,
     });
-    
+
     if (uploadRes.status !== 200 || !uploadRes.data?.urls?.[0]) {
         console.error("Upload to Cloudinary failed:", uploadRes.data);
         throw new Error(uploadRes.data?.message || `Upload to Cloudinary failed (${uploadRes.status})`);

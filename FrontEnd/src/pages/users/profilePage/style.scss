@@ -307,52 +307,97 @@
 .avatar__row {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 24px;
     flex-wrap: wrap;
 }
 
-.avatar__box {
-    position: relative;
-    display: inline-flex;
+.avatar__preview {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
 
     .avatar {
-        width: 92px;
-        height: 92px;
+        width: 98px;
+        height: 98px;
         border-radius: 50%;
         object-fit: cover;
-        border: 3px solid rgba(129, 140, 248, 0.3);
-        box-shadow: 0 10px 24px -18px rgba(79, 70, 229, 0.8);
+        border: 3px solid rgba(129, 140, 248, 0.35);
+        box-shadow: 0 14px 30px -20px rgba(79, 70, 229, 0.75);
         background: #fff;
     }
+}
 
-    .avatar__btn {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 40px;
-        padding: 0 16px;
-        border-radius: 999px;
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        background: rgba(99, 102, 241, 0.08);
-        color: #4338ca;
+.avatar__controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .help-text {
+        font-size: 12px;
+    }
+}
+
+.avatar__options {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+
+    @media (max-width: 640px) {
+        width: 100%;
+    }
+}
+
+.avatar-option {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(203, 213, 225, 0.7);
+    background: rgba(248, 250, 252, 0.9);
+    box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.4);
+
+    &__title {
         font-weight: 600;
-        cursor: pointer;
-        transition: background 160ms ease, transform 120ms ease;
+        color: #1f2937;
+        margin-bottom: 6px;
+    }
 
-        input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
+    .btn {
+        margin-top: 8px;
+    }
+}
 
-        &:hover {
-            background: rgba(99, 102, 241, 0.16);
-            transform: translateY(-1px);
-        }
+.avatar-option__url {
+    display: flex;
+    flex: 1;
+    gap: 10px;
+    min-width: 240px;
+
+    input {
+        flex: 1;
+        height: 44px;
+        border-radius: 12px;
+        border: 1px solid rgba(203, 213, 225, 0.9);
+        padding: 0 14px;
+        background: rgba(248, 250, 252, 0.9);
+    }
+
+    .btn {
+        white-space: nowrap;
+        padding: 0 20px;
+    }
+}
+
+.btn.ghost {
+    background: transparent;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #475569;
+    box-shadow: none;
+
+    &:hover {
+        background: rgba(148, 163, 184, 0.1);
     }
 }
 

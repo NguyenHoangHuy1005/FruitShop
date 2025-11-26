@@ -48,3 +48,120 @@
     justify-content: flex-start;
   }
 }
+
+.shipper-proof-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(tokens.$ink, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1600;
+  padding: 18px;
+
+  &__panel {
+    width: min(460px, 100%);
+    border-radius: 22px;
+    background: tokens.$surface;
+    padding: 24px;
+    box-shadow: 0 20px 70px rgba(tokens.$ink, 0.35);
+
+    h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: tokens.$ink;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: tokens.$muted;
+      font-weight: 600;
+    }
+  }
+
+  &__input {
+    border: 2px dashed rgba(tokens.$accent, 0.4);
+    border-radius: 16px;
+    padding: 26px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    color: tokens.$accent;
+    font-weight: 600;
+    margin-bottom: 12px;
+    transition: border-color 0.2s ease;
+
+    &:hover {
+      border-color: tokens.$accent;
+    }
+
+    input {
+      display: none;
+    }
+  }
+
+  &__preview {
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 14px;
+
+    img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    button {
+      margin-top: 10px;
+      border: none;
+      background: rgba(tokens.$accent, 0.1);
+      color: tokens.$accent;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+  }
+
+  &__hint {
+    margin: 4px 0;
+    font-size: 13px;
+    color: tokens.$muted;
+  }
+
+  &__error {
+    margin: 4px 0;
+    font-size: 13px;
+    color: tokens.$error;
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 18px;
+
+    button {
+      border-radius: 999px;
+      padding: 10px 18px;
+      border: 1px solid tokens.$border;
+      background: tokens.$surface;
+      cursor: pointer;
+      font-weight: 600;
+
+      &.confirm {
+        background: tokens.$accent;
+        color: #fff;
+        border-color: tokens.$accent;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
+}

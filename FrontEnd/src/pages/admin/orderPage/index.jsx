@@ -228,6 +228,7 @@ const OrderAdminPage = () => {
 
     const pages = Math.max(1, Math.ceil(total / limit));
     const selectedOrderKey = selectedOrder?._id || null;
+    const selectedOrderProofs = Array.isArray(selectedOrder?.deliveryProof) ? selectedOrder.deliveryProof : [];
     const selectedWarehouse = useMemo(
         () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
         [warehouses, selectedWarehouseId]
@@ -463,6 +464,28 @@ const OrderAdminPage = () => {
                                     texts={ADMIN_TIMELINE_TEXTS}
                                 />
                             </div>
+
+                            {selectedOrderProofs.length > 0 && (
+                                <div className="order-proof-gallery">
+                                    <h4>Ảnh bàn giao</h4>
+                                    <div className="order-proof-grid">
+                                        {selectedOrderProofs.map((proof, idx) => (
+                                            <a
+                                                key={`${proof.url}-${idx}`}
+                                                href={proof.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="order-proof-card"
+                                            >
+                                                <img src={proof.url} alt="Delivery proof" />
+                                                <span>
+                                                    {(proof.uploadedByName || "Shipper") + " • " + (proof.uploadedAt ? formatDateTime(proof.uploadedAt) : "Không rõ thời gian")}
+                                                </span>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {selectedOrder.status === "pending" && (
                                 <div className="prepare-section">

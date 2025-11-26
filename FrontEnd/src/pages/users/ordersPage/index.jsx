@@ -303,6 +303,9 @@ const toggleOpen = (id) => {
   }, [orders]);
 
   const detailStatus = normalizeOrderStatus(selectedOrder?.status);
+  const deliveryProofs = Array.isArray(selectedOrder?.deliveryProof)
+    ? selectedOrder.deliveryProof
+    : [];
   const cancelReason = selectedOrder?.paymentMeta?.cancelReason || selectedOrder?.cancelReason || "";
   const locationState = location.state;
   const presetOrderId = locationState?.selectedOrderId;
@@ -601,6 +604,34 @@ const toggleOpen = (id) => {
                         texts={USER_TIMELINE_TEXTS}
                       />
                     </section>
+
+                    {deliveryProofs.length > 0 && (
+                      <section className="detail-section detail-section--proofs">
+                        <div className="section-header">
+                          <h4 className="detail-section__title">Ảnh bàn giao</h4>
+                        </div>
+                        <div className="proof-grid">
+                          {deliveryProofs.map((proof, idx) => (
+                            <a
+                              key={`${proof.url}-${idx}`}
+                              href={proof.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="proof-card"
+                            >
+                              <img src={proof.url} alt="Ảnh bàn giao" />
+                              <span>
+                                {(proof.uploadedByName || "Shipper") +
+                                  " • " +
+                                  (proof.uploadedAt
+                                    ? new Date(proof.uploadedAt).toLocaleString("vi-VN")
+                                    : "Không rõ thời gian")}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      </section>
+                    )}
 
                     <section className="detail-section">
                       <div className="table-wrapper">

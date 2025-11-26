@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@ngrok/ngrok": "^1.5.2",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "axios": "^1.13.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.7.0",
@@ -24,8 +25,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.1",
     "multer": "^2.0.2",
-    "nsfwjs": "^4.2.0",
     "nodemailer": "^7.0.5",
+    "nsfwjs": "^4.2.0",
     "pdfkit": "^0.17.2",
     "react-toastify": "^11.0.5",
     "sharp": "^0.33.4",

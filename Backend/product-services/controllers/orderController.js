@@ -1037,7 +1037,7 @@ exports.shipperListOrders = async (req, res) => {
         ];
 
         const orders = await Order.find(filter)
-            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt history')
+            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt history deliveryProof')
             .sort({ createdAt: -1 })
             .lean();
         
@@ -1122,6 +1122,35 @@ exports.shipperDeliveredOrder = async (req, res) => {
         }
         if (!order.shipperId) order.shipperId = userId;
 
+        const rawProofUrls = req.body?.proofUrls ?? req.body?.proofUrl ?? null;
+        let proofUrls = [];
+        if (Array.isArray(rawProofUrls)) {
+            proofUrls = rawProofUrls.filter(u => typeof u === "string" && u.trim()).map(u => u.trim());
+        } else if (typeof rawProofUrls === "string" && rawProofUrls.trim()) {
+            proofUrls = [rawProofUrls.trim()];
+        }
+        let shipperProfile = null;
+        try {
+            shipperProfile = await User.findById(userId).select("fullname username email").lean();
+        } catch (_) { }
+        const uploaderName =
+            shipperProfile?.fullname?.trim() ||
+            shipperProfile?.username ||
+            shipperProfile?.email ||
+            req.user?.fullname ||
+            req.user?.fullName ||
+            req.user?.name ||
+            req.user?.username ||
+            req.user?.email ||
+            "Shipper";
+        const proofEntries = proofUrls.slice(0, 3).map(url => ({
+            url,
+            uploadedAt: new Date(),
+            uploadedBy: userId,
+            uploadedByName: uploaderName,
+            note: "",
+        }));
+
         order.status = "delivered";
         order.deliveredAt = new Date();
         order.autoCompleteAt = new Date(Date.now() + AUTO_COMPLETE_AFTER_MS);
@@ -1135,6 +1164,12 @@ exports.shipperDeliveredOrder = async (req, res) => {
             actorId: userId,
             actorName: req.user?.username || req.user?.email || "Shipper"
         });
+        if (proofEntries.length) {
+            if (!Array.isArray(order.deliveryProof)) order.deliveryProof = [];
+            order.deliveryProof.push(...proofEntries);
+            try { order.markModified("deliveryProof"); } catch (_) { }
+        }
+
         await order.save();
         broadcastOrderUpdate(order, "delivered");
 

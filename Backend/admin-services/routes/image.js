@@ -1,8 +1,14 @@
 const express = require("express");
 const multer = require("multer");
 const sharp = require("sharp");
-const tf = require("@tensorflow/tfjs-node");
-const nsfw = require("nsfwjs");
+let tf = null;
+let nsfw = null;
+try {
+  tf = require("@tensorflow/tfjs-node");
+  nsfw = require("nsfwjs");
+} catch (err) {
+  console.warn("[upload] tfjs-node binding not available, NSFW detection disabled:", err.message);
+}
 const cloudinary = require("../config/cloudinaryConfig");
 
 const router = express.Router();
@@ -23,6 +29,7 @@ const upload = multer({ storage });
 
 let nsfwModelPromise = null;
 const getNsfwModel = () => {
+  if (!tf || !nsfw) return null;
   if (!nsfwModelPromise) {
     nsfwModelPromise = nsfw.load();
   }
@@ -54,19 +61,23 @@ const validateImageBuffer = async (file, model, limits) => {
     );
   }
 
-  const imageTensor = tf.node.decodeImage(file.buffer, 3);
-  const predictions = await model.classify(imageTensor);
-  imageTensor.dispose();
+  if (model && tf?.node?.decodeImage) {
+    const imageTensor = tf.node.decodeImage(file.buffer, 3);
+    const predictions = await model.classify(imageTensor);
+    imageTensor.dispose();
 
-  const sensitive = predictions.some((p) => {
-    const label = p.className.toLowerCase();
-    if ((label === "porn" || label === "hentai") && p.probability >= PORN_THRESHOLD) return true;
-    if (label === "sexy" && p.probability >= SEXY_THRESHOLD) return true;
-    return false;
-  });
+    const sensitive = predictions.some((p) => {
+      const label = p.className.toLowerCase();
+      if ((label === "porn" || label === "hentai") && p.probability >= PORN_THRESHOLD) return true;
+      if (label === "sexy" && p.probability >= SEXY_THRESHOLD) return true;
+      return false;
+    });
 
-  if (sensitive) {
-    throw new Error(`Ảnh "${file.originalname}" bị từ chối do chứa nội dung không phù hợp`);
+    if (sensitive) {
+      throw new Error(`Ảnh "${file.originalname}" bị từ chối do chứa nội dung không phù hợp`);
+    }
+  } else if (!model) {
+    console.warn(`[upload] NSFW model unavailable. Skipping sensitive check for ${file.originalname}`);
   }
 };
 
@@ -76,7 +87,7 @@ router.post("/upload", upload.array("images", 10), async (req, res) => {
       return res.status(400).json({ message: "No files uploaded" });
     }
 
-    const model = await getNsfwModel();
+    const model = getNsfwModel();
     const purposeRaw = (req.body?.purpose || req.query?.purpose || "").toString().toLowerCase();
     const isAvatarUpload = purposeRaw === "avatar";
     const limits = isAvatarUpload

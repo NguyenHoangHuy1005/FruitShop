@@ -53,6 +53,16 @@ const OrderSchema = new mongoose.Schema({
     completedAt: { type: Date, default: null },
     autoConfirmAt: { type: Date, default: null },   // pending payment auto-expire deadline
     autoCompleteAt: { type: Date, default: null },  // delivered auto-complete deadline
+    deliveryProof: {
+        type: [{
+            url: { type: String, required: true },
+            note: { type: String, default: "" },
+            uploadedAt: { type: Date, default: Date.now },
+            uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+            uploadedByName: { type: String, default: "" },
+        }],
+        default: []
+    },
     history: {
         type: [{
             status: { type: String },

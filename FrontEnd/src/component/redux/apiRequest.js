@@ -1378,9 +1378,10 @@ export const shipperAcceptOrder = async (orderId) => {
     return res.data;
 };
 
-export const shipperDeliveredOrder = async (orderId) => {
+export const shipperDeliveredOrder = async (orderId, proofUrls = []) => {
     const token = await ensureAccessToken(null);
-    const res = await API.patch(`/order/shipper/orders/${orderId}/deliver`, {}, {
+    const payload = Array.isArray(proofUrls) && proofUrls.length ? { proofUrls } : {};
+    const res = await API.patch(`/order/shipper/orders/${orderId}/deliver`, payload, {
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: () => true,
     });

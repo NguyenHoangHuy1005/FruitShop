@@ -31,6 +31,7 @@ const OrderDetail = () => {
   const [customReason, setCustomReason] = useState("");
   const [cancelError, setCancelError] = useState("");
 
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -128,6 +129,10 @@ const OrderDetail = () => {
   };
 
   const items = useMemo(() => (Array.isArray(order?.items) ? order.items : []), [order]);
+  const proofList = useMemo(
+    () => (Array.isArray(order?.deliveryProof) ? order.deliveryProof : []),
+    [order]
+  );
 
   if (loading) return <p>Đang tải đơn...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
@@ -171,7 +176,7 @@ const OrderDetail = () => {
         </div>
       </div>
 
-  <div className="shipper-detail__info-section">
+      <div className="shipper-detail__info-section">
         <h4>Thông tin khách hàng</h4>
         <div className="shipper-detail__meta">
           <p>
@@ -204,6 +209,30 @@ const OrderDetail = () => {
           )}
         </div>
       </div>
+
+      {proofList.length > 0 && (
+        <div className="shipper-proof-existing">
+          <h4>Ảnh đã gửi</h4>
+          <div className="shipper-proof-grid">
+            {proofList.map((proof) => (
+              <a
+                key={proof.url}
+                href={proof.url}
+                target="_blank"
+                rel="noreferrer"
+                className="shipper-proof-card"
+              >
+                <img src={proof.url} alt="Delivery proof" />
+              <span>
+                {(proof.uploadedByName || "Shipper") +
+                  " • " +
+                  (proof.uploadedAt ? new Date(proof.uploadedAt).toLocaleString("vi-VN") : "—")}
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
 
       <div className="shipper-detail__info-section">
         <h4>Sản phẩm</h4>

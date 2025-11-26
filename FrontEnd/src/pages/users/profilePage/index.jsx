@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Breadcrumb from "../theme/breadcrumb";
 import {
@@ -18,6 +18,7 @@ const ProfilePage = () => {
     const user = useSelector((s) => s.auth?.login?.currentUser);
     const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
     const [profile, setProfile] = useState({ fullname: "", phone: "" });
+    const [avatarUrlInput, setAvatarUrlInput] = useState("");
     const [emailForm, setEmailForm] = useState({ newEmail: "", otp: "" });
     const [usernameForm, setUsernameForm] = useState({ newUsername: "", otp: "" });
     const [pwdForm, setPwdForm] = useState({ otp: "", newPassword: "", confirm: "" });
@@ -25,6 +26,9 @@ const ProfilePage = () => {
     const [showEmailForm, setShowEmailForm] = useState(false);
     const [showUsernameForm, setShowUsernameForm] = useState(false);
     const [showPwdForm, setShowPwdForm] = useState(false);
+    const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+    const fileInputRef = useRef(null);
+
 
     useEffect(() => {
         if (user) {
@@ -61,17 +65,57 @@ const ProfilePage = () => {
         const file = e.target.files?.[0];
         if (!file) return;
         if (!/^image\//.test(file.type)) return alert("Vui lòng chọn file ảnh");
-        if (file.size > 3 * 1024 * 1024) return alert("Ảnh tối đa 3MB");
+        if (file.size > 4 * 1024 * 1024) return alert("Ảnh tối đa 4MB");
         try {
             setBusy(true);
             await uploadAvatar(file, dispatch);
             alert("Cập nhật avatar thành công");
+            setShowAvatarOptions(false);
         } catch (err) {
             console.error(err);
             alert("Upload thất bại");
         } finally {
             setBusy(false);
             e.target.value = "";
+        }
+    };
+
+    const openFileDialog = () => {
+        if (!busy) {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const onToggleAvatarOptions = () => {
+        setShowAvatarOptions((prev) => !prev);
+    };
+
+    const normalizeAvatarLink = (raw = "") => {
+        const trimmed = raw.trim();
+        if (!trimmed) return "";
+        if (/^data:image\//i.test(trimmed)) return trimmed;
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        if (trimmed.startsWith("//")) return `https:${trimmed}`;
+        return `https://${trimmed}`;
+    };
+
+    const onUploadAvatarUrl = async () => {
+        const normalized = normalizeAvatarLink(avatarUrlInput);
+        if (!normalized) return alert("Vui lòng dán link ảnh");
+        if (!/^https?:\/\//i.test(normalized) && !/^data:image\//i.test(normalized)) {
+            return alert("Link ảnh phải bắt đầu bằng http hoặc https");
+        }
+        try {
+            setBusy(true);
+            await uploadAvatar(normalized, dispatch);
+            alert("Cập nhật avatar thành công");
+            setAvatarUrlInput("");
+            setShowAvatarOptions(false);
+        } catch (err) {
+            console.error(err);
+            alert(err?.message || "Upload thất bại");
+        } finally {
+            setBusy(false);
         }
     };
 
@@ -224,20 +268,75 @@ const ProfilePage = () => {
                                 <span className="tag">Hiển thị công khai</span>
                             </div>
                             <div className="avatar__row">
-                                <div className="avatar__box">
+                                <div className="avatar__preview">
                                     <img className="avatar" src={avatarUrl} alt="avatar" />
-                                    <label className="avatar__btn">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={onPickAvatar}
-                                            disabled={busy}
-                                        />
-                                        Đổi ảnh
-                                    </label>
                                 </div>
-                                <div className="muted">
-                                    JPG/PNG ≤ 3MB. Tệp có kích thước lớn hơn sẽ không được tải lên.
+                                <div className="avatar__controls">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={onPickAvatar}
+                                        hidden
+                                        disabled={busy}
+                                    />
+                                    {!showAvatarOptions ? (
+                                    <button
+                                        type="button"
+                                        className="btn primary"
+                                        onClick={onToggleAvatarOptions}
+                                        disabled={busy}
+                                    >
+                                        Đổi ảnh
+                                    </button>
+                                    ) : (
+                                    <div className="avatar__options">
+                                        <div className="avatar-option">
+                                            <div className="avatar-option__title">Tải file tĩnh</div>
+                                            <p className="muted">Chọn ảnh JPG/PNG từ thiết bị</p>
+                                            <button
+                                                type="button"
+                                                className="btn primary"
+                                                onClick={openFileDialog}
+                                                disabled={busy}
+                                            >
+                                                Chọn file
+                                            </button>
+                                        </div>
+                                        <div className="avatar-option">
+                                            <div className="avatar-option__title">Dán link URL</div>
+                                            <p className="muted">Dùng ảnh đã có sẵn trên Internet</p>
+                                            <div className="avatar-option__url">
+                                                <input
+                                                    type="text"
+                                                    placeholder="https://example.com/avatar.jpg"
+                                                    value={avatarUrlInput}
+                                                    onChange={(e) => setAvatarUrlInput(e.target.value)}
+                                                    disabled={busy}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn primary"
+                                                    onClick={onUploadAvatarUrl}
+                                                    disabled={busy}
+                                                >
+                                                    Dán link
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="btn ghost"
+                                            onClick={onToggleAvatarOptions}
+                                            disabled={busy}
+                                        >
+                                            Thu gọn
+                                        </button>
+                                    </div>
+                                    )}
+                                    <div className="muted help-text">
+                                        JPG/PNG ≤ 4MB. Có thể tải từ máy hoặc dán liên kết ảnh trực tiếp.
+                                    </div>
                                 </div>
                             </div>
                         </section>

@@ -83,19 +83,156 @@ const broadcastOrderUpdate = (orderDoc, event = "updated") => {
   });
 };
 
+const FREE_SHIP_THRESHOLD = 199000;
+const IN_CITY_FEE = 20000;
+const OUT_CITY_FEE = 30000;
+const SHIPPER_INCOME_STATUSES = ["delivered", "completed", "cancelled"];
+
+const normalizeText = (str = "") =>
+  String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const isAddressInHcm = (address = "") => {
+    const normalized = normalizeText(address);
+    if (!normalized) return false;
+    return /thanh pho ho chi minh|tp\.?\s*hcm|tp hcm|tp\.?hcm|ho chi minh/i.test(normalized);
+};
+
+const computeShippingInfo = (orderLike = {}) => {
+  const amount = orderLike.amount || {};
+  const subtotal = Number(amount.subtotal || 0);
+  const discount = Number(amount.discount || 0);
+  const address = orderLike.customer?.address || "";
+  const isCancelled = String(orderLike.status || "").toLowerCase() === "cancelled";
+  const hasShipper = !!orderLike.shipperId;
+  const isInCity = typeof orderLike.isInCity === "boolean" ? orderLike.isInCity : isAddressInHcm(address);
+  const shippingFeeActual = isCancelled && !hasShipper ? 0 : (isInCity ? IN_CITY_FEE : OUT_CITY_FEE);
+  const merchandiseTotal = Math.max(0, subtotal - discount);
+  const freeShip = merchandiseTotal >= FREE_SHIP_THRESHOLD;
+  let shippingFee = freeShip ? 0 : shippingFeeActual;
+  let shippingFeeDeducted = freeShip ? shippingFeeActual : 0;
+  const status = String(orderLike.status || "").toLowerCase();
+  if (status === "cancelled") {
+    shippingFeeDeducted = orderLike.shipperId ? shippingFeeActual : 0;
+    if (!hasShipper) shippingFee = 0;
+  }
+  const shipperIncome = shippingFeeActual;
+  const amountTotal = Math.max(0, merchandiseTotal + shippingFee);
+
+    return {
+        isInCity,
+        shippingFeeActual,
+        shippingFee,
+        shippingFeeDeducted,
+        shipperIncome,
+        freeShip,
+        merchandiseTotal,
+        amountTotal,
+    };
+};
+
+const calculateTotalCostPrice = (items = [], opts = {}) => {
+  let totalCost = 0;
+  for (const it of items) {
+    const qty = Number(it.quantity) || 0;
+    const importPrice = Number(it.importPrice) || 0;
+    totalCost += importPrice * qty;
+  }
+  return totalCost;
+};
+
+const resolvePaymentAmount = (orderLike = {}) => {
+    const total = Number(orderLike.amount?.total || 0);
+    const status = String(orderLike.status || "").toLowerCase();
+    const paid = !!orderLike.paymentCompletedAt;
+    const paymentType = String(orderLike.paymentType || orderLike.paymentMethod || "COD").toUpperCase();
+
+    if (paymentType === "BANK" || paymentType === "VNPAY") {
+        return paid ? total : 0;
+    }
+
+    if (paymentType === "COD") {
+        if (paid) return total;
+        if (status === "delivered" || status === "completed") return total;
+        return 0;
+    }
+
+    return paid ? total : 0;
+};
+
+const withComputedFinancials = (orderLike = {}) => {
+  const status = String(orderLike.status || "").toLowerCase();
+  const shippingInfo = computeShippingInfo(orderLike);
+  const amount = { ...(orderLike.amount || {}) };
+  amount.subtotal = Number(amount.subtotal || 0);
+  amount.discount = Number(amount.discount || 0);
+  amount.shipping = shippingInfo.shippingFee;
+  amount.total = shippingInfo.amountTotal;
+
+    const working = {
+        ...orderLike,
+        amount,
+        shippingFee: shippingInfo.shippingFee,
+        shippingFeeActual: shippingInfo.shippingFeeActual,
+        shippingFeeDeducted: shippingInfo.shippingFeeDeducted,
+        shipperIncome: shippingInfo.shipperIncome,
+        isInCity: shippingInfo.isInCity,
+        spoilageLoss: Number(orderLike.spoilageLoss || 0),
+    };
+
+  let totalCostPrice = calculateTotalCostPrice(orderLike.items || []);
+  if (status === "cancelled" && !orderLike.shipperId) {
+    totalCostPrice = 0;
+  }
+  const couponDiscount = status === "cancelled" && !orderLike.shipperId ? 0 : Number(amount.discount || 0);
+    const paymentAmount = resolvePaymentAmount({ ...working, amount });
+    const adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - couponDiscount - working.spoilageLoss;
+
+    return {
+        ...working,
+        adminProfit,
+    };
+};
+
+const applyFinancials = async (orderDoc, opts = {}) => {
+    if (!orderDoc) return null;
+    const computed = withComputedFinancials(orderDoc);
+
+    orderDoc.amount = computed.amount;
+    orderDoc.shippingFee = computed.shippingFee;
+    orderDoc.shippingFeeActual = computed.shippingFeeActual;
+    orderDoc.shippingFeeDeducted = computed.shippingFeeDeducted;
+    orderDoc.shipperIncome = computed.shipperIncome;
+    orderDoc.isInCity = computed.isInCity;
+    orderDoc.spoilageLoss = computed.spoilageLoss;
+    const roundedProfit = Math.round(computed.adminProfit);
+    orderDoc.adminProfit = roundedProfit;
+    computed.adminProfit = roundedProfit;
+
+    if (opts.persist && typeof orderDoc.save === "function") {
+        try { orderDoc.markModified("amount"); } catch (_) {}
+        try { orderDoc.markModified("paymentMeta"); } catch (_) {}
+        await orderDoc.save();
+    }
+
+    return computed;
+};
+
 // Helper function to get or generate session key
 function getSessionKey(req) {
-  // Priority: x-session-key header > sessionID > generate new
-  const headerKey = req.headers["x-session-key"];
-  if (headerKey) return String(headerKey);
-  
-  const sessionId = req.sessionID;
-  if (sessionId) return String(sessionId);
-  
-  // Generate a fallback session key if none exists
-  const fallbackKey = `guest-${crypto.randomBytes(16).toString('hex')}`;
-  console.warn("⚠️ No session key found in order, generated fallback:", fallbackKey);
-  return fallbackKey;
+    // Priority: x-session-key header > sessionID > generate new
+    const headerKey = req.headers["x-session-key"];
+    if (headerKey) return String(headerKey);
+    
+    const sessionId = req.sessionID;
+    if (sessionId) return String(sessionId);
+    
+    // Generate a fallback session key if none exists
+    const fallbackKey = `guest-${crypto.randomBytes(16).toString('hex')}`;
+    console.warn("⚠️ No session key found in order, generated fallback:", fallbackKey);
+    return fallbackKey;
 }
 const jwt = require("jsonwebtoken");
 const Product = require("../../admin-services/models/Product");
@@ -242,8 +379,9 @@ const recordSpoilageReturn = async ({ batch, productId, orderId, quantity, shipp
 };
 
 const restoreInventoryAfterShipperCancel = async (orderDoc, shipperId) => {
-    if (!orderDoc) return;
+    if (!orderDoc) return 0;
     const now = new Date();
+    let spoilageLoss = 0;
 
     for (const it of orderDoc.items || []) {
         const qty = Math.max(0, Number(it.quantity) || 0);
@@ -257,6 +395,10 @@ const restoreInventoryAfterShipperCancel = async (orderDoc, shipperId) => {
             const sold = Math.max(0, Number(batch.soldQuantity) || 0);
             const decSold = Math.min(qty, sold);
             const expired = batch.expiryDate ? new Date(batch.expiryDate) <= now : false;
+            let importPrice = Number(it.importPrice || 0);
+            if (!importPrice) {
+                importPrice = Number(batch.unitPrice || 0);
+            }
 
             const update = { $inc: { soldQuantity: -decSold } };
             if (expired) {
@@ -277,6 +419,10 @@ const restoreInventoryAfterShipperCancel = async (orderDoc, shipperId) => {
                     shipperId,
                 });
             }
+
+            if (expired) {
+                spoilageLoss += importPrice * qty;
+            }
         } else if (productId) {
             await Stock.findOneAndUpdate(
                 { product: productId },
@@ -288,6 +434,8 @@ const restoreInventoryAfterShipperCancel = async (orderDoc, shipperId) => {
             await _updateProductStatus(productId, onHand);
         }
     }
+
+    return spoilageLoss;
 };
 
 const isShipperUser = async (userId) => {
@@ -347,7 +495,7 @@ const autoExpireOrders = async (extraFilter = {}) => {
         }
 
         try {
-            await order.save();
+            await applyFinancials(order, { persist: true });
             updatedIds.push(order._id);
         } catch (err) {
             console.error("[order] autoExpireOrders save error:", err);
@@ -679,12 +827,9 @@ exports.createOrder = async (req, res) => {
         }
 
         // Tính total với coupon và shipping
-        const SHIPPING_FEE = 0;
-        const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
         let discount = 0;
         
         if (couponCode) {
-            // Apply coupon logic (simplified)
             const coupon = await Coupon.findOne({ 
                 code: new RegExp(`^${couponCode}$`, "i"), 
                 active: true 
@@ -701,9 +846,6 @@ exports.createOrder = async (req, res) => {
                 }
             }
         }
-        
-        const total = Math.max(0, subtotal + shipping - discount);
-        const amount = { subtotal, shipping, discount, total, totalItems: items.length };
 
         // ===== 3) Tạo đơn =====
         const isOnlinePayment = paymentMethod !== "COD";
@@ -712,12 +854,33 @@ exports.createOrder = async (req, res) => {
         // QR/Online payment: pending_payment (chờ thanh toán online)
         // COD: pending (chờ xác nhận/nhập địa chỉ)
         const initialStatus = isOnlinePayment ? "pending_payment" : "pending";
+
+        const shippingInfo = computeShippingInfo({
+            amount: { subtotal, discount },
+            customer: { address },
+            status: initialStatus,
+            shipperId: null,
+        });
+        const amount = {
+            subtotal,
+            shipping: shippingInfo.shippingFee,
+            discount,
+            total: shippingInfo.amountTotal,
+            totalItems: items.length,
+        };
         
         const order = await Order.create({
             user: userId || cart.user || null,
             customer: { name: customerName, address, phone, email, note: note || "" },
             items,
             amount,
+            shippingFee: shippingInfo.shippingFee,
+            shippingFeeActual: shippingInfo.shippingFeeActual,
+            shippingFeeDeducted: shippingInfo.shippingFeeDeducted,
+            isInCity: shippingInfo.isInCity,
+            shipperIncome: shippingInfo.shipperIncome,
+            adminProfit: 0,
+            spoilageLoss: 0,
             status: initialStatus,
             paymentType: paymentMethod,
             payment: paymentMethod,
@@ -1037,21 +1200,124 @@ exports.shipperListOrders = async (req, res) => {
         ];
 
         const orders = await Order.find(filter)
-            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt history deliveryProof')
+            .select('_id user customer items amount status paymentType payment paymentCompletedAt pickupAddress shipperId deliveredAt completedAt createdAt updatedAt history deliveryProof shippingFee shippingFeeActual shippingFeeDeducted shipperIncome adminProfit spoilageLoss isInCity')
             .sort({ createdAt: -1 })
             .lean();
         
-        // Format orders để hiển thị rõ phương thức thanh toán
-        const formattedOrders = orders.map(order => ({
+        const computedOrders = orders.map((order) => withComputedFinancials(order));
+        const formattedOrders = computedOrders.map(order => ({
             ...order,
-            paymentMethod: order.paymentType || 'COD', // Hiển thị phương thức thanh toán
-            isPaid: order.paymentType !== 'COD' && order.paymentCompletedAt ? true : false, // Đã thanh toán hay chưa
+            paymentMethod: order.paymentType || 'COD',
+            isPaid: order.paymentType !== 'COD' && order.paymentCompletedAt ? true : false,
         }));
         
         return res.json({ ok: true, orders: formattedOrders });
     } catch (err) {
         console.error("shipperListOrders error:", err);
         return res.status(500).json({ message: "Lỗi server khi tải đơn cho shipper." });
+    }
+};
+
+// Shipper income summary
+exports.shipperIncomeSummary = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
+
+        const orders = await Order.find({
+            shipperId: userId,
+            status: { $in: SHIPPER_INCOME_STATUSES }
+        }).lean();
+
+        const now = new Date();
+        const todayKey = now.toDateString();
+        const monthKey = `${now.getFullYear()}-${now.getMonth()}`;
+
+        let todayIncome = 0;
+        let monthIncome = 0;
+        let totalIncome = 0;
+
+        const pickTime = (order) => order.deliveredAt || order.updatedAt || order.createdAt || null;
+
+        for (const raw of orders) {
+            const order = withComputedFinancials(raw);
+            const income = Number(order.shipperIncome || order.shippingFeeActual || 0);
+            totalIncome += income;
+
+            const ts = pickTime(order);
+            if (!ts) continue;
+            const d = new Date(ts);
+            if (d.toDateString() === todayKey) todayIncome += income;
+            const key = `${d.getFullYear()}-${d.getMonth()}`;
+            if (key === monthKey) monthIncome += income;
+        }
+
+        return res.json({
+            ok: true,
+            data: {
+                todayIncome,
+                monthIncome,
+                totalIncome,
+                totalDelivered: orders.length,
+            }
+        });
+    } catch (err) {
+        console.error("shipperIncomeSummary error:", err);
+        return res.status(500).json({ message: "Lỗi server khi tính thu nhập shipper." });
+    }
+};
+
+// Shipper income history
+exports.shipperIncomeHistory = async (req, res) => {
+    try {
+        const userId = req.user?.id || null;
+        if (!userId) return res.status(401).json({ message: "Thiếu thông tin đăng nhập shipper." });
+        const canShip = await isShipperUser(userId);
+        if (!canShip) return res.status(403).json({ message: "Tài khoản không có quyền shipper." });
+
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const fromRaw = req.query?.from ? new Date(req.query.from) : null;
+        const toRaw = req.query?.to ? new Date(req.query.to) : null;
+        const from = fromRaw && !isNaN(fromRaw) ? new Date(new Date(fromRaw).setHours(0, 0, 0, 0)) : null;
+        const to = toRaw && !isNaN(toRaw) ? new Date(new Date(toRaw).setHours(23, 59, 59, 999)) : null;
+
+        const orders = await Order.find({
+            shipperId: userId,
+            status: { $in: SHIPPER_INCOME_STATUSES }
+        })
+            .sort({ deliveredAt: -1, updatedAt: -1, createdAt: -1 })
+            .lean();
+
+        const computed = orders.map((o) => withComputedFinancials(o));
+        const filtered = computed.filter((o) => {
+            const ts = o.deliveredAt || o.updatedAt || o.createdAt;
+            if (!ts) return true;
+            const d = new Date(ts);
+            if (from && d < from) return false;
+            if (to && d > to) return false;
+            return true;
+        });
+
+        const total = filtered.length;
+        const pages = Math.max(1, Math.ceil(total / limit));
+        const start = (page - 1) * limit;
+        const data = filtered.slice(start, start + limit);
+        const totalIncome = filtered.reduce((sum, o) => sum + Number(o.shipperIncome || o.shippingFeeActual || 0), 0);
+
+        return res.json({
+            ok: true,
+            data,
+            total,
+            page,
+            pages,
+            totalIncome,
+        });
+    } catch (err) {
+        console.error("shipperIncomeHistory error:", err);
+        return res.status(500).json({ message: "Lỗi server khi tải thu nhập shipper." });
     }
 };
 
@@ -1170,7 +1436,8 @@ exports.shipperDeliveredOrder = async (req, res) => {
             try { order.markModified("deliveryProof"); } catch (_) { }
         }
 
-        await order.save();
+        order.spoilageLoss = Number(order.spoilageLoss || 0);
+        await applyFinancials(order, { persist: true });
         broadcastOrderUpdate(order, "delivered");
 
         if (order.user) {
@@ -1213,7 +1480,8 @@ exports.shipperCancelOrder = async (req, res) => {
         const rawReason = typeof req.body?.reason === "string" ? req.body.reason : "";
         const cancelReason = rawReason.trim().slice(0, 200) || "khách hàng từ chối nhận hàng";
 
-        await restoreInventoryAfterShipperCancel(order, userId);
+        const spoilageLoss = await restoreInventoryAfterShipperCancel(order, userId);
+        order.spoilageLoss = Number(spoilageLoss || 0);
 
         order.status = "cancelled";
         order.autoCompleteAt = null;
@@ -1233,7 +1501,7 @@ exports.shipperCancelOrder = async (req, res) => {
             actorId: userId,
             actorName: req.user?.username || req.user?.email || "Shipper"
         });
-        await order.save();
+        await applyFinancials(order, { persist: true });
         broadcastOrderUpdate(order, "shipper_cancel");
 
         if (order.user) {
@@ -1275,7 +1543,7 @@ exports.userConfirmDelivered = async (req, res) => {
         if (!order.paymentCompletedAt) {
             order.paymentCompletedAt = new Date();
         }
-        await order.save();
+        await applyFinancials(order, { persist: true });
         broadcastOrderUpdate(order, "completed");
 
         return res.json({ ok: true, order });
@@ -1340,18 +1608,20 @@ exports.adminList = async (req, res) => {
         Order.countDocuments(filter),
         Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ]);
+    const data = rows.map((row) => withComputedFinancials(row));
 
     return res.json({
         page, limit, total, pages: Math.ceil(total / limit) || 1,
-        data: rows,
+        data,
     });
 };
 
 exports.adminGetOne = async (req, res) => {
     await autoExpireOrders({ _id: req.params.id });
     await autoCompleteOrders({ _id: req.params.id });
-    const doc = await Order.findById(req.params.id).lean();
+    const doc = await Order.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
+    await applyFinancials(doc, { persist: true });
     return res.json(doc);
 };
 
@@ -1442,7 +1712,7 @@ exports.adminUpdate = async (req, res) => {
         req.params.id,
         { $set: update },
         { new: true, runValidators: true }
-    ).lean();
+    );
     if (!doc) return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     
     if (oldOrder && doc.user && status && status !== oldOrder.status) {
@@ -1499,6 +1769,7 @@ exports.adminUpdate = async (req, res) => {
         }
     }
     
+    await applyFinancials(doc, { persist: true });
     broadcastOrderUpdate(doc, "admin_update");
     return res.json({ ok: true, data: doc });
 };

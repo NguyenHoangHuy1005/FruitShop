@@ -139,9 +139,9 @@ const OrderDetail = () => {
   if (!order) return <p>Không có dữ liệu.</p>;
 
   return (
-    <div className="shipper-page shipper-detail">
+    <div className="shipper-detail">
       <div className="shipper-detail__back">
-        <Link to={ROUTERS.SHIPPER.ORDERS}>Quay lại</Link>
+        <Link to={ROUTERS.SHIPPER.ORDERS}>Quay lại danh sách</Link>
       </div>
 
       <div className="shipper-detail__header">
@@ -201,6 +201,12 @@ const OrderDetail = () => {
               {formatter(order.amount?.total || 0)}
             </strong>
           </p>
+          <p>
+            <span>Thu nhập</span>
+            <strong className="shipper-detail__income">
+              {formatter(order.shipperIncome || 0)}
+            </strong>
+          </p>
           {order.customer?.note && (
             <p className="shipper-detail__meta-address">
               <span>Ghi chú</span>
@@ -223,16 +229,16 @@ const OrderDetail = () => {
                 className="shipper-proof-card"
               >
                 <img src={proof.url} alt="Delivery proof" />
-              <span>
-                {(proof.uploadedByName || "Shipper") +
-                  " • " +
-                  (proof.uploadedAt ? new Date(proof.uploadedAt).toLocaleString("vi-VN") : "—")}
-              </span>
-            </a>
-          ))}
+                <span>
+                  {(proof.uploadedByName || "Shipper") +
+                    " • " +
+                    (proof.uploadedAt ? new Date(proof.uploadedAt).toLocaleString("vi-VN") : "—")}
+                </span>
+              </a>
+            ))}
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
       <div className="shipper-detail__info-section">
         <h4>Sản phẩm</h4>

@@ -30,6 +30,13 @@ const OrderSchema = new mongoose.Schema({
         discount: { type: Number, required: true, min: 0, default: 0 },
         total: { type: Number, required: true, min: 0 },
     },
+    shippingFee: { type: Number, default: 0 },
+    shippingFeeActual: { type: Number, default: 0 },
+    shippingFeeDeducted: { type: Number, default: 0 },
+    isInCity: { type: Boolean, default: false },
+    shipperIncome: { type: Number, default: 0 },
+    adminProfit: { type: Number, default: 0 },
+    spoilageLoss: { type: Number, default: 0 },
     status: {
         type: String,
         enum: ["pending", "pending_payment", "awaiting_payment", "expired", "processing", "shipping", "delivered", "completed", "cancelled"],

@@ -21,10 +21,11 @@ const ShipperLayout = ({ children }) => {
       <header className="shipper-shell__header">
         <div className="shipper-shell__brand">Shipper</div>
         <nav className="shipper-shell__nav">
-          <NavLink to={ROUTERS.SHIPPER.DASHBOARD}>Dashboard</NavLink>
-          <NavLink to={ROUTERS.SHIPPER.ORDERS}>Orders</NavLink>
-          <NavLink to={ROUTERS.SHIPPER.DELIVERING}>Delivering</NavLink>
-          <NavLink to={ROUTERS.SHIPPER.PROFILE}>Profile</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.DASHBOARD}>Trang chủ</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.INCOME}>Thu nhập</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.ORDERS}>Đơn hàng</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.DELIVERING}>Đang giao</NavLink>
+          <NavLink to={ROUTERS.SHIPPER.PROFILE}>Hồ sơ</NavLink>
         </nav>
         <div className="shipper-shell__actions">
           <button type="button" onClick={handleLogout}>Đăng xuất</button>

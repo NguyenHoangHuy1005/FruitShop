@@ -1373,6 +1373,32 @@ export const fetchShipperOrders = async (status = "", options = {}) => {
     return { orders: payload.orders || payload.data || [] };
 };
 
+export const fetchShipperIncomeSummary = async () => {
+    const token = await ensureAccessToken(null);
+    const res = await API.get("/order/shipper/income/summary", {
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
+export const fetchShipperIncomeHistory = async (options = {}) => {
+    const token = await ensureAccessToken(null);
+    const params = {};
+    if (options.from) params.from = options.from;
+    if (options.to) params.to = options.to;
+    if (options.page) params.page = options.page;
+    if (options.limit) params.limit = options.limit;
+    const res = await API.get("/order/shipper/income/history", {
+        params,
+        headers: { Authorization: `Bearer ${token}` },
+        validateStatus: () => true,
+    });
+    if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
+    return res.data;
+};
+
 export const shipperAcceptOrder = async (orderId) => {
     const token = await ensureAccessToken(null);
     const res = await API.patch(`/order/shipper/orders/${orderId}/accept`, {}, {

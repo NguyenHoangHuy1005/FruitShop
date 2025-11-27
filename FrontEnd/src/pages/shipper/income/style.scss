@@ -1,0 +1,214 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+$primary-color: #4caf50;
+$secondary-color: #ff9800;
+$background-color: #f5f5f5;
+$card-background: #ffffff;
+$text-color: #333;
+$muted-text-color: #6b7280;
+$border-color: #e5e7eb;
+$success-color: #28a745;
+$danger-color: #dc3545;
+
+.shipper-income-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-family: "Roboto", sans-serif;
+  padding: 24px;
+  background-color: $background-color;
+  border-radius: 12px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: $text-color;
+    }
+  }
+
+  &__hint {
+    color: $muted-text-color;
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  &__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+
+    .shipper-card {
+      background: $card-background;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      &__label {
+        font-size: 16px;
+        color: $muted-text-color;
+        margin-bottom: 8px;
+      }
+
+      &__value {
+        font-size: 28px;
+        font-weight: 700;
+        color: $primary-color;
+      }
+
+      &:nth-child(2) &__value {
+        color: $secondary-color;
+      }
+      &:nth-child(3) &__value {
+        color: $success-color;
+      }
+      &:nth-child(4) &__value {
+        color: $danger-color;
+      }
+    }
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    background: $card-background;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid $border-color;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  &__total {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 16px;
+    strong {
+      color: $primary-color;
+    }
+  }
+
+  &__table {
+    overflow-x: auto;
+    background: $card-background;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+}
+
+.shipper-income__customer {
+  font-weight: 600;
+  color: $text-color;
+}
+
+.shipper-income__meta {
+  color: $muted-text-color;
+  font-size: 13px;
+}
+
+.shipper-income__number {
+  font-weight: 700;
+  text-align: right;
+  font-feature-settings: "tnum";
+  color: $success-color;
+}
+.shipper-table {
+  width: 100%;
+  border-collapse: collapse;
+  th,
+  td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid $border-color;
+  }
+  th {
+    font-size: 14px;
+    font-weight: 600;
+    color: $muted-text-color;
+    background-color: #f9fafb;
+  }
+  tbody tr {
+    transition: background-color 0.2s ease;
+    &:hover {
+      background-color: #f9fafb;
+    }
+  }
+}
+
+.shipper-refresh {
+  background-color: $primary-color;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background-color: darken($primary-color, 10%);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--secondary {
+    background-color: $muted-text-color;
+    &:hover:not(:disabled) {
+      background-color: darken($muted-text-color, 10%);
+    }
+  }
+}
+
+.shipper-filters__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 14px;
+    font-weight: 500;
+    color: $muted-text-color;
+  }
+
+  input[type="date"] {
+    padding: 8px 12px;
+    border: 1px solid $border-color;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
+    }
+  }
+}
+
+.shipper-empty {
+  text-align: center;
+  padding: 40px;
+  background: $card-background;
+  border-radius: 12px;
+  p {
+    font-size: 16px;
+    color: $muted-text-color;
+  }
+}

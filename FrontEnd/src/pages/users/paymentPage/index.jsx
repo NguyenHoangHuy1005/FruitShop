@@ -214,6 +214,17 @@ const PaymentPendingView = memo(() => {
 
     const amountTotal = useMemo(() => state.order?.amount?.total ?? 0, [state.order?.amount?.total]);
     const countdownText = useMemo(() => formatCountdown(state.remainingMs), [state.remainingMs]);
+    const statusLabel = useMemo(() => {
+        if (!state.order?.status) return "";
+        const labels = {
+            pending_payment: "Chờ thanh toán",
+            pending: "Chờ xử lý",
+            processing: "Đang xử lý",
+            completed: "Hoàn tất",
+            cancelled: "Đã hủy",
+        };
+        return labels[state.order.status] ?? state.order.status;
+    }, [state.order?.status]);
 
     // Tự động tạo QR khi chọn kênh SePay
     useEffect(() => {
@@ -362,7 +373,7 @@ const PaymentPendingView = memo(() => {
                             <p>Tổng tiền: <strong>{formatter(amountTotal)}</strong></p>
                         </div>
                         <div className="payment-card__status">
-                            <span className={`badge status-${state.order.status}`}>{state.order.status}</span>
+                            <span className={`badge status-${state.order.status}`}>{statusLabel}</span>
                             {(state.order.status === "pending" || state.order.status === "pending_payment") && (
                                 <div className="payment-card__countdown">
                                     <span>Thời gian còn lại:</span>

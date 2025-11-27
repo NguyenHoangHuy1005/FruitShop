@@ -9,6 +9,24 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTERS } from "../../../utils/router";
 import { setCoupon } from "../../../component/redux/cartSlice";
 
+    const normalizeText = (value = "") =>
+        value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+
+    const isHcmAddress = (address = "") => {
+        const normalized = normalizeText(address);
+        if (!normalized) return false;
+        return (
+            normalized.includes("thanh pho ho chi minh") ||
+            normalized.includes("tp hcm") ||
+            normalized.includes("tphcm") ||
+            normalized.includes("tp.hcm") ||
+            normalized.includes("ho chi minh")
+        );
+    };
+
 
 const CheckoutPage = () => {
     const dispatch = useDispatch();
@@ -44,8 +62,6 @@ const CheckoutPage = () => {
     const subtotal = itemsToShow.reduce(
         (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0
     );
-    const SHIPPING_FEE = 0; //30k
-    const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
     const hasItemsToCheckout = itemsToShow?.length > 0;
 
     const derivedCoupon = repeatOrder?.coupon?.code || location.state?.coupon?.code || cart?.coupon?.code || "";
@@ -63,6 +79,16 @@ const CheckoutPage = () => {
     const [paymentMethod, setPaymentMethod] = useState(repeatOrder?.paymentMethod || "COD");
     const [couponCode, setCouponCode] = useState((derivedCoupon || ""));
     const [discountValue, setDiscountValue] = useState(Number(derivedDiscount) || 0);
+    const shippingFeeActual = useMemo(
+        () => (isHcmAddress(form.address) ? 20000 : 30000),
+        [form.address]
+    );
+    const freeShip = useMemo(
+        () => subtotal - discountValue >= 199000,
+        [subtotal, discountValue]
+    );
+    const shipping = freeShip ? 0 : shippingFeeActual;
+
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [couponInsights, setCouponInsights] = useState([]);
     const initialReservationId = location.state?.checkoutReservationId || null;
@@ -573,14 +599,14 @@ const CheckoutPage = () => {
                                     <h4>Phí vận chuyển</h4>
                                     <p>Miễn phí cho đơn từ 199.000đ</p>
                                 </div>
-                            {subtotal >= 199000 ? (
-                                    <div className="shipping-free">
-                                        <span className="old">{formatter(SHIPPING_FEE)}</span>
-                                        <span className="free-text">Miễn phí</span>
-                                    </div>
-                                ) : (
-                                    <b>{formatter(SHIPPING_FEE)}</b>
-                                )}
+                            {freeShip ? (
+                                <div className="shipping-free">
+                                    <span className="old">{formatter(shippingFeeActual)}</span>
+                                    <span className="free-text">Miễn phí</span>
+                                </div>
+                            ) : (
+                                <b>{formatter(shippingFeeActual)}</b>
+                            )}
                             </li>
 
                             <li className="checkout__order__subtotal">

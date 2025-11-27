@@ -43,6 +43,7 @@ import ShipperOrderDetail from "./pages/shipper/orderDetail";
 import ShipperDelivering from "./pages/shipper/delivering";
 import ShipperProfile from "./pages/shipper/profile";
 import ShipperLayout from "./pages/shipper/layout";
+import ShipperIncome from "./pages/shipper/income";
 
 const getRole = (user) => {
   if (!user) return null;
@@ -130,6 +131,14 @@ const renderShipperRouter = () => {
         element={
           <RequireShipper>
             <ShipperLayout><ShipperDashboard /></ShipperLayout>
+          </RequireShipper>
+        }
+      />
+      <Route
+        path={ROUTERS.SHIPPER.INCOME}
+        element={
+          <RequireShipper>
+            <ShipperLayout><ShipperIncome /></ShipperLayout>
           </RequireShipper>
         }
       />

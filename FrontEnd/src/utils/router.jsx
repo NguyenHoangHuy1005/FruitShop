@@ -39,5 +39,6 @@ export const ROUTERS = {
     ORDER_DETAIL: "/shipper/orders/:id",
     DELIVERING: "/shipper/delivering",
     PROFILE: "/shipper/profile",
+    INCOME: "/shipper/income",
   },
 };

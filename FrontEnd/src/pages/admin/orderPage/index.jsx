@@ -233,6 +233,9 @@ const OrderAdminPage = () => {
         () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
         [warehouses, selectedWarehouseId]
     );
+    const profitReady = ["delivered", "completed", "cancelled"].includes(
+        String(selectedOrder?.status || "").toLowerCase()
+    );
     const manualAddressFilled = manualPickupAddress.trim().length > 0;
     const hasPickupAddressInput = Boolean(
         selectedWarehouse ||
@@ -463,6 +466,36 @@ const OrderAdminPage = () => {
                                     formatTimestamp={formatDateTime}
                                     texts={ADMIN_TIMELINE_TEXTS}
                                 />
+                            </div>
+
+                            <div className="order-finance-card">
+                                <h4>Tài chính</h4>
+                                <div className="order-finance-grid">
+                                    <div>
+                                        <span>Phí ship thực tế</span>
+                                        <strong>{formatter(selectedOrder.shippingFeeActual || 0)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Phí khấu trừ (admin)</span>
+                                        <strong>{formatter(selectedOrder.shippingFeeDeducted || 0)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Thu nhập shipper</span>
+                                        <strong>{formatter(selectedOrder.shipperIncome || 0)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Giảm giá</span>
+                                        <strong>{formatter(selectedOrder.amount?.discount || 0)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Hao hụt</span>
+                                        <strong>{formatter(selectedOrder.spoilageLoss || 0)}</strong>
+                                    </div>
+                                    <div className={`order-finance-profit${profitReady ? "" : " order-finance-profit--muted"}`}>
+                                        <span>Lợi nhuận admin</span>
+                                        <strong>{profitReady ? formatter(selectedOrder.adminProfit || 0) : "Chờ giao hàng"}</strong>
+                                    </div>
+                                </div>
                             </div>
 
                             {selectedOrderProofs.length > 0 && (

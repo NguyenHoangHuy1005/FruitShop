@@ -9,6 +9,8 @@ router.post("/", verifyToken, orderCtrl.createOrder);
 router.get("/me", verifyToken, orderCtrl.myOrders);
 router.put("/:id/cancel", verifyToken, orderCtrl.cancelOrder);
 router.get("/shipper/orders", verifyToken, orderCtrl.shipperListOrders);
+router.get("/shipper/income/summary", verifyToken, orderCtrl.shipperIncomeSummary);
+router.get("/shipper/income/history", verifyToken, orderCtrl.shipperIncomeHistory);
 router.patch("/shipper/orders/:id/accept", verifyToken, orderCtrl.shipperAcceptOrder);
 router.patch("/shipper/orders/:id/deliver", verifyToken, orderCtrl.shipperDeliveredOrder);
 router.patch("/shipper/orders/:id/cancel", verifyToken, orderCtrl.shipperCancelOrder);

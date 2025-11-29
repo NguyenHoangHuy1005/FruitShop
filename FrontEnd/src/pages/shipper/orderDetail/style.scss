@@ -1,3 +1,4 @@
+@use "sass:color";
 @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
 
 $primary-color: #4caf50;
@@ -15,7 +16,7 @@ $danger-color: #ef5350;
 
   &__back {
     margin-bottom: 16px;
-    a {
+      a {
       color: $primary-color;
       font-weight: 600;
       text-decoration: none;
@@ -24,7 +25,7 @@ $danger-color: #ef5350;
       gap: 6px;
       transition: color 0.2s;
       &:hover {
-        color: darken($primary-color, 10%);
+        color: color.adjust($primary-color, $lightness: -10%);
       }
       &::before {
         content: "‹";
@@ -260,12 +261,12 @@ $danger-color: #ef5350;
         background: #e0e0e0;
       }
 
-      &.confirm {
+        .confirm {
         background: $danger-color;
         color: white;
         border-color: $danger-color;
         &:hover {
-          background: darken($danger-color, 10%);
+          background: color.adjust($danger-color, $lightness: -10%);
         }
       }
     }

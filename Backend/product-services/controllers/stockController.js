@@ -1190,7 +1190,7 @@ exports.getPriceRange = async (req, res) => {
         { expiryDate: { $gt: now } }
       ]
     })
-    .select('quantity damagedQuantity sellingPrice unitPrice importDate expiryDate discountPercent discountStartDate discountEndDate')
+    .select('quantity soldQuantity damagedQuantity sellingPrice unitPrice importDate expiryDate discountPercent discountStartDate discountEndDate')
     .lean();
 
     const product = await Product.findById(productId)
@@ -1215,17 +1215,6 @@ exports.getPriceRange = async (req, res) => {
       });
     }
 
-    const Order = require("../models/Order");
-    const orders = await Order.find({
-      'items.product': productId,
-      status: { $in: ['processing', 'shipping', 'delivered', 'completed'] }
-    }).select('items').lean();
-
-    const totalSold = orders.reduce((sum, order) => {
-      const productItems = order.items.filter(item => item.product.toString() === productId);
-      return sum + productItems.reduce((itemSum, item) => itemSum + item.quantity, 0);
-    }, 0);
-
     validBatches.sort((a, b) => {
       if (!a.expiryDate && !b.expiryDate) {
         return new Date(a.importDate) - new Date(b.importDate);
@@ -1237,12 +1226,11 @@ exports.getPriceRange = async (req, res) => {
 
     const availablePrices = [];
     const priceEntries = [];
-    let remainingSold = totalSold;
     
     for (const batch of validBatches) {
       const effectiveQty = Math.max(0, (batch.quantity || 0) - (batch.damagedQuantity || 0));
-      const soldFromThisBatch = Math.min(remainingSold, effectiveQty);
-      const remainingInBatch = Math.max(0, effectiveQty - soldFromThisBatch);
+      const soldQty = Math.max(0, Number(batch.soldQuantity) || 0);
+      const remainingInBatch = Math.max(0, effectiveQty - soldQty);
       
       if (remainingInBatch > 0) {
         const pricing = computeBatchPricing(batch, product);
@@ -1257,11 +1245,11 @@ exports.getPriceRange = async (req, res) => {
           discountActive: pricing.discountActive,
         });
       }
-      
-      remainingSold -= soldFromThisBatch;
     }
 
-    if (availablePrices.length === 0) {
+    const hasAvailableBatch = priceEntries.length > 0;
+
+    if (!hasAvailableBatch) {
       const fallbackPrice = Number(product?.price) || 0;
       return res.json({ 
         minPrice: fallbackPrice,
@@ -1270,7 +1258,8 @@ exports.getPriceRange = async (req, res) => {
         availablePrices: fallbackPrice ? [fallbackPrice] : [],
         priceEntries: [],
         hasDiscount: false,
-        message: 'San pham tam het hang'
+        hasAvailableBatch: false,
+        message: 'Sản phẩm tạm hết hàng'
       });
     }
 
@@ -1287,11 +1276,12 @@ exports.getPriceRange = async (req, res) => {
       hasDiscount: priceEntries.some(entry => Number(entry.discountPercent) > 0),
       minBasePrice: basePrices.length ? Math.min(...basePrices) : minPrice,
       maxBasePrice: basePrices.length ? Math.max(...basePrices) : maxPrice,
+      hasAvailableBatch: true,
     });
     
   } catch (error) {
     console.error('Error getting price range:', error);
-    res.status(500).json({ message: 'Loi lay thong tin gia', error: error.message });
+    res.status(500).json({ message: 'Lỗi lấy thông tin giá', error: error.message });
   }
 };
 exports.getPublicBatchesByProduct = async (req, res) => {

@@ -1,3 +1,4 @@
+@use "sass:color";
 @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
 
 $primary-color: #4caf50;
@@ -105,7 +106,7 @@ $accent-color: #3498db;
         text-decoration: none;
         transition: color 0.2s ease;
         &:hover {
-          color: darken($primary-color, 10%);
+          color: color.adjust($primary-color, $lightness: -10%);
         }
       }
     }
@@ -122,7 +123,7 @@ $accent-color: #3498db;
       font-size: 16px;
       transition: color 0.2s ease;
       &:hover {
-        color: darken($accent-color, 10%);
+        color: color.adjust($accent-color, $lightness: -10%);
       }
     }
   }

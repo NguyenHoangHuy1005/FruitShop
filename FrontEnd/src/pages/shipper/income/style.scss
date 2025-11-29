@@ -1,3 +1,4 @@
+@use "sass:color";
 @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
 
 $primary-color: #4caf50;
@@ -160,7 +161,7 @@ $danger-color: #dc3545;
   transition: background-color 0.2s ease;
 
   &:hover:not(:disabled) {
-    background-color: darken($primary-color, 10%);
+    background-color: color.adjust($primary-color, $lightness: -10%);
   }
 
   &:disabled {
@@ -168,10 +169,10 @@ $danger-color: #dc3545;
     cursor: not-allowed;
   }
 
-  &--secondary {
+    &--secondary {
     background-color: $muted-text-color;
     &:hover:not(:disabled) {
-      background-color: darken($muted-text-color, 10%);
+      background-color: color.adjust($muted-text-color, $lightness: -10%);
     }
   }
 }

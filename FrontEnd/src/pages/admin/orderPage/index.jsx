@@ -76,6 +76,15 @@ const resolveCancelNote = (order) => {
     return "Đơn đã bị hủy";
 };
 
+const calcImportCost = (items = []) => {
+    return items.reduce((sum, it) => {
+        const qty = Number(it.quantity) || 0;
+        const importPrice = Number(it.importPrice) || 0;
+        return sum + importPrice * qty;
+    }, 0);
+};
+const resolveShippingDeducted = (order) => Number(order?.shippingFeeDeducted || 0);
+
 const describeWarehouse = (warehouse) => {
     if (!warehouse) return "";
     const name = warehouse.name || "Kho";
@@ -145,27 +154,6 @@ const OrderAdminPage = () => {
     const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
     const [refreshTick, setRefreshTick] = useState(0);
 
-    const [isDark, setIsDark] = useState(() => {
-        return localStorage.getItem("theme") === "dark";
-    });
-
-    const toggleTheme = () => {
-        const next = !isDark;
-        setIsDark(next);
-        if (next) {
-            document.body.classList.add("dark");
-            localStorage.setItem("theme", "dark");
-        } else {
-            document.body.classList.remove("dark");
-            localStorage.setItem("theme", "light");
-        }
-    };
-
-    useEffect(() => {
-        if (isDark) document.body.classList.add("dark");
-        else document.body.classList.remove("dark");
-    }, [isDark]);
-
     useEffect(() => {
         const unsub = subscribeOrderUpdates(() => {
             setRefreshTick((t) => t + 1);
@@ -232,6 +220,16 @@ const OrderAdminPage = () => {
     const selectedWarehouse = useMemo(
         () => warehouses.find((w) => String(w._id) === String(selectedWarehouseId || "")),
         [warehouses, selectedWarehouseId]
+    );
+    const selectedShipping = resolveShippingDeducted(selectedOrder);
+    const selectedDisplayTotal = Math.max(0, Number(selectedOrder?.amount?.total || 0) + selectedShipping);
+    const selectedImportCost = useMemo(
+        () => calcImportCost(selectedOrder?.items || []),
+        [selectedOrder]
+    );
+    const selectedSalesValue = Math.max(
+        0,
+        Number(selectedOrder?.amount?.subtotal || 0) - Number(selectedOrder?.amount?.discount || 0)
     );
     const profitReady = ["delivered", "completed", "cancelled"].includes(
         String(selectedOrder?.status || "").toLowerCase()
@@ -308,38 +306,38 @@ const OrderAdminPage = () => {
                             onChange={(e) => { setPage(1); setToDate(e.target.value); }}
                             title="Đến ngày (theo ngày đặt)"
                             />
-                  </div>
+                    </div>
 
-                  <div className="filter-field">
-                    <label>SỐ DÒNG</label>
-                    <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
-                      <option value={10}>10 / trang</option>
-                      <option value={20}>20 / trang</option>
-                      <option value={50}>50 / trang</option>
-                    </select>
-                  </div>
+                    <div className="filter-field">
+                        <label>SỐ DÒNG</label>
+                        <select value={limit} onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value,10)); }}>
+                        <option value={10}>10 / trang</option>
+                        <option value={20}>20 / trang</option>
+                        <option value={50}>50 / trang</option>
+                        </select>
+                    </div>
 
-                  <div className="filter-field">
-                    <label>TRẠNG THÁI</label>
-                    <select
-                      value={status}
-                      onChange={(e) => {
-                        setPage(1);
-                        setStatus(e.target.value);
-                      }}
-                    >
-                      <option value="">Tất cả</option>
-                      <option value="pending">Chờ xác nhận</option>
-                      <option value="processing">Đang chuẩn bị</option>
-                      <option value="shipping">Đang giao</option>
-                      <option value="delivered">Đã giao</option>
-                      <option value="completed">Hoàn tất</option>
-                      <option value="cancelled">Đã hủy</option>
-                      <option value="expired">Quá hạn</option>
-                    </select>
-                  </div>
+                    <div className="filter-field">
+                        <label>TRẠNG THÁI</label>
+                        <select
+                        value={status}
+                        onChange={(e) => {
+                            setPage(1);
+                            setStatus(e.target.value);
+                        }}
+                        >
+                        <option value="">Tất cả</option>
+                        <option value="pending">Chờ xác nhận</option>
+                        <option value="processing">Đang chuẩn bị</option>
+                        <option value="shipping">Đang giao</option>
+                        <option value="delivered">Đã giao</option>
+                        <option value="completed">Hoàn tất</option>
+                        <option value="cancelled">Đã hủy</option>
+                        <option value="expired">Quá hạn</option>
+                        </select>
+                    </div>
 
-                  <button className="btn-clear" onClick={resetFilters}>XÓA LỌC</button>
+                    <button className="btn-clear" onClick={resetFilters}>XÓA LỌC</button>
                 </div>
 
                 <div className="orders__content">
@@ -361,7 +359,9 @@ const OrderAdminPage = () => {
                             <tbody>
                                 {viewRows.map((o) => {
                                     const id = String(o._id || "");
+                                    const shippingDisplay = Number(o?.amount?.shipping || o?.shippingFee || o?.shippingFeeActual || 0);
                                     const total = o?.amount?.total ?? o?.amount ?? 0;
+                                    const displayTotal = Math.max(0, Number(total) + shippingDisplay);
                                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
                                     const cancelNote = resolveCancelNote(o);
                                     const confirmedAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";
@@ -375,11 +375,11 @@ const OrderAdminPage = () => {
                                             style={{ cursor: 'pointer' }}
                                         >
                                             <td>{id.slice(-8).toUpperCase()}</td>
-                                            <td className="td-right fw-bold">{formatter(total)}</td>
+                                            <td className="td-right fw-bold">{formatter(displayTotal)}</td>
                                             <td>
                                                 <div className="fw-bold">{o?.customer?.name}</div>
                                                 <div className="text-muted">
-                                                    {o?.customer?.phone} • {o?.customer?.email}
+                                                    {o?.customer?.phone} | {o?.customer?.email}
                                                 </div>
                                             </td>
                                             <td>{formatDateTime(o?.createdAt)}</td>
@@ -398,7 +398,7 @@ const OrderAdminPage = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                              <OrderStatusTag status={o?.status} size="sm" />
+                                                <OrderStatusTag status={o?.status} size="sm" />
                                             </td>
                                         </tr>
                                     );
@@ -434,14 +434,14 @@ const OrderAdminPage = () => {
                         </div>
 
                         <div className="order-modal__body">
-                             <div className="order-info-grid">
+                            <div className="order-info-grid">
                                 <div className="info-card">
                                     <label>Trạng thái</label>
                                     <OrderStatusTag status={selectedOrder.status} />
                                 </div>
                                 <div className="info-card">
-                                    <label>Tổng tiền</label>
-                                    <strong>{formatter(selectedOrder.amount?.total || 0)}</strong>
+                                    <label>Tổng tiền (bao gồm ship)</label>
+                                    <strong>{formatter(selectedDisplayTotal)}</strong>
                                 </div>
                                 <div className="info-card">
                                     <label>Khách hàng</label>
@@ -472,28 +472,30 @@ const OrderAdminPage = () => {
                                 <h4>Tài chính</h4>
                                 <div className="order-finance-grid">
                                     <div>
-                                        <span>Phí ship thực tế</span>
-                                        <strong>{formatter(selectedOrder.shippingFeeActual || 0)}</strong>
+                                        <span>Giá bán (sau giảm)</span>
+                                        <strong>{formatter(selectedSalesValue)}</strong>
                                     </div>
-                                    <div>
-                                        <span>Phí khấu trừ (admin)</span>
-                                        <strong>{formatter(selectedOrder.shippingFeeDeducted || 0)}</strong>
-                                    </div>
-                                    <div>
-                                        <span>Thu nhập shipper</span>
-                                        <strong>{formatter(selectedOrder.shipperIncome || 0)}</strong>
-                                    </div>
+                                    {selectedShipping > 0 && (
+                                        <div>
+                                            <span>Phí khấu trừ (giao hàng)</span>
+                                            <strong>{formatter(selectedShipping)}</strong>
+                                        </div>
+                                    )}
                                     <div>
                                         <span>Giảm giá</span>
                                         <strong>{formatter(selectedOrder.amount?.discount || 0)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Giá nhập</span>
+                                        <strong>{formatter(selectedImportCost)}</strong>
                                     </div>
                                     <div>
                                         <span>Hao hụt</span>
                                         <strong>{formatter(selectedOrder.spoilageLoss || 0)}</strong>
                                     </div>
                                     <div className={`order-finance-profit${profitReady ? "" : " order-finance-profit--muted"}`}>
-                                        <span>Lợi nhuận admin</span>
-                                        <strong>{profitReady ? formatter(selectedOrder.adminProfit || 0) : "Chờ giao hàng"}</strong>
+                                        <span>Lợi nhuận</span>
+                                        <strong>{profitReady ? formatter(selectedOrder.adminProfit || 0) : "Chỉ giao hàng"}</strong>
                                     </div>
                                 </div>
                             </div>
@@ -590,7 +592,7 @@ const OrderAdminPage = () => {
                                                     setManualPickupAddress("");
                                                     setSelectedWarehouseId("");
                                                     emitAdminBadgeRefresh();
-                                                    window.location.reload();
+                                                    setRefreshTick((t) => t + 1);
                                                 } else {
                                                     alert(res.data?.message || "Có lỗi xảy ra");
                                                 }

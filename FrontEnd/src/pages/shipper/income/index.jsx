@@ -129,31 +129,22 @@ const ShipperIncome = () => {
             <thead>
               <tr>
                 <th>Đơn</th>
-                <th>Khách</th>
+                <th>Ngày giao</th>
+                <th>Phí ship nhận</th>
                 <th>Trạng thái</th>
-                <th>Thu nhập</th>
-                <th>Khu vực</th>
-                <th>Tổng đơn</th>
-                <th>Cập nhật</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row._id}>
                   <td>#{String(row._id).slice(-8).toUpperCase()}</td>
-                  <td>
-                    <div className="shipper-income__customer">{row.customer?.name}</div>
-                    <div className="shipper-income__meta">{row.customer?.phone}</div>
+                  <td>{formatTime(row.deliveredAt || row.updatedAt || row.createdAt)}</td>
+                  <td className="shipper-income__number">
+                    {formatter(row.shipperIncome || row.shippingFeeActual || 0)}
                   </td>
                   <td>
                     <OrderStatusTag status={row.status} />
                   </td>
-                  <td className="shipper-income__number">
-                    {formatter(row.shipperIncome || row.shippingFeeActual || 0)}
-                  </td>
-                  <td>{row.isInCity ? "Nội thành" : "Ngoại thành"}</td>
-                  <td className="shipper-income__number">{formatter(row.amount?.total || 0)}</td>
-                  <td>{formatTime(row.deliveredAt || row.updatedAt || row.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

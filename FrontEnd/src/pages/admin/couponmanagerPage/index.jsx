@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, useMemo } from "react";
+import { formatter } from "../../../utils/fomater";
 import "./style.scss";
 import {
     getAllCoupons,
@@ -6,6 +7,9 @@ import {
     toggleCoupon,
     extendCoupon,
     getAllProduct,
+    getPriceRange,
+    API,
+    ensureAccessToken,
 } from "../../../component/redux/apiRequest";
 import { useDispatch } from "react-redux";
 
@@ -41,6 +45,8 @@ const CouponManagerPage = () => {
     // ===== Coupons =====
     const [coupons, setCoupons] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
+    const [priceLookup, setPriceLookup] = useState({});
+    const [productsLoading, setProductsLoading] = useState(false); // trang thai load san pham
 
     const [couponFilter, setCouponFilter] = useState({
         code: "",
@@ -65,7 +71,103 @@ const CouponManagerPage = () => {
     const [viewProductsModal, setViewProductsModal] = useState({
         open: false,
         coupon: null,
+        loading: false,
     });
+
+    const resolveProductPrice = (product) => {
+        const id = typeof product === "object" ? product?._id : product;
+        const range = id ? priceLookup[id] : undefined;
+        const rangePrice =
+            range?.minPrice ??
+            range?.maxPrice ??
+            range?.minBasePrice ??
+            range?.maxBasePrice;
+        if (rangePrice !== undefined) {
+            const val = Number(rangePrice);
+            if (Number.isFinite(val)) return val;
+        }
+
+        const raw = typeof product === "object" ? product?.price : undefined;
+        const num = Number(raw);
+        return Number.isFinite(num) ? num : 0;
+    };
+
+    const resolveProductDiscount = (product) => {
+        const id = typeof product === "object" ? product?._id : product;
+        const range = id ? priceLookup[id] : undefined;
+        if (range) {
+            const base =
+                Number(range.minBasePrice ?? range.maxBasePrice ?? range.maxPrice ?? range.minPrice);
+            const final = Number(range.minPrice ?? range.maxPrice);
+            if (Number.isFinite(base) && Number.isFinite(final) && base > 0 && final < base) {
+                return Math.min(100, Math.max(0, Math.round((1 - final / base) * 100)));
+            }
+        }
+        const pct = Number(product?.discountPercent);
+        return Number.isFinite(pct) ? Math.max(0, pct) : 0;
+    };
+
+    const displayProducts = useMemo(() => {
+        return allProducts.map((p) => ({
+            ...p,
+            displayPrice: resolveProductPrice(p),
+            displayDiscount: resolveProductDiscount(p),
+        }));
+    }, [allProducts, priceLookup]);
+
+    // xu ly danh sach san pham ap dung trong modal xem chi tiet
+    const viewProducts = useMemo(() => {
+        const coupon = viewProductsModal.coupon;
+        if (!coupon) return [];
+
+        const raw = Array.isArray(coupon.applicableProducts)
+            ? coupon.applicableProducts
+            : null;
+
+        // Neu khong co danh sach rieng => ap dung cho tat ca
+        const source = !raw || raw.length === 0 ? displayProducts : raw;
+
+        console.log(
+            "[coupon-view] code:",
+            coupon?.code,
+            "| applicable len:",
+            Array.isArray(raw) ? raw.length : "null",
+            "| using source len:",
+            source.length
+        );
+
+        return source
+            .map((item, idx) => {
+                let id = null;
+                let fromCoupon = {};
+
+                if (typeof item === "string") {
+                    id = item;
+                } else if (item && typeof item === "object") {
+                    id = item._id || item.id || item.product || item.productId || null;
+                    fromCoupon = item;
+                }
+
+                if (!id) id = `fallback-${idx}`;
+
+                const fromList = displayProducts.find((p) => String(p._id) === String(id));
+
+                const merged = {
+                    ...(fromCoupon || {}),
+                    ...(fromList || {}),
+                    _id: id,
+                };
+
+                return {
+                    ...merged,
+                    name: merged.name || "Không tìm thấy",
+                    family: merged.family || merged.category || "—",
+                    price: resolveProductPrice(merged),
+                    discountPercent: resolveProductDiscount(merged),
+                };
+            })
+            .filter(Boolean);
+    }, [viewProductsModal.coupon, displayProducts, priceLookup]);
 
     // 🔥 NEW: Modal chỉnh sửa sản phẩm áp dụng
     const [editProductsModal, setEditProductsModal] = useState({
@@ -111,21 +213,71 @@ const CouponManagerPage = () => {
 
     const loadCoupons = async () => {
         try {
-            const data = await getAllCoupons();
-            setCoupons(data);
+            let token = await ensureAccessToken(null);
+            if (!token) token = localStorage.getItem("accessToken") || "";
+
+            const res = await API.get("/coupon", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                validateStatus: () => true,
+            });
+
+            if (res.status === 200 && Array.isArray(res.data)) {
+                setCoupons(res.data);
+            } else {
+                console.error("Load coupons fail status:", res.status, res.data);
+            }
         } catch (e) {
             console.error("Load coupons fail:", e);
         }
     };
 
     const loadProducts = async () => {
+        setProductsLoading(true);
         try {
-            const { API } = await import("../../../component/redux/apiRequest");
-            const res = await API.get("/product");
-            const data = res.data;
-            setAllProducts(Array.isArray(data) ? data : []);
+            let token = await ensureAccessToken(null);
+            if (!token) token = localStorage.getItem("accessToken") || "";
+
+            const res = await API.get("/product?admin=1", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                validateStatus: () => true,
+            });
+            const data = Array.isArray(res.data) ? res.data : [];
+            setAllProducts(data);
+
+            if (!data.length) {
+                setPriceLookup({});
+                return;
+            }
+
+            const priceMap = {};
+            const chunkSize = 6;
+
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const slice = data.slice(i, i + chunkSize);
+                const results = await Promise.allSettled(
+                    slice.map((p) => getPriceRange(p._id))
+                );
+
+                results.forEach((result, idx) => {
+                    if (result.status !== "fulfilled" || !result.value) return;
+                    const payload = result.value;
+                    const priceCandidate =
+                        payload?.minPrice ??
+                        payload?.maxPrice ??
+                        payload?.minBasePrice ??
+                        payload?.maxBasePrice;
+
+                    if (priceCandidate !== undefined) {
+                        priceMap[slice[idx]._id] = payload;
+                    }
+                });
+            }
+
+            setPriceLookup(priceMap);
         } catch (e) {
             console.error("Load products fail:", e);
+        } finally {
+            setProductsLoading(false);
         }
     };
 
@@ -204,6 +356,58 @@ const CouponManagerPage = () => {
             submitting: false,
             newMinOrder: Number(c?.minOrder || 0),
         });
+    };
+
+    // 🔥 NEW: mở modal xem sản phẩm áp dụng (fetch chi tiết kèm populate)
+    const openViewProducts = async (c) => {
+        if (!c || !c._id) return;
+
+        // Hiển thị modal ngay, đồng thời fetch chi tiết (populate) để chắc chắn có danh sách sản phẩm
+        setViewProductsModal({ open: true, coupon: c, loading: true });
+
+        try {
+            let token = await ensureAccessToken(null);
+            if (!token) {
+                token = localStorage.getItem("accessToken") || "";
+            }
+
+            // dam bao da co danh sach san pham truoc khi render
+            if (allProducts.length === 0) {
+                await loadProducts();
+            }
+
+            const res = await API.get(`/coupon/${c._id}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                validateStatus: () => true,
+            });
+
+            const detail = res?.data?.coupon;
+            if (res.status === 200 && detail) {
+                // đồng bộ lại danh sách coupons trong state
+                setCoupons((prev) => {
+                    const exists = prev.some((cp) => String(cp._id) === String(detail._id));
+                    if (!exists) return [detail, ...prev];
+                    return prev.map((cp) => (String(cp._id) === String(detail._id) ? detail : cp));
+                });
+
+                setViewProductsModal({ open: true, coupon: detail, loading: false });
+                return;
+            }
+
+            // Nếu API chi tiết fail, thử dùng lại danh sách (đã populate)
+            if (coupons.length > 0) {
+                const found = coupons.find((cp) => String(cp._id) === String(c._id));
+                if (found) {
+                    setViewProductsModal({ open: true, coupon: found, loading: false });
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error("Load coupon detail fail:", err);
+        }
+
+        // fallback: giữ dữ liệu cũ
+        setViewProductsModal({ open: true, coupon: c, loading: false });
     };
 
     // 🔥 NEW: Mở modal chỉnh sửa sản phẩm áp dụng
@@ -326,6 +530,7 @@ const CouponManagerPage = () => {
 
             alert(data.message || "Giảm giá thành công!");
             await getAllProduct(dispatch, true);
+            await loadProducts();
             setBulkDiscountModal({ 
                 open: false, 
                 selectedProducts: [], 
@@ -362,6 +567,19 @@ const CouponManagerPage = () => {
             return okCode && okType && okDate;
         });
     }, [coupons, couponFilter]);
+
+    // tinh state hien thi san pham trong modal (khong dung hook khac)
+    const couponView = viewProductsModal.coupon;
+    const viewRawLen = Array.isArray(couponView?.applicableProducts)
+        ? couponView.applicableProducts.length
+        : null;
+    const viewAppliesAll = viewRawLen === 0;
+    const viewRows = viewAppliesAll ? displayProducts : viewProducts;
+    const viewLoading =
+        viewProductsModal.loading ||
+        productsLoading ||
+        (!couponView) ||
+        (viewAppliesAll && displayProducts.length === 0);
 
 
     return (
@@ -466,7 +684,7 @@ const CouponManagerPage = () => {
                             {/* Xem */}
                             <button
                                 className="btn-view"
-                                onClick={() => setViewProductsModal({ open: true, coupon: c })}
+                                onClick={() => openViewProducts(c)}
                                 title="Xem chi tiết coupon"
                             >
                                 Xem
@@ -708,7 +926,7 @@ const CouponManagerPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            const allIds = allProducts.map(p => p._id);
+                                            const allIds = displayProducts.map(p => p._id);
                                             setCreateModal((s) => ({ ...s, data: { ...s.data, applicableProducts: allIds } }));
                                         }}
                                         className="btn-select-all"
@@ -737,39 +955,39 @@ const CouponManagerPage = () => {
                             </div>
                             
                             <div className="products-list">
-                                {allProducts.length > 0 ? (
-                                    allProducts
+                                {displayProducts.length > 0 ? (
+                                    displayProducts
                                         .filter((p) => {
                                             const searchKey = (createModal.searchTerm || "").trim().toLowerCase();
                                             if (!searchKey) return true;
                                             return (p?.name || "").toLowerCase().includes(searchKey);
                                         })
                                         .map((p) => (
-                                        <label
-                                            key={p._id}
-                                            className={`product-item ${createModal.data.applicableProducts.includes(p._id) ? "selected" : ""}`.trim()}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={createModal.data.applicableProducts.includes(p._id)}
-                                                onChange={(e) => {
-                                                    const selected = e.target.checked
-                                                        ? [...createModal.data.applicableProducts, p._id]
-                                                        : createModal.data.applicableProducts.filter(id => id !== p._id);
-                                                    setCreateModal((s) => ({ ...s, data: { ...s.data, applicableProducts: selected } }));
-                                                }}
-                                            />
-                                            <span className="product-name">
-                                                {p.name}
-                                            </span>
-                                            <span className="product-family">
-                                                {p.family || "—"}
-                                            </span>
-                                            <span className="product-price">
-                                                {Number(p.price || 0).toLocaleString()}₫
-                                            </span>
-                                        </label>
-                                    ))
+                                            <label
+                                                key={p._id}
+                                                className={`product-item ${createModal.data.applicableProducts.includes(p._id) ? "selected" : ""}`.trim()}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={createModal.data.applicableProducts.includes(p._id)}
+                                                    onChange={(e) => {
+                                                        const selected = e.target.checked
+                                                            ? [...createModal.data.applicableProducts, p._id]
+                                                            : createModal.data.applicableProducts.filter(id => id !== p._id);
+                                                        setCreateModal((s) => ({ ...s, data: { ...s.data, applicableProducts: selected } }));
+                                                    }}
+                                                />
+                                                <span className="product-name">
+                                                    {p.name}
+                                                </span>
+                                                <span className="product-family">
+                                                    {p.family || "—"}
+                                                </span>
+                                                <span className="product-price">
+                                                    {formatter(p.displayPrice ?? resolveProductPrice(p))}
+                                                </span>
+                                            </label>
+                                        ))
                                 ) : (
                                     <p className="empty-text">
                                         Không có sản phẩm
@@ -777,7 +995,7 @@ const CouponManagerPage = () => {
                                 )}
                             </div>
                             <small className="selection-info">
-                                Đang chọn: <b>{createModal.data.applicableProducts.length}</b> / {allProducts.length} sản phẩm
+                                Đang chọn: <b>{createModal.data.applicableProducts.length}</b> / {displayProducts.length} sản phẩm
                             </small>
                         </label>
                     </div>
@@ -796,7 +1014,7 @@ const CouponManagerPage = () => {
 
             {/* 🔥 NEW: Modal xem chi tiết coupon */}
             {viewProductsModal.open && (
-                <div className="modal-overlay" onClick={() => setViewProductsModal({ open: false, coupon: null })}>
+                <div className="modal-overlay" onClick={() => setViewProductsModal({ open: false, coupon: null, loading: false })}>
                     <div className="modal-content view-products-modal" onClick={(e) => e.stopPropagation()}>
                         <h3>
                             Chi tiết mã giảm giá: <span>{viewProductsModal.coupon?.code}</span>
@@ -871,8 +1089,15 @@ const CouponManagerPage = () => {
                         <h4 className="products-title">
                             Sản phẩm áp dụng:
                         </h4>
-                        
-                        {viewProductsModal.coupon?.applicableProducts && viewProductsModal.coupon.applicableProducts.length > 0 ? (
+                        {viewLoading ? (
+                            <div className="empty-state">
+                                <p>Đang tải danh sách sản phẩm...</p>
+                            </div>
+                        ) : !couponView ? (
+                            <div className="empty-state">
+                                <p>Chưa có dữ liệu coupon.</p>
+                            </div>
+                        ) : viewRows.length > 0 ? (
                             <div className="products-table-wrapper">
                                 <table className="products-table">
                                     <thead>
@@ -883,7 +1108,7 @@ const CouponManagerPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {viewProductsModal.coupon.applicableProducts.map((p, idx) => (
+                                        {viewRows.map((p, idx) => (
                                             <tr key={idx}>
                                                 <td>{p?.name || "N/A"}</td>
                                                 <td>
@@ -892,7 +1117,7 @@ const CouponManagerPage = () => {
                                                     </span>
                                                 </td>
                                                 <td className="product-price-cell">
-                                                    {p?.price ? `${Number(p.price).toLocaleString()} ₫` : "—"}
+                                                    {formatter(resolveProductPrice(p))}
                                                 </td>
                                             </tr>
                                         ))}
@@ -901,16 +1126,14 @@ const CouponManagerPage = () => {
                             </div>
                         ) : (
                             <div className="empty-state">
-                                <p>
-                                    ✨ Áp dụng cho tất cả sản phẩm
-                                </p>
+                                <p>Không có sản phẩm để hiển thị.</p>
                             </div>
                         )}
 
                         <div className="actions">
                             <button 
                                 className="btn-cancel" 
-                                onClick={() => setViewProductsModal({ open: false, coupon: null })}
+                                onClick={() => setViewProductsModal({ open: false, coupon: null, loading: false })}
                             >
                                 Đóng
                             </button>
@@ -934,7 +1157,7 @@ const CouponManagerPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            const allIds = allProducts.map(p => p._id);
+                                            const allIds = displayProducts.map(p => p._id);
                                             setEditProductsModal((s) => ({ ...s, selectedProducts: allIds }));
                                         }}
                                         className="btn-select-all"
@@ -963,8 +1186,8 @@ const CouponManagerPage = () => {
                             </div>
 
                             <div className="products-list">
-                                {allProducts.length > 0 ? (
-                                    allProducts
+                                {displayProducts.length > 0 ? (
+                                    displayProducts
                                         .filter((p) => {
                                             const searchKey = (editProductsModal.searchTerm || "").trim().toLowerCase();
                                             if (!searchKey) return true;
@@ -993,7 +1216,7 @@ const CouponManagerPage = () => {
                                                     {p.family || "—"}
                                                 </span>
                                                 <span className="product-price">
-                                                    {Number(p.price || 0).toLocaleString()}₫
+                                                    {formatter(p.displayPrice ?? resolveProductPrice(p))}
                                                 </span>
                                             </label>
                                         ))
@@ -1004,7 +1227,7 @@ const CouponManagerPage = () => {
                                 )}
                             </div>
                             <small className="selection-info">
-                                Đang chọn: <b>{editProductsModal.selectedProducts.length}</b> / {allProducts.length} sản phẩm
+                                Đang chọn: <b>{editProductsModal.selectedProducts.length}</b> / {displayProducts.length} sản phẩm
                             </small>
                         </label>
 
@@ -1078,7 +1301,7 @@ const CouponManagerPage = () => {
                                         type="button"
                                         className="btn-select-all"
                                         onClick={() => {
-                                            const allIds = allProducts.map(p => p._id);
+                                            const allIds = displayProducts.map(p => p._id);
                                             setBulkDiscountModal((s) => ({ ...s, selectedProducts: allIds }));
                                         }}
                                     >
@@ -1105,8 +1328,8 @@ const CouponManagerPage = () => {
                             </div>
                             
                             <div className="products-list">
-                                {allProducts.length > 0 ? (
-                                    allProducts
+                                {displayProducts.length > 0 ? (
+                                    displayProducts
                                         .filter((p) => {
                                             const searchKey = (bulkDiscountModal.searchTerm || "").trim().toLowerCase();
                                             if (!searchKey) return true;
@@ -1129,9 +1352,9 @@ const CouponManagerPage = () => {
                                             />
                                             <span className="name">{p.name}</span>
                                             <span className="family">{p.family || "—"}</span>
-                                            <span className="price">{Number(p.price || 0).toLocaleString()}₫</span>
-                                            <span className={`discount ${p.discountPercent > 0 ? 'has-discount' : ''}`}>
-                                                {p.discountPercent || 0}%
+                                            <span className="price">{formatter(p.displayPrice ?? resolveProductPrice(p))}</span>
+                                            <span className={`discount ${resolveProductDiscount(p) > 0 ? 'has-discount' : ''}`}>
+                                                {resolveProductDiscount(p)}%
                                             </span>
                                         </label>
                                     ))
@@ -1140,7 +1363,7 @@ const CouponManagerPage = () => {
                                 )}
                             </div>
                             <small className="selection-count">
-                                Đang chọn: <b>{bulkDiscountModal.selectedProducts.length}</b> / {allProducts.length} sản phẩm
+                                Đang chọn: <b>{bulkDiscountModal.selectedProducts.length}</b> / {displayProducts.length} sản phẩm
                             </small>
                         </div>
 

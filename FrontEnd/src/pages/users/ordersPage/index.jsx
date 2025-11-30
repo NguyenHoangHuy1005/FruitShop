@@ -152,6 +152,23 @@ const OrdersPage = () => {
   );
   const selectedOrderKey = selectedOrder ? String(selectedOrder._id || selectedOrder.id || "") : "";
   const selectedOrderTimestamp = selectedOrder?.createdAt || selectedOrder?.updatedAt;
+  const selectedShipping = useMemo(
+    () => Number(selectedOrder?.amount?.shipping ?? 0),
+    [selectedOrder]
+  );
+  const selectedMerchandise = useMemo(
+    () =>
+      Math.max(
+        0,
+        Number(selectedOrder?.amount?.subtotal || 0) -
+          Number(selectedOrder?.amount?.discount || 0)
+      ),
+    [selectedOrder]
+  );
+  const selectedPayable = useMemo(
+    () => Math.max(0, selectedMerchandise + Number(selectedShipping || 0)),
+    [selectedMerchandise, selectedShipping]
+  );
   const detailActionKey = actionState.id === selectedOrderKey ? actionState.key : "";
   const cancelDialogLoading =
     cancelDialog.open && actionState.id === cancelDialog.orderId && actionState.key === "cancel";
@@ -452,7 +469,13 @@ const toggleOpen = (id) => {
               <tbody>
                 {orders.map((o) => {
                   const id = String(o._id || o.id || "");
-                  const total = o?.amount?.total ?? o?.amount ?? 0;
+                  const subtotal = Number(o?.amount?.subtotal || 0);
+                  const discount = Number(o?.amount?.discount || 0);
+                  const shippingPaid = Number(
+                    o?.amount?.shipping ?? o?.shippingFee ?? o?.shippingFeeActual ?? 0
+                  );
+                  const merchandise = Math.max(0, subtotal - discount);
+                  const totalDisplay = Math.max(0, merchandise + shippingPaid);
                   const normalizedRowStatus = normalizeOrderStatus(o?.status);
                   return (
                     <tr key={id}>
@@ -464,11 +487,11 @@ const toggleOpen = (id) => {
                         {normalizedRowStatus ? (
                           <OrderStatusTag status={normalizedRowStatus} />
                         ) : (
-                          <span className="status-placeholder">—</span>
+                          <span className="status-placeholder">?</span>
                         )}
                       </td>
                       <td>{getPaymentMethodDisplay(o?.payment)}</td>
-                      <td className="text-right fw-bold">{formatter(total)}</td>
+                      <td className="text-right fw-bold">{formatter(totalDisplay)}</td>
                       <td className="text-right">
                         <button
                           type="button"
@@ -561,10 +584,10 @@ const toggleOpen = (id) => {
                           <span>Phương thức thanh toán</span>
                           <strong>{getPaymentMethodDisplay(selectedOrder?.payment)}</strong>
                         </div>
-                        {selectedOrder?.amount?.total && (
+                        {typeof selectedOrder?.amount?.total === "number" && (
                           <div className="summary-card summary-card--highlight">
                             <span>Tổng thanh toán</span>
-                            <strong>{formatter(selectedOrder.amount.total)}</strong>
+                            <strong>{formatter(selectedPayable)}</strong>
                           </div>
                         )}
                         {selectedOrder?.paymentCompletedAt && (
@@ -681,7 +704,7 @@ const toggleOpen = (id) => {
                             <tr>
                               <td colSpan="2" />
                               <td className="text-right"><b>Vận chuyển</b></td>
-                              <td className="text-right">{formatter(selectedOrder?.amount?.shipping ?? 0)}</td>
+                              <td className="text-right">{formatter(selectedShipping)}</td>
                             </tr>
                             {(selectedOrder?.amount?.discount ?? 0) > 0 && (
                               <tr>
@@ -693,7 +716,7 @@ const toggleOpen = (id) => {
                             <tr className="total-row">
                               <td colSpan="2" />
                               <td className="text-right"><b>Tổng thanh toán</b></td>
-                              <td className="text-right"><b>{formatter(selectedOrder?.amount?.total ?? 0)}</b></td>
+                              <td className="text-right"><b>{formatter(selectedPayable)}</b></td>
                             </tr>
                           </tfoot>
                         </table>
@@ -722,7 +745,13 @@ const toggleOpen = (id) => {
                   <p className="order-cancel-dialog__subtitle">
                     Đơn #{String(cancelDialog.orderId).slice(-8).toUpperCase()}
                     {typeof cancelDialog.order?.amount?.total === "number" && (
-                      <> • {formatter(cancelDialog.order.amount.total)}</>
+                      <> • {formatter(
+                        Math.max(
+                          0,
+                          Number(cancelDialog.order.amount?.total || 0) +
+                            Number(cancelDialog.order.amount?.shipping ?? cancelDialog.order.shippingFee ?? cancelDialog.order.shippingFeeActual ?? 0)
+                        )
+                      )}</>
                     )}
                   </p>
                 )}

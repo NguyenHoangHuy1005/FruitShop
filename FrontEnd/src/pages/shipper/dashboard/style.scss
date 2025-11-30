@@ -1,182 +1,361 @@
 @use "sass:color";
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
 
-$primary-color: #4caf50;
-$secondary-color: #ff9800;
-$background-color: #f5f5f5;
-$card-background: #ffffff;
-$text-color: #333;
-$muted-text-color: #6b7280;
-$border-color: #e5e7eb;
-$accent-color: #3498db;
+$bg: #f5f7fb;
+$card: #ffffff;
+$border: #e5e7eb;
+$text: #0f172a;
+$muted: #64748b;
+$primary: #2563eb;
+$success: #22c55e;
+$warning: #f59e0b;
+$accent: #7c3aed;
 
 .shipper-dashboard {
   padding: 24px;
-  background-color: $background-color;
+  background: linear-gradient(135deg, #f2f7ff 0%, #f7f7fb 100%);
+  min-height: 100vh;
+  color: $text;
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    color: $muted;
+    margin: 0;
+  }
 
   &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 24px;
+
     h1 {
       font-size: 28px;
-      font-weight: 700;
-      color: $text-color;
+      margin: 4px 0;
     }
     p {
-      font-size: 16px;
-      color: $muted-text-color;
-      margin-top: 4px;
+      margin: 0;
+      color: $muted;
     }
   }
 
-  &__stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 24px;
-  }
-
-  &__stat-card {
-    background: $card-background;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  &__cta {
     display: flex;
+    gap: 12px;
     align-items: center;
-    gap: 16px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
 
-    &:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .icon {
-      width: 48px;
-      height: 48px;
-      display: flex;
+    .btn-primary,
+    .btn-secondary {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      flex-shrink: 0;
-
-      svg {
-        width: 24px;
-        height: 24px;
-        color: white;
-      }
-    }
-
-    &__info {
-      &__label {
-        font-size: 14px;
-        color: $muted-text-color;
-        margin-bottom: 4px;
-      }
-      &__value {
-        font-size: 24px;
-        font-weight: 700;
-        color: $text-color;
-      }
-    }
-  }
-
-  &__section {
-    background: $card-background;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    margin-bottom: 24px;
-
-    &__header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-
-      h2 {
-        font-size: 20px;
-        font-weight: 600;
-        color: $text-color;
-      }
-
-      a {
-        font-size: 14px;
-        font-weight: 600;
-        color: $primary-color;
-        text-decoration: none;
-        transition: color 0.2s ease;
-        &:hover {
-          color: color.adjust($primary-color, $lightness: -10%);
-        }
-      }
-    }
-  }
-
-  &__income-link {
-    display: block;
-    text-align: center;
-    margin: -12px 0 24px;
-    a {
-      font-weight: 600;
-      color: $accent-color;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
       text-decoration: none;
-      font-size: 16px;
-      transition: color 0.2s ease;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: $primary;
+      color: white;
       &:hover {
-        color: color.adjust($accent-color, $lightness: -10%);
+        background: color.adjust($primary, $lightness: -8%);
       }
+    }
+    .btn-secondary {
+      background: rgba($primary, 0.08);
+      color: $primary;
+      &:hover {
+        background: rgba($primary, 0.15);
+      }
+    }
+
+    &.is-open {
+      position: absolute;
+      top: 60px;
+      right: 0;
+      background: $card;
+      border: 1px solid $border;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      flex-direction: column;
+      width: 200px;
+      z-index: 10;
     }
   }
 
-  &__list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    li {
-      display: flex;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid $border-color;
-      font-size: 15px;
-      &:last-child {
-        border-bottom: none;
-      }
-      .icon {
-        margin-right: 12px;
-        color: $secondary-color;
-      }
-    }
+  &__highlight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
   }
 }
 
-// Icon colors
-.icon-processing {
-  background-color: #ffa726;
+.mobile-menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid $border;
+  background: $card;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  cursor: pointer;
+  span {
+    width: 100%;
+    height: 2px;
+    background: $text;
+    border-radius: 999px;
+  }
 }
-.icon-shipping {
-  background-color: #29b6f6;
+
+.highlight-card {
+  background: $card;
+  border: 1px solid $border;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  display: grid;
+  gap: 6px;
+
+  &__label {
+    font-size: 13px;
+    color: $muted;
+  }
+  &__value {
+    font-size: 22px;
+    font-weight: 800;
+  }
+  &__muted {
+    font-size: 12px;
+    color: $muted;
+  }
 }
-.icon-delivered {
-  background-color: #66bb6a;
+
+.sd-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba($primary, 0.1);
+  color: $primary;
+
+  &.accent { background: rgba($accent, 0.1); color: $accent; }
+  &.warning { background: rgba($warning, 0.12); color: $warning; }
+  &.success { background: rgba($success, 0.12); color: $success; }
+  &.info { background: rgba($primary, 0.1); color: $primary; }
+
+  svg { width: 22px; height: 22px; }
 }
-.icon-cancelled {
-  background-color: #ef5350;
+
+.shipper-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
 }
-.icon-cod {
-  background-color: #78909c;
+
+.panel {
+  background: $card;
+  border: 1px solid $border;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    h2 { margin: 0; font-size: 18px; }
+    .link {
+      color: $primary;
+      text-decoration: none;
+      font-weight: 600;
+    }
+  }
+
+  &__tags {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+
+    span { color: $muted; font-size: 13px; }
+    strong { display: block; font-size: 18px; margin-top: 4px; }
+  }
 }
-.icon-value {
-  background-color: #ab47bc;
+
+.tag {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba($primary, 0.08);
+  color: $primary;
+  font-weight: 600;
+  &.muted {
+    background: rgba($muted, 0.12);
+    color: $muted;
+  }
 }
-.icon-income-today {
-  background-color: #5c6bc0;
+
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px dashed $border;
+    border-radius: 10px;
+    background: #f9fbff;
+  }
 }
-.icon-income-month {
-  background-color: #42a5f5;
+
+.task-title { margin: 0; font-weight: 700; }
+.task-meta { margin: 2px 0 0; color: $muted; font-size: 13px; }
+
+.btn-ghost {
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  border: 1px solid $border;
+  color: $primary;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  &:hover { border-color: $primary; }
 }
-.icon-income-total {
-  background-color: #26a69a;
+
+.shipper-dashboard__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid $border;
+    &:last-child { border-bottom: none; }
+  }
 }
-.icon-delivered-total {
-  background-color: #8d6e63;
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  &.live {
+    background: rgba($success, 0.15);
+    color: $success;
+  }
+}
+
+.empty {
+  color: $muted;
+  margin: 0;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.mini-chart {
+  border: 1px solid $border;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f9fbff;
+
+  &__title {
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  &__bars {
+    display: grid;
+    gap: 8px;
+  }
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+
+  &__label { color: $muted; font-size: 13px; }
+  &__track {
+    grid-column: 1 / 3;
+    background: $border;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+  }
+  &__fill {
+    height: 100%;
+    background: linear-gradient(90deg, $primary, $accent);
+  }
+  &__value { font-weight: 700; }
+}
+
+@media (max-width: 768px) {
+  .shipper-dashboard__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .shipper-dashboard__cta {
+    display: none;
+  }
+  .mobile-menu-toggle {
+    display: inline-flex;
+  }
+  .shipper-dashboard__highlight-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .shipper-dashboard__grid {
+    grid-template-columns: 1fr;
+  }
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .shipper-dashboard {
+    padding: 16px;
+  }
+  .task-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .panel__metrics {
+    grid-template-columns: 1fr;
+  }
+  .shipper-dashboard__header {
+    gap: 16px;
+  }
 }

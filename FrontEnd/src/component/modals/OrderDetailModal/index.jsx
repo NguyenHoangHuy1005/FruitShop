@@ -170,6 +170,8 @@ const OrderDetailModal = ({ orderId, onClose }) => {
     if (!order) return null;
 
     const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+    const shippingDisplay = Number(order?.amount?.shipping || order?.shippingFee || order?.shippingFeeActual || 0);
+    const totalDisplay = Math.max(0, Number(order?.amount?.total || 0) + shippingDisplay);
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -251,27 +253,27 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                     </div>
 
                     <div className="payment-section">
-                        <h3>Thanh toan</h3>
+                        <h3>Thanh toán</h3>
                         <div className="payment-row">
-                            <span className="label">Tam tinh:</span>
+                            <span className="label">Tạm tính:</span>
                             <span className="value">{formatter(order.amount?.subtotal || 0)}</span>
                         </div>
                         {order.amount?.discount > 0 && (
                             <div className="payment-row discount">
-                                <span className="label">Giam gia:</span>
+                                <span className="label">Giảm giá:</span>
                                 <span className="value">-{formatter(order.amount.discount)}</span>
                             </div>
                         )}
                         <div className="payment-row">
-                            <span className="label">Phi van chuyen:</span>
-                            <span className="value">{formatter(order.amount?.shipping || 0)}</span>
+                            <span className="label">Phí vận chuyển:</span>
+                            <span className="value">{formatter(shippingDisplay)}</span>
                         </div>
                         <div className="payment-row total">
-                            <span className="label">Tong cong:</span>
-                            <span className="value">{formatter(order.amount?.total || 0)}</span>
+                            <span className="label">Tổng cộng:</span>
+                            <span className="value">{formatter(totalDisplay)}</span>
                         </div>
                         <div className="payment-method">
-                            Phuong thuc: {getPaymentMethodDisplay(order.payment)}
+                            Phương thức: {getPaymentMethodDisplay(order.payment)}
                         </div>
                     </div>
 
@@ -287,7 +289,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
 
                 <div className="modal-footer">
                     <button className="btn-close" onClick={onClose}>
-                        Dong
+                        Đóng
                     </button>
                 </div>
             </div>

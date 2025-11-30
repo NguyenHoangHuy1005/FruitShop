@@ -987,39 +987,45 @@ $zinc: #71717a;
 }
 
 .order-finance-card {
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+  border: 1px solid #e3e9f1;
+  border-radius: 14px;
+  padding: 16px;
   margin: 12px 0;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
 .order-finance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  gap: 14px;
   margin-top: 8px;
 }
 
 .order-finance-grid span {
   color: #4b5563;
   font-size: 13px;
+  font-weight: 600;
 }
 
 .order-finance-grid strong {
   display: block;
-  font-size: 16px;
+  font-size: 17px;
+  color: #0f172a;
+  margin-top: 4px;
 }
 
 .order-finance-profit {
   background: #ecfdf3;
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #bbf7d0;
 }
 
 .order-finance-profit--muted {
   background: #f3f4f6;
   color: #6b7280;
+  border-color: #e5e7eb;
 }
 
 .order-finance-profit--muted strong {

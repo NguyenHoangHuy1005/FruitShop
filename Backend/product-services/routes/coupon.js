@@ -7,6 +7,7 @@ const { requireAdmin } = require("../../auth-services/middlewares/auth");
 // Admin quản lý coupon
 router.post("/", requireAdmin, couponCtrl.createCoupon);
 router.get("/", requireAdmin, couponCtrl.listCoupons);
+router.get("/:id", requireAdmin, couponCtrl.getOne);
 router.delete("/:id", requireAdmin, couponCtrl.deleteCoupon);
 router.patch("/:id/toggle", requireAdmin, couponCtrl.toggleCoupon);
 // gia hạn mã giảm giá

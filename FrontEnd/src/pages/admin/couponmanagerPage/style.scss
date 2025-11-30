@@ -1086,6 +1086,14 @@ $product-main: map.get(theme.$theme-colors, "main");
             font-style: italic;
             margin: 0;
         }
+
+        small {
+            display: block;
+            margin-top: 8px;
+            color: #94a3b8;
+            font-size: 12px;
+            word-break: break-all;
+        }
     }
 
     // Nút hành động

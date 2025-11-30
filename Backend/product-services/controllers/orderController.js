@@ -94,10 +94,28 @@ const normalizeText = (str = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const HCM_KEYWORDS = [
+    "tp. hcm",
+    "tp hcm",
+    "tphcm",
+    "tp.hcm",
+    "thanh pho ho chi minh",
+    "ho chi minh",
+    "hcm",
+];
+
+const normalizeForAddressMatch = (value = "") => normalizeText(value).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const normalizeCompact = (value = "") => normalizeText(value).replace(/[^a-z0-9]/g, "");
+const HCM_KEYWORDS_NORMALIZED = HCM_KEYWORDS.map(normalizeForAddressMatch);
+const HCM_KEYWORDS_COMPACT = HCM_KEYWORDS.map(normalizeCompact);
+
 const isAddressInHcm = (address = "") => {
-    const normalized = normalizeText(address);
+    const normalized = normalizeForAddressMatch(address);
     if (!normalized) return false;
-    return /thanh pho ho chi minh|tp\.?\s*hcm|tp hcm|tp\.?hcm|ho chi minh/i.test(normalized);
+    const compact = normalizeCompact(address);
+    if (HCM_KEYWORDS_NORMALIZED.some((kw) => normalized.includes(kw))) return true;
+    if (HCM_KEYWORDS_COMPACT.some((kw) => compact.includes(kw))) return true;
+    return false;
 };
 
 const computeShippingInfo = (orderLike = {}) => {
@@ -105,32 +123,43 @@ const computeShippingInfo = (orderLike = {}) => {
   const subtotal = Number(amount.subtotal || 0);
   const discount = Number(amount.discount || 0);
   const address = orderLike.customer?.address || "";
-  const isCancelled = String(orderLike.status || "").toLowerCase() === "cancelled";
   const hasShipper = !!orderLike.shipperId;
+  const paymentType = String(orderLike.paymentType || orderLike.paymentMethod || orderLike.payment || "COD").toUpperCase();
   const isInCity = typeof orderLike.isInCity === "boolean" ? orderLike.isInCity : isAddressInHcm(address);
-  const shippingFeeActual = isCancelled && !hasShipper ? 0 : (isInCity ? IN_CITY_FEE : OUT_CITY_FEE);
+  const baseShippingFee = isInCity ? IN_CITY_FEE : OUT_CITY_FEE;
+  let shippingFeeActual = baseShippingFee;
   const merchandiseTotal = Math.max(0, subtotal - discount);
   const freeShip = merchandiseTotal >= FREE_SHIP_THRESHOLD;
   let shippingFee = freeShip ? 0 : shippingFeeActual;
-  let shippingFeeDeducted = freeShip ? shippingFeeActual : 0;
+  let shippingFeeDeducted = 0;
   const status = String(orderLike.status || "").toLowerCase();
-  if (status === "cancelled") {
-    shippingFeeDeducted = orderLike.shipperId ? shippingFeeActual : 0;
-    if (!hasShipper) shippingFee = 0;
-  }
-  const shipperIncome = shippingFeeActual;
-  const amountTotal = Math.max(0, merchandiseTotal + shippingFee);
 
-    return {
-        isInCity,
-        shippingFeeActual,
-        shippingFee,
-        shippingFeeDeducted,
-        shipperIncome,
-        freeShip,
-        merchandiseTotal,
-        amountTotal,
-    };
+  if (status === "cancelled") {
+    shippingFeeActual = hasShipper ? baseShippingFee : 0;
+    shippingFee = 0;
+    shippingFeeDeducted = hasShipper ? shippingFeeActual : 0;
+  } else if (freeShip) {
+    shippingFee = 0;
+    shippingFeeDeducted = shippingFeeActual;
+  } else {
+    shippingFeeDeducted = (paymentType === "BANK" || paymentType === "VNPAY") ? shippingFeeActual : 0;
+  }
+
+  const shipperIncome = shippingFeeActual;
+  const amountTotal = Math.max(0, merchandiseTotal + ((paymentType === "BANK" || paymentType === "VNPAY") ? shippingFee : 0));
+  const paymentAmount = amountTotal;
+
+  return {
+      isInCity,
+      shippingFeeActual,
+      shippingFee,
+      shippingFeeDeducted,
+      shipperIncome,
+      freeShip,
+      merchandiseTotal,
+      amountTotal,
+      paymentAmount,
+  };
 };
 
 const calculateTotalCostPrice = (items = [], opts = {}) => {
@@ -143,23 +172,19 @@ const calculateTotalCostPrice = (items = [], opts = {}) => {
   return totalCost;
 };
 
-const resolvePaymentAmount = (orderLike = {}) => {
-    const total = Number(orderLike.amount?.total || 0);
+const resolvePaymentAmount = (orderLike = {}, shippingInfo = null) => {
     const status = String(orderLike.status || "").toLowerCase();
-    const paid = !!orderLike.paymentCompletedAt;
-    const paymentType = String(orderLike.paymentType || orderLike.paymentMethod || "COD").toUpperCase();
-
-    if (paymentType === "BANK" || paymentType === "VNPAY") {
-        return paid ? total : 0;
+    if (status === "cancelled" || status === "expired") return 0;
+    if (shippingInfo && typeof shippingInfo.paymentAmount === "number") {
+        return Math.max(0, shippingInfo.paymentAmount);
     }
-
-    if (paymentType === "COD") {
-        if (paid) return total;
-        if (status === "delivered" || status === "completed") return total;
-        return 0;
-    }
-
-    return paid ? total : 0;
+    const subtotal = Number(orderLike.amount?.subtotal || 0);
+    const discount = Number(orderLike.amount?.discount || 0);
+    const paymentType = String(orderLike.paymentType || orderLike.paymentMethod || orderLike.payment || "COD").toUpperCase();
+    const shippingCharged = (paymentType === "BANK" || paymentType === "VNPAY")
+        ? Number(orderLike.amount?.shipping || 0)
+        : 0;
+    return Math.max(0, subtotal - discount + shippingCharged);
 };
 
 const withComputedFinancials = (orderLike = {}) => {
@@ -169,7 +194,6 @@ const withComputedFinancials = (orderLike = {}) => {
   amount.subtotal = Number(amount.subtotal || 0);
   amount.discount = Number(amount.discount || 0);
   amount.shipping = shippingInfo.shippingFee;
-  amount.total = shippingInfo.amountTotal;
 
     const working = {
         ...orderLike,
@@ -187,7 +211,8 @@ const withComputedFinancials = (orderLike = {}) => {
     totalCostPrice = 0;
   }
   const couponDiscount = status === "cancelled" && !orderLike.shipperId ? 0 : Number(amount.discount || 0);
-    const paymentAmount = resolvePaymentAmount({ ...working, amount });
+    const paymentAmount = resolvePaymentAmount({ ...working, amount }, shippingInfo);
+    amount.total = paymentAmount;
     const adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - couponDiscount - working.spoilageLoss;
 
     return {
@@ -284,7 +309,6 @@ async function calcTotals(cart, couponCode) {
     }
 // phí ship 30k
     const SHIPPING_FEE = 0;
-    const shipping = subtotal >= 199000 ? 0 : SHIPPING_FEE;
 
     let discount = 0;
     let couponApplied = false;
@@ -330,7 +354,9 @@ async function calcTotals(cart, couponCode) {
         }
     }
 
-    const total = Math.max(0, subtotal + shipping - discount);
+    const merchandiseTotal = Math.max(0, subtotal - discount);
+    const shipping = merchandiseTotal >= 199000 ? 0 : SHIPPING_FEE;
+    const total = merchandiseTotal;
     return { subtotal, shipping, discount, total, totalItems };
 }
 
@@ -1143,7 +1169,7 @@ exports.cancelOrder = async (req, res) => {
             actorId: userId,
             actorName: req.user?.username || req.user?.email || order.customer?.name
         });
-        await order.save();
+        await applyFinancials(order, { persist: true });
         broadcastOrderUpdate(order, "cancelled");
 
         // Notify user
@@ -1450,6 +1476,14 @@ exports.shipperDeliveredOrder = async (req, res) => {
                 order._id,
                 "/orders"
             ).catch(err => console.error("[notification] Failed to create order_delivered notification:", err));
+            createNotification(
+                order.user,
+                "order_delivery_success",
+                "Giao hàng thành công",
+                `Đơn hàng #${orderIdShort} đã giao thành công. Cảm ơn bạn đã mua sắm!`,
+                order._id,
+                "/orders"
+            ).catch(err => console.error("[notification] Failed to create order_delivery_success notification:", err));
         }
 
         return res.json({ ok: true, order });
@@ -1566,7 +1600,8 @@ exports.myOrders = async (req, res) => {
         await autoExpireOrders({ user: userId });
         await autoCompleteOrders({ user: userId });
         const orders = await Order.find({ user: userId }).sort({ createdAt: -1 }).lean();
-        return res.json(orders);
+        const computedOrders = orders.map((o) => withComputedFinancials(o));
+        return res.json(computedOrders);
     } catch {
         return res.status(401).json({ message: "Phiên đăng nhập hết hạn hoặc token không hợp lệ." });
     }

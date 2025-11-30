@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchShipperOrders, fetchShipperIncomeSummary } from "../../../component/redux/apiRequest";
 import { formatter } from "../../../utils/fomater";
@@ -8,54 +9,51 @@ import { subscribeOrderUpdates } from "../../../utils/orderRealtime";
 import "../theme.scss";
 import "./style.scss";
 
-const StatCard = ({ icon, label, value, iconClass }) => (
-  <div className="shipper-dashboard__stat-card">
-    <div className={`icon ${iconClass}`}>{icon}</div>
-    <div className="shipper-dashboard__stat-card__info">
-      <div className="shipper-dashboard__stat-card__info__label">{label}</div>
-      <div className="shipper-dashboard__stat-card__info__value">{value}</div>
-    </div>
-  </div>
+const Icon = ({ children, className = "" }) => (
+  <div className={`sd-icon ${className}`}>{children}</div>
 );
 
+const Bar = ({ label, value, max }) => {
+  const width = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className="bar">
+      <div className="bar__label">{label}</div>
+      <div className="bar__track">
+        <div className="bar__fill" style={{ width: `${width}%` }} />
+      </div>
+      <div className="bar__value">{formatter(value)}</div>
+    </div>
+  );
+};
+
 const Icons = {
-  Processing: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 108-8" />
+  Flash: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h7l-1 8 10-12h-7z" />
     </svg>
   ),
-  Shipping: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+  Truck: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M3 7h11v9H3zM14 9h4l3 3v4h-7zM7 18a2 2 0 11-4 0 2 2 0 014 0zm12 0a2 2 0 11-4 0 2 2 0 014 0z" />
     </svg>
   ),
-  Delivered: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  Shield: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 4v5c0 4.418-3.134 8-7 8s-7-3.582-7-8V7l7-4z" />
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
     </svg>
   ),
-  Cancelled: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  Wallet: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M17 12h4" />
     </svg>
   ),
-  Cod: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm4-5a2 2 0 11-4 0 2 2 0 014 0z" />
+  List: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01" />
     </svg>
   ),
-  Value: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" />
-    </svg>
-  ),
-  Income: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-    </svg>
-  )
 };
 
 const Dashboard = () => {
@@ -68,6 +66,28 @@ const Dashboard = () => {
     totalIncome: 0,
     totalDelivered: 0,
   });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const user = useSelector((state) => state.auth?.login?.currentUser);
+
+  const myId = useMemo(() => {
+    if (!user) return "";
+    return (
+      user?._id ||
+      user?.id ||
+      user?.userId ||
+      user?.user?._id ||
+      user?.user?.id ||
+      ""
+    ).toString();
+  }, [user]);
+
+  const normalizeId = useCallback((val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val;
+    if (val._id) return val._id.toString();
+    if (val.id) return val.id.toString();
+    return val.toString();
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,7 +112,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);;
+  }, []);
 
   useEffect(() => {
     load();
@@ -105,6 +125,20 @@ const Dashboard = () => {
     return unsub;
   }, [load]);
 
+  const myOrders = useMemo(() => {
+    if (!myId) return orders;
+    return orders.filter((o) => normalizeId(o.shipperId) === myId);
+  }, [orders, myId, normalizeId]);
+
+  const shippingOrders = useMemo(
+    () => myOrders.filter((o) => String(o.status).toLowerCase() === "shipping"),
+    [myOrders]
+  );
+  const waitingOrders = useMemo(
+    () => orders.filter((o) => String(o.status).toLowerCase() === "processing").slice(0, 5),
+    [orders]
+  );
+
   const metrics = useMemo(() => {
     const today = new Date().toDateString();
     const summary = {
@@ -116,7 +150,7 @@ const Dashboard = () => {
       deliveredTodayValue: 0,
     };
 
-    orders.forEach((o) => {
+    myOrders.forEach((o) => {
       const status = String(o.status || "").toLowerCase();
       const total = Number(o.amount?.total || 0);
       const paymentMethod = (o.paymentMethod || o.paymentType || "COD").toUpperCase();
@@ -139,12 +173,17 @@ const Dashboard = () => {
     });
 
     return summary;
-  }, [orders]);
+  }, [myOrders]);
 
-  const shippingOrders = useMemo(
-    () => orders.filter((o) => String(o.status).toLowerCase() === "shipping"),
-    [orders]
-  );
+  const performance = useMemo(() => {
+    const assigned = myOrders.length;
+    const done = myOrders.filter((o) => ["delivered", "completed"].includes(String(o.status).toLowerCase())).length;
+    const cancelled = myOrders.filter((o) => String(o.status).toLowerCase() === "cancelled").length;
+    const successRate = assigned > 0 ? Math.round((done / assigned) * 100) : 0;
+    const inCity = myOrders.filter((o) => o.isInCity).length;
+    const outCity = myOrders.length - inCity;
+    return { assigned, done, cancelled, successRate, inCity, outCity };
+  }, [myOrders]);
 
   if (loading) return <p>Đang tải dữ liệu...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
@@ -152,83 +191,155 @@ const Dashboard = () => {
   return (
     <div className="shipper-dashboard">
       <div className="shipper-dashboard__header">
-        <h1>Trang chủ người giao hàng</h1>
-        <p>Theo dõi tiến độ giao hàng theo thời gian thực.</p>
-      </div>
-
-      <div className="shipper-dashboard__stats-grid">
-        <StatCard icon={Icons.Processing} label="Chờ nhận" value={metrics.processing} iconClass="icon-processing" />
-        <StatCard icon={Icons.Shipping} label="Đang giao" value={metrics.shipping} iconClass="icon-shipping" />
-        <StatCard icon={Icons.Delivered} label="Đã giao hôm nay" value={metrics.deliveredToday} iconClass="icon-delivered" />
-        <StatCard icon={Icons.Cancelled} label="Đơn bị hủy" value={metrics.cancelled} iconClass="icon-cancelled" />
-        <StatCard icon={Icons.Cod} label="COD đang giao" value={formatter(metrics.codOutstanding)} iconClass="icon-cod" />
-        <StatCard icon={Icons.Value} label="Giá trị giao hôm nay" value={formatter(metrics.deliveredTodayValue)} iconClass="icon-value" />
-      </div>
-
-      <div className="shipper-dashboard__stats-grid">
-        <StatCard icon={Icons.Income} label="Thu nhập hôm nay" value={formatter(income.todayIncome)} iconClass="icon-income-today" />
-        <StatCard icon={Icons.Income} label="Thu nhập tháng nay" value={formatter(income.monthIncome)} iconClass="icon-income-month" />
-        <StatCard icon={Icons.Income} label="Tổng thu nhập" value={formatter(income.totalIncome)} iconClass="icon-income-total" />
-        <StatCard icon={Icons.Delivered} label="Tổng đơn đã giao" value={income.totalDelivered} iconClass="icon-delivered-total" />
-      </div>
-
-      <div className="shipper-dashboard__income-link">
-        <Link to={ROUTERS.SHIPPER.INCOME}>Xem thu nhập chi tiết</Link>
-      </div>
-
-      <div className="shipper-dashboard__section">
-        <div className="shipper-dashboard__section__header">
-          <h2>Đơn cần xử lý</h2>
-          <Link to={ROUTERS.SHIPPER.ORDERS}>Xem tất cả</Link>
+        <div>
+          <p className="eyebrow">Shipper workspace</p>
+          <h1>Bảng điều khiển giao hàng</h1>
         </div>
-        {orders.length === 0 ? <p>Không có đơn hàng.</p> : (
-          <table className="shipper-table">
-            <thead>
-              <tr>
-                <th>Mã</th>
-                <th>Khách hàng</th>
-                <th>Trạng thái</th>
-                <th>Tổng</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.slice(0, 5).map((o) => (
-                <tr key={o._id}>
-                  <td>#{String(o._id).slice(-8).toUpperCase()}</td>
-                  <td>{o.customer?.name}</td>
-                  <td>
-                    <OrderStatusTag status={o.status} />
-                  </td>
-                  <td>{formatter(o.amount?.total || 0)}</td>
-                  <td>
-                    <Link className="shipper-detail-link" to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}>
-                      Chi tiết
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <button
+          className="mobile-menu-toggle"
+          type="button"
+          aria-label="Mở menu"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <div className={`shipper-dashboard__cta ${menuOpen ? "is-open" : ""}`}>
+          <Link to={ROUTERS.SHIPPER.DELIVERING} className="btn-primary">
+            <span>Tiếp tục giao</span>
+            <Icon>{Icons.Flash}</Icon>
+          </Link>
+          <Link to={ROUTERS.SHIPPER.INCOME} className="btn-secondary">Xem thu nhập</Link>
+        </div>
       </div>
 
-      {shippingOrders.length > 0 && (
-        <div className="shipper-dashboard__section">
-          <div className="shipper-dashboard__section__header">
-            <h2>Đơn đang giao</h2>
-            <Link to={ROUTERS.SHIPPER.DELIVERING}>Xem</Link>
+      <div className="shipper-dashboard__highlight-grid">
+        <div className="highlight-card">
+          <Icon className="accent">{Icons.Wallet}</Icon>
+          <div className="highlight-card__label">Thu nhập hôm nay</div>
+          <div className="highlight-card__value">{formatter(income.todayIncome)}</div>
+          <div className="highlight-card__muted">Đã xác nhận giao</div>
+        </div>
+        <div className="highlight-card">
+          <Icon className="warning">{Icons.Truck}</Icon>
+          <div className="highlight-card__label">Đơn đang giao</div>
+          <div className="highlight-card__value">{metrics.shipping}</div>
+          <div className="highlight-card__muted">{formatter(metrics.codOutstanding)} COD chưa thu</div>
+        </div>
+        <div className="highlight-card">
+          <Icon className="success">{Icons.Shield}</Icon>
+          <div className="highlight-card__label">Tỉ lệ thành công</div>
+          <div className="highlight-card__value">{performance.successRate}%</div>
+          <div className="highlight-card__muted">{performance.done}/{performance.assigned} đơn</div>
+        </div>
+        <div className="highlight-card">
+          <Icon className="info">{Icons.List}</Icon>
+          <div className="highlight-card__label">Hoàn tất hôm nay</div>
+          <div className="highlight-card__value">{metrics.deliveredToday}</div>
+          <div className="highlight-card__muted">Giá trị {formatter(metrics.deliveredTodayValue)}</div>
+        </div>
+      </div>
+
+      <div className="shipper-dashboard__grid">
+        <div className="panel">
+          <div className="panel__header">
+            <h2>Hiệu suất</h2>
+            <div className="panel__tags">
+              <span className="tag">COD {formatter(metrics.codOutstanding)}</span>
+              <span className="tag muted">{performance.cancelled} hủy</span>
+            </div>
           </div>
+          <div className="panel__metrics">
+            <div>
+              <span>Thu nhập tháng</span>
+              <strong>{formatter(income.monthIncome)}</strong>
+            </div>
+            <div>
+              <span>Tổng thu nhập</span>
+              <strong>{formatter(income.totalIncome)}</strong>
+            </div>
+            <div>
+              <span>Tổng đơn đã giao</span>
+              <strong>{income.totalDelivered}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel__header">
+            <h2>Đơn cần nhận</h2>
+            <Link to={ROUTERS.SHIPPER.ORDERS} className="link">Xem tất cả</Link>
+          </div>
+          {waitingOrders.length === 0 ? (
+            <p className="empty">Không có đơn chờ nhận.</p>
+          ) : (
+            <ul className="task-list">
+              {waitingOrders.map((o) => (
+                <li key={o._id}>
+                  <div>
+                    <p className="task-title">#{String(o._id).slice(-8).toUpperCase()} - {o.customer?.name}</p>
+                    <p className="task-meta">{formatter(o.amount?.total || 0)} • {o.customer?.phone}</p>
+                  </div>
+                  <Link className="btn-ghost" to={`${ROUTERS.SHIPPER.ORDERS}/${o._id}`}>Nhận</Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel__header">
+          <h2>Đang giao</h2>
+          <Link to={ROUTERS.SHIPPER.DELIVERING} className="link">Xem</Link>
+        </div>
+        {shippingOrders.length === 0 ? (
+          <p className="empty">Chưa có đơn đang giao.</p>
+        ) : (
           <ul className="shipper-dashboard__list">
             {shippingOrders.map((o) => (
               <li key={o._id}>
-                <span className="icon">{Icons.Shipping}</span>
-                #{String(o._id).slice(-8).toUpperCase()} - {o.customer?.name}
+                <div>
+                  <p className="task-title">#{String(o._id).slice(-8).toUpperCase()} - {o.customer?.name}</p>
+                  <p className="task-meta">{formatter(o.amount?.total || 0)}</p>
+                </div>
+                <span className="pill live">Đang giao</span>
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="panel chart-panel">
+        <div className="panel__header">
+          <h2>Phân tích nhanh</h2>
         </div>
-      )}
+        <div className="charts-grid">
+          <div className="mini-chart">
+            <div className="mini-chart__title">Khu vực</div>
+            <div className="mini-chart__bars">
+              <Bar label="Nội thành" value={performance.inCity} max={performance.assigned || 1} />
+              <Bar label="Ngoại thành" value={performance.outCity} max={performance.assigned || 1} />
+            </div>
+          </div>
+          <div className="mini-chart">
+            <div className="mini-chart__title">Thu nhập</div>
+            <div className="mini-chart__bars">
+              <Bar label="Hôm nay" value={income.todayIncome} max={Math.max(income.todayIncome, income.monthIncome)} />
+              <Bar label="Tháng" value={income.monthIncome} max={Math.max(income.monthIncome, income.totalIncome)} />
+            </div>
+          </div>
+          <div className="mini-chart">
+            <div className="mini-chart__title">Trạng thái đơn</div>
+            <div className="mini-chart__bars">
+              <Bar label="Chờ nhận" value={metrics.processing} max={myOrders.length || 1} />
+              <Bar label="Đang giao" value={metrics.shipping} max={myOrders.length || 1} />
+              <Bar label="Hủy" value={metrics.cancelled} max={myOrders.length || 1} />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

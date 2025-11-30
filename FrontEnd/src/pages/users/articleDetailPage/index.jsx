@@ -998,7 +998,7 @@ const ArticleDetailPage = () => {
                 <p>Vui lòng đăng nhập để bình luận</p>
                 <button
                   className="btn-login"
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate("/login", { state: { from: location.pathname } })}
                 >
                   Đăng nhập
                 </button>

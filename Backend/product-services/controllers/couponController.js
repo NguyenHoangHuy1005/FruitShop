@@ -167,7 +167,7 @@ exports.extendCoupon = async (req, res) => {
 
 exports.listCoupons = async (req, res) => {
     const coupons = await Coupon.find()
-        .populate('applicableProducts', 'name family price')
+        .populate('applicableProducts', 'name family price discountPercent category')
         .sort({ createdAt: -1 });
     res.json(coupons);
 };
@@ -182,6 +182,25 @@ exports.toggleCoupon = async (req, res) => {
     coupon.active = !coupon.active;
     await coupon.save();
     res.json({ ok: true, coupon });
+};
+
+// Admin: lấy chi tiết 1 coupon (kèm sản phẩm áp dụng)
+exports.getOne = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const coupon = await Coupon.findById(id)
+            .populate('applicableProducts', 'name family price discountPercent category')
+            .lean();
+
+        if (!coupon) {
+            return res.status(404).json({ ok: false, message: "Không tìm thấy coupon." });
+        }
+
+        return res.json({ ok: true, coupon });
+    } catch (err) {
+        console.error("getOne coupon error:", err);
+        return res.status(500).json({ ok: false, message: "Lỗi server khi lấy coupon." });
+    }
 };
 
 exports.validateCoupon = async (req, res) => {
@@ -277,4 +296,3 @@ exports.validateCoupon = async (req, res) => {
         return res.status(500).json({ ok: false, message: "Lỗi server khi kiểm tra coupon." });
     }
 };
-

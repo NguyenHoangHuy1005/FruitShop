@@ -135,7 +135,7 @@ const HeaderAd = ({ children, ...props }) => {
       key: 'coupon',
       path: ROUTERS.ADMIN.COUPON,
       onClick: () => navigate(ROUTERS.ADMIN.COUPON),
-      label: 'Mã giảm',
+      label: 'Giảm giá',
       icon: <MdDiscount />,
     },
     // thêm stock

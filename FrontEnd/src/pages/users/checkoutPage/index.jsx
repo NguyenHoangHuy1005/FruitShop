@@ -9,23 +9,26 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { ROUTERS } from "../../../utils/router";
 import { setCoupon } from "../../../component/redux/cartSlice";
 
-    const normalizeText = (value = "") =>
-        value
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
+const normalizeText = (value = "") =>
+    value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
 
-    const isHcmAddress = (address = "") => {
-        const normalized = normalizeText(address);
-        if (!normalized) return false;
-        return (
-            normalized.includes("thanh pho ho chi minh") ||
-            normalized.includes("tp hcm") ||
-            normalized.includes("tphcm") ||
-            normalized.includes("tp.hcm") ||
-            normalized.includes("ho chi minh")
-        );
-    };
+const HCM_KEYWORDS = ["tp. hcm", "tp hcm", "tphcm", "tp.hcm", "thanh pho ho chi minh", "ho chi minh", "hcm"];
+const normalizeForMatch = (value = "") => normalizeText(value).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const normalizeCompact = (value = "") => normalizeText(value).replace(/[^a-z0-9]/g, "");
+const HCM_NORMALIZED = HCM_KEYWORDS.map(normalizeForMatch);
+const HCM_COMPACT = HCM_KEYWORDS.map(normalizeCompact);
+
+const isHcmAddress = (address = "") => {
+    const normalized = normalizeForMatch(address);
+    if (!normalized) return false;
+    const compact = normalizeCompact(address);
+    if (HCM_NORMALIZED.some((kw) => normalized.includes(kw))) return true;
+    if (HCM_COMPACT.some((kw) => compact.includes(kw))) return true;
+    return false;
+};
 
 
 const CheckoutPage = () => {
@@ -83,11 +86,16 @@ const CheckoutPage = () => {
         () => (isHcmAddress(form.address) ? 20000 : 30000),
         [form.address]
     );
-    const freeShip = useMemo(
-        () => subtotal - discountValue >= 199000,
+    const merchandiseTotal = useMemo(
+        () => Math.max(0, subtotal - discountValue),
         [subtotal, discountValue]
     );
+    const freeShip = useMemo(
+        () => merchandiseTotal >= 199000,
+        [merchandiseTotal]
+    );
     const shipping = freeShip ? 0 : shippingFeeActual;
+    const orderTotal = Math.max(0, merchandiseTotal + shipping);
 
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [couponInsights, setCouponInsights] = useState([]);
@@ -605,16 +613,16 @@ const CheckoutPage = () => {
                                     <span className="free-text">Miễn phí</span>
                                 </div>
                             ) : (
-                                <b>{formatter(shippingFeeActual)}</b>
+                                <b>{formatter(shipping)}</b>
                             )}
                             </li>
 
                             <li className="checkout__order__subtotal">
                                 <div>
                                     <h3>Tổng tiền</h3>
-                                    <span className="checkout__order__summary-note">Đã bao gồm phí và ưu đãi</span>
+                                    <span className="checkout__order__summary-note">Đã bao gồm phí vận chuyển</span>
                                 </div>
-                                <b>{formatter(Math.max(0, subtotal + shipping - discountValue))}</b>
+                                <b>{formatter(orderTotal)}</b>
                             </li>
                         </ul>
                         <div className="checkout__payment">

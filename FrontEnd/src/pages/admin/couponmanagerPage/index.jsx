@@ -574,12 +574,8 @@ const CouponManagerPage = () => {
         ? couponView.applicableProducts.length
         : null;
     const viewAppliesAll = viewRawLen === 0;
-    const viewRows = viewAppliesAll ? displayProducts : viewProducts;
-    const viewLoading =
-        viewProductsModal.loading ||
-        productsLoading ||
-        (!couponView) ||
-        (viewAppliesAll && displayProducts.length === 0);
+    const viewRows = couponView ? (viewAppliesAll ? displayProducts : viewProducts) : [];
+    const viewLoading = viewProductsModal.loading || productsLoading;
 
 
     return (
@@ -1087,7 +1083,7 @@ const CouponManagerPage = () => {
 
                         {/* Danh sách sản phẩm */}
                         <h4 className="products-title">
-                            Sản phẩm áp dụng:
+                            Sản phẩm áp dụng {viewAppliesAll ? "(Tất cả)" : `(${viewRows.length})`}:
                         </h4>
                         {viewLoading ? (
                             <div className="empty-state">
@@ -1097,11 +1093,21 @@ const CouponManagerPage = () => {
                             <div className="empty-state">
                                 <p>Chưa có dữ liệu coupon.</p>
                             </div>
+                        ) : viewAppliesAll ? (
+                            <div className="empty-state apply-all">
+                                <p>
+                                    Áp dụng cho toàn bộ sản phẩm.
+                                </p>
+                                {displayProducts.length === 0 && (
+                                    <small>Chưa tải được danh sách sản phẩm.</small>
+                                )}
+                            </div>
                         ) : viewRows.length > 0 ? (
                             <div className="products-table-wrapper">
                                 <table className="products-table">
                                     <thead>
                                         <tr>
+                                            <th className="col-index">#</th>
                                             <th className="col-name">Tên sản phẩm</th>
                                             <th className="col-family">Họ</th>
                                             <th className="col-price">Giá</th>
@@ -1110,6 +1116,7 @@ const CouponManagerPage = () => {
                                     <tbody>
                                         {viewRows.map((p, idx) => (
                                             <tr key={idx}>
+                                                <td className="col-index">{idx + 1}</td>
                                                 <td>{p?.name || "N/A"}</td>
                                                 <td>
                                                     <span className="product-family-badge">
@@ -1127,6 +1134,9 @@ const CouponManagerPage = () => {
                         ) : (
                             <div className="empty-state">
                                 <p>Không có sản phẩm để hiển thị.</p>
+                                {Array.isArray(couponView?.applicableProducts) && couponView.applicableProducts.length > 0 && (
+                                    <small>Không tìm thấy thông tin các sản phẩm đã chọn. Vui lòng kiểm tra danh sách sản phẩm.</small>
+                                )}
                             </div>
                         )}
 

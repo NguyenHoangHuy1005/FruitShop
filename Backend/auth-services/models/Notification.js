@@ -16,6 +16,10 @@ const notificationSchema = new mongoose.Schema(
                 "order_processing",   // Đơn hàng đang xử lý
                 "order_shipping",     // Đơn hàng đang giao
                 "order_completed",    // Đơn hàng hoàn tất
+                "order_confirmed",    // Đơn hàng đã được xác nhận
+                "order_delivered",    // Đơn đã giao
+                "order_delivery_success", // Giao thành công
+                "order_expired",      // Đơn hết hạn
                 "order_cancelled",    // Đơn hàng bị hủy
                 "article_pending",    // Bài viết chờ duyệt
                 "article_approved",   // Bài viết đã duyệt

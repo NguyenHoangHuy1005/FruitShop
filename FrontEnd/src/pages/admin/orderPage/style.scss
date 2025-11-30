@@ -708,8 +708,9 @@ $zinc: #71717a;
 
     .order-proof-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        align-items: start;
     }
 
     .order-proof-card {
@@ -721,18 +722,20 @@ $zinc: #71717a;
         background: var(--bg);
         box-shadow: 0 10px 26px rgba(15, 23, 42, 0.15);
         text-decoration: none;
+        min-height: 240px;
 
         img {
             width: 100%;
-            height: 150px;
+            height: 180px;
             object-fit: cover;
+            object-position: center;
         }
 
         span {
             padding: 10px 12px;
             font-size: 12px;
             color: var(--muted);
-        }
+            }
     }
 }
 

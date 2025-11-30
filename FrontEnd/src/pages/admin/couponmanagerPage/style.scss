@@ -603,9 +603,9 @@ $product-main: map.get(theme.$theme-colors, "main");
 
 /* ===== Coupon Create Modal – polished ===== */
 .coupon-modal {
-    max-width: 640px;
+    max-width: 760px;
     width: 100%;
-    padding: 28px;
+    padding: 32px;
     background: #fff;
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
@@ -619,9 +619,9 @@ $product-main: map.get(theme.$theme-colors, "main");
 
 .create-modal {
     h3 {
-        margin: 0 0 24px;
+        margin: 0 0 28px;
         text-align: center;
-        font-size: 22px;
+        font-size: 24px;
         font-weight: 800;
         letter-spacing: 0.5px;
         color: $product-main;
@@ -645,8 +645,12 @@ $product-main: map.get(theme.$theme-colors, "main");
     .form-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-bottom: 20px;
+        gap: 18px;
+        margin-bottom: 22px;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #f8fafc;
 
         @media (max-width: 600px) {
             grid-template-columns: 1fr;
@@ -656,9 +660,9 @@ $product-main: map.get(theme.$theme-colors, "main");
             display: flex;
             flex-direction: column;
             gap: 8px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 700;
-            color: #334155;
+            color: #1f2937;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -670,7 +674,7 @@ $product-main: map.get(theme.$theme-colors, "main");
         input,
         select {
             padding: 11px 13px;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
@@ -990,28 +994,36 @@ $product-main: map.get(theme.$theme-colors, "main");
         font-size: 16px;
         font-weight: 700;
         color: #1e293b;
+        margin-top: 12px;
     }
 
     // Danh sách sản phẩm (table style cho view modal)
     table {
         width: 100%;
         border-collapse: collapse;
+        background: #fff;
+        font-size: 15px;
         
         thead {
             position: sticky;
-            top: 0;
+            top: -10px;
             background: #f8fafc;
             z-index: 1;
 
             th {
-                padding: 12px;
+                padding: 14px 12px;
                 text-align: left;
                 border-bottom: 2px solid #e2e8f0;
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 700;
                 color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+
+                &.col-index {
+                    width: 48px;
+                    text-align: center;
+                }
 
                 &.col-price {
                     text-align: right;
@@ -1029,8 +1041,15 @@ $product-main: map.get(theme.$theme-colors, "main");
                 }
 
                 td {
-                    padding: 12px;
-                    font-size: 14px;
+                    padding: 14px 12px;
+                    font-size: 15px;
+                    color: #1f2937;
+                }
+
+                td.col-index {
+                    text-align: center;
+                    font-weight: 600;
+                    color: #475569;
                 }
 
                 td.product-price-cell {
@@ -1043,10 +1062,14 @@ $product-main: map.get(theme.$theme-colors, "main");
     }
 
     .products-table-wrapper {
-        max-height: 300px;
+        max-height: 520px;
+        min-height: 180px;
         overflow-y: auto;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
+        border: 1px solid #dce3eb;
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 
         &::-webkit-scrollbar {
             width: 8px;
@@ -1093,6 +1116,15 @@ $product-main: map.get(theme.$theme-colors, "main");
             color: #94a3b8;
             font-size: 12px;
             word-break: break-all;
+        }
+
+        &.apply-all {
+            background: #f0fdf4;
+            border-color: #a7f3d0;
+            p {
+                color: #166534;
+                font-weight: 600;
+            }
         }
     }
 

@@ -96,7 +96,7 @@ const NotificationsPage = () => {
         params
       });
 
-      let notifs = response.data.notifications || [];
+      let notifs = dedupeNotifications(response.data.notifications || []);
       
       if (filter === 'read') {
         notifs = notifs.filter(n => n.isRead);
@@ -109,6 +109,33 @@ const NotificationsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Loại bỏ thông báo trùng (giữ order_delivery_success, bỏ order_delivered nếu cùng relatedId)
+  const dedupeNotifications = (items = []) => {
+    const map = new Map();
+    items.forEach((n) => {
+      const key = n.relatedId ? String(n.relatedId) : n._id;
+      const existing = map.get(key);
+      const isSuccess = n.type === "order_delivery_success";
+      const isDelivered = n.type === "order_delivered";
+
+      if (!existing) {
+        map.set(key, n);
+        return;
+      }
+
+      if (isSuccess) {
+        map.set(key, n);
+        return;
+      }
+
+      if (existing.type === "order_delivery_success" && isDelivered) {
+        // keep success, skip delivered
+        return;
+      }
+    });
+    return Array.from(map.values());
   };
 
   useEffect(() => {
@@ -227,6 +254,7 @@ const NotificationsPage = () => {
       order_delivered: '📦',
       order_completed: '✅',
       order_complete: '✅',
+      order_delivery_success: '✅',
       order_cancelled: '❌',
       order_expired: '⏰',
       article_pending: '⏳',

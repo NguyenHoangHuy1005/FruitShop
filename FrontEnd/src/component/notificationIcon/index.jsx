@@ -24,7 +24,8 @@ const NotificationIcon = () => {
             });
 
             if (res.status === 200 && res.data) {
-                setNotifications(res.data.notifications || []);
+                const deduped = dedupeNotifications(res.data.notifications || []);
+                setNotifications(deduped);
                 setUnreadCount(res.data.unreadCount || 0);
             }
         } catch (error) {
@@ -163,6 +164,35 @@ const NotificationIcon = () => {
         }
     };
 
+    // Loại bỏ thông báo trùng (giữ order_delivery_success, bỏ order_delivered nếu cùng relatedId)
+    const dedupeNotifications = (items = []) => {
+        const map = new Map();
+        items.forEach((n) => {
+            const key = n.relatedId ? String(n.relatedId) : n._id;
+            const existing = map.get(key);
+            const isSuccess = n.type === "order_delivery_success";
+            const isDelivered = n.type === "order_delivered";
+
+            if (!existing) {
+                map.set(key, n);
+                return;
+            }
+
+            if (isSuccess) {
+                map.set(key, n);
+                return;
+            }
+
+            if (existing.type === "order_delivery_success" && isDelivered) {
+                // keep success, skip delivered
+                return;
+            }
+
+            // otherwise keep first
+        });
+        return Array.from(map.values());
+    };
+
     const getNotificationIcon = (type) => {
         const icons = {
             order_created: "🧾",
@@ -172,6 +202,7 @@ const NotificationIcon = () => {
             order_delivered: "📦",
             order_completed: "✅",
             order_complete: "✅",
+            order_delivery_success: "✅",
             order_cancelled: "❌",
             order_expired: "⏰",
             article_pending: "⏳",

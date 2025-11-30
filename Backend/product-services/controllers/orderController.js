@@ -210,10 +210,10 @@ const withComputedFinancials = (orderLike = {}) => {
   if (status === "cancelled" && !orderLike.shipperId) {
     totalCostPrice = 0;
   }
-  const couponDiscount = status === "cancelled" && !orderLike.shipperId ? 0 : Number(amount.discount || 0);
+    // coupon discount da tru trong paymentAmount, khong trừ lần 2
     const paymentAmount = resolvePaymentAmount({ ...working, amount }, shippingInfo);
     amount.total = paymentAmount;
-    const adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - couponDiscount - working.spoilageLoss;
+    const adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - working.spoilageLoss;
 
     return {
         ...working,

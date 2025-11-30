@@ -207,11 +207,19 @@
     border-radius: 16px;
     overflow: hidden;
     margin-bottom: 14px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
 
     img {
       width: 100%;
+      height: auto;
+      max-height: 360px;
+      object-fit: contain;
       display: block;
-      object-fit: cover;
     }
 
     button {

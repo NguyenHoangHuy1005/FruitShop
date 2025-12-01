@@ -87,6 +87,7 @@ const FREE_SHIP_THRESHOLD = 199000;
 const IN_CITY_FEE = 20000;
 const OUT_CITY_FEE = 30000;
 const SHIPPER_INCOME_STATUSES = ["delivered", "completed", "cancelled"];
+const PROFIT_STATUSES = ["processing", "shipping", "delivered", "completed", "cancelled"];
 
 const normalizeText = (str = "") =>
   String(str || "")
@@ -133,11 +134,27 @@ const computeShippingInfo = (orderLike = {}) => {
   let shippingFee = freeShip ? 0 : shippingFeeActual;
   let shippingFeeDeducted = 0;
   const status = String(orderLike.status || "").toLowerCase();
+  const cancelledBy = orderLike.paymentMeta?.cancelledBy || orderLike.cancelledBy || "";
+  const cancelReason = orderLike.paymentMeta?.cancelReason || orderLike.cancelReason || "";
 
-  if (status === "cancelled") {
-    shippingFeeActual = hasShipper ? baseShippingFee : 0;
+  if (status === "expired") {
+    // Expired: do not charge or pay shipping
+    shippingFeeActual = 0;
     shippingFee = 0;
-    shippingFeeDeducted = hasShipper ? shippingFeeActual : 0;
+    shippingFeeDeducted = 0;
+  } else if (status === "cancelled") {
+    const wasDelivering = String(cancelledBy).toLowerCase() === "shipper";
+    if (wasDelivering && hasShipper) {
+      // Order was out for delivery then cancelled: deduct ship fee to pay shipper
+      shippingFeeActual = baseShippingFee;
+      shippingFee = 0;
+      shippingFeeDeducted = shippingFeeActual;
+    } else {
+      // Other cancellations: no shipping cost counted
+      shippingFeeActual = 0;
+      shippingFee = 0;
+      shippingFeeDeducted = 0;
+    }
   } else if (freeShip) {
     shippingFee = 0;
     shippingFeeDeducted = shippingFeeActual;
@@ -170,6 +187,38 @@ const calculateTotalCostPrice = (items = [], opts = {}) => {
     totalCost += importPrice * qty;
   }
   return totalCost;
+};
+
+const deriveShippingCostActual = (orderLike = {}, shippingInfo = null) => {
+  const status = String(orderLike.status || "").toLowerCase();
+  if (status !== "cancelled") {
+    return Number(shippingInfo?.shippingFeeActual ?? orderLike.shippingFeeActual ?? 0);
+  }
+  const cancelledBy = String(orderLike.paymentMeta?.cancelledBy || orderLike.cancelledBy || "").toLowerCase();
+  const wasDelivering = cancelledBy === "shipper" || !!orderLike.shipperId;
+  if (!wasDelivering) return 0;
+  const existing = Number(shippingInfo?.shippingFeeActual ?? orderLike.shippingFeeActual ?? 0);
+  if (existing > 0) return existing;
+  const address = orderLike.customer?.address || "";
+  const isInCity = typeof orderLike.isInCity === "boolean" ? orderLike.isInCity : isAddressInHcm(address);
+  return isInCity ? IN_CITY_FEE : OUT_CITY_FEE;
+};
+
+const computeCancelledOrderProfit = (orderLike = {}, shippingInfo = null) => {
+  const totalImportCost = calculateTotalCostPrice(orderLike.items || []);
+  const isReturnResellable = orderLike.isReturnResellable !== undefined
+    ? !!orderLike.isReturnResellable
+    : !(Number(orderLike.spoilageLoss || 0) > 0);
+  const shippingCostActual = deriveShippingCostActual(orderLike, shippingInfo);
+  const importLoss = isReturnResellable ? 0 : totalImportCost;
+  const loss = importLoss + shippingCostActual;
+  return {
+    revenue: 0,
+    profit: -loss,
+    shippingCostActual,
+    totalImportCost,
+    isReturnResellable,
+  };
 };
 
 const resolvePaymentAmount = (orderLike = {}, shippingInfo = null) => {
@@ -206,14 +255,22 @@ const withComputedFinancials = (orderLike = {}) => {
         spoilageLoss: Number(orderLike.spoilageLoss || 0),
     };
 
-  let totalCostPrice = calculateTotalCostPrice(orderLike.items || []);
-  if (status === "cancelled" && !orderLike.shipperId) {
-    totalCostPrice = 0;
-  }
+  const totalCostPrice = calculateTotalCostPrice(orderLike.items || []);
     // coupon discount da tru trong paymentAmount, khong trừ lần 2
     const paymentAmount = resolvePaymentAmount({ ...working, amount }, shippingInfo);
     amount.total = paymentAmount;
-    const adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - working.spoilageLoss;
+
+    let adminProfit;
+    if (status === "cancelled") {
+        const cancelled = computeCancelledOrderProfit({ ...working, totalCostPrice }, shippingInfo);
+        adminProfit = cancelled.profit;
+        working.isReturnResellable = cancelled.isReturnResellable;
+        // Ensure we persist the actual shipping loss for reporting
+        working.shippingFeeActual = cancelled.shippingCostActual;
+        amount.shipping = working.shippingFee;
+    } else {
+        adminProfit = paymentAmount - totalCostPrice - shippingInfo.shippingFeeDeducted - working.spoilageLoss;
+    }
 
     return {
         ...working,
@@ -884,6 +941,10 @@ exports.createOrder = async (req, res) => {
         const shippingInfo = computeShippingInfo({
             amount: { subtotal, discount },
             customer: { address },
+            // include payment to ensure shipping fee is charged for online methods
+            paymentType: paymentMethod,
+            paymentMethod,
+            payment: paymentMethod,
             status: initialStatus,
             shipperId: null,
         });
@@ -1833,37 +1894,18 @@ exports.adminStats = async (req, res) => {
         // 🔥 Tính doanh thu và lợi nhuận từ đơn hàng đã lọc
         let totalRevenue = 0;
         let totalCost = 0;
+        let totalProfit = 0;
+        const profitStatuses = PROFIT_STATUSES;
         
         for (const o of filteredOrders) {
-            if (!["processing", "shipping", "delivered", "completed"].includes(o.status)) continue;
-            
-            // Doanh thu = amount.total
-            const orderRevenue = o.amount?.total || 0;
+            if (!profitStatuses.includes(o.status)) continue;
+            const computed = withComputedFinancials(o);
+            const orderRevenue = computed.amount?.total || 0;
+            const orderProfit = Number(computed.adminProfit || 0);
             totalRevenue += orderRevenue;
-            
-            // Tính chi phí từng item
-            for (const item of o.items || []) {
-                const quantity = Number(item.quantity) || 0;
-                let importPrice = Number(item.importPrice) || 0;
-                
-                // Fallback: Nếu đơn hàng cũ không có importPrice, lấy từ batch
-                if (importPrice === 0 && item.batchId) {
-                    try {
-                        const batch = await ImportItem.findById(item.batchId).select('unitPrice').lean();
-                        importPrice = batch?.unitPrice || 0;
-                    } catch (err) {
-                        console.warn(`Cannot fetch batch ${item.batchId}:`, err.message);
-                    }
-                }
-                
-                // Chi phí = giá nhập * số lượng
-                const itemCost = importPrice * quantity;
-                totalCost += itemCost;
-            }
+            totalProfit += orderProfit;
+            totalCost += orderRevenue - orderProfit;
         }
-        
-        // Lợi nhuận = Doanh thu - Chi phí
-        const totalProfit = totalRevenue - totalCost;
 
         const countOrders = filteredOrders.length;
 
@@ -1888,7 +1930,7 @@ exports.adminStats = async (req, res) => {
         const d = new Date(o.createdAt);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (!revenueByMonth[key]) revenueByMonth[key] = 0;
-        if (["processing", "shipping", "delivered", "completed"].includes(o.status)) {
+        if (PROFIT_STATUSES.includes(o.status)) {
             revenueByMonth[key] += o.amount?.total || 0;
         }
         }
@@ -2050,29 +2092,10 @@ exports.adminStats = async (req, res) => {
         const recentOrdersFormatted = await Promise.all(sortedOrders.map(async (o) => {
             const populated = orderMap.get(String(o._id)) || o;
             
-            let orderCost = 0;
-            let orderRevenue = o.amount?.total || 0;
-            
-            for (const item of o.items || []) {
-                const quantity = Number(item.quantity) || 0;
-                let importPrice = Number(item.importPrice) || 0;
-                
-                // Fallback: Nếu đơn hàng cũ không có importPrice, lấy từ batch
-                if (importPrice === 0 && item.batchId) {
-                    try {
-                        const batch = await ImportItem.findById(item.batchId).select('unitPrice').lean();
-                        importPrice = batch?.unitPrice || 0;
-                    } catch (err) {
-                        console.warn(`Cannot fetch batch ${item.batchId}:`, err.message);
-                    }
-                }
-                
-                // Chi phí = giá nhập * số lượng
-                orderCost += importPrice * quantity;
-            }
-            
-            // Lợi nhuận = Doanh thu - Chi phí
-            const orderProfit = orderRevenue - orderCost;
+            const computed = withComputedFinancials(populated);
+            const orderRevenue = computed.amount?.total || 0;
+            const orderProfit = Number(computed.adminProfit || 0);
+            const orderCost = orderRevenue - orderProfit;
             
             return {
                 _id: o._id,
@@ -2134,3 +2157,9 @@ exports.runAutoCompleteOrders = async (req, res) => {
 // Expose maintenance utilities
 exports.autoExpireOrders = autoExpireOrders;
 exports.autoCompleteOrders = autoCompleteOrders;
+exports._testables = {
+    computeCancelledOrderProfit,
+    withComputedFinancials,
+    deriveShippingCostActual,
+    calculateTotalCostPrice,
+};

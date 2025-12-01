@@ -84,6 +84,38 @@ const calcImportCost = (items = []) => {
     }, 0);
 };
 const resolveShippingDeducted = (order) => Number(order?.shippingFeeDeducted || 0);
+const resolveShippingAmount = (order) =>
+    Number(order?.amount?.shipping ?? order?.shippingFee ?? order?.shippingFeeActual ?? 0);
+const resolvePaymentType = (order) =>
+    (order?.paymentType ||
+        (typeof order?.payment === "object" ? order?.payment?.gateway : order?.payment) ||
+        "").toString().toUpperCase();
+const FREE_SHIP_THRESHOLD = 199000;
+const deriveShippingDisplay = (order) => {
+    const existingShipping = resolveShippingAmount(order);
+    if (existingShipping > 0) return existingShipping;
+    const merchandise = Math.max(
+        0,
+        Number(order?.amount?.subtotal || 0) - Number(order?.amount?.discount || 0)
+    );
+    const baseFee = order?.isInCity ? 20000 : 30000;
+    return merchandise >= FREE_SHIP_THRESHOLD ? 0 : baseFee;
+};
+const computeDisplayTotal = (order) => {
+    if (!order) return 0;
+    const total = Number(order?.amount?.total ?? order?.amount ?? 0);
+    const shipping = deriveShippingDisplay(order);
+    const paymentType = resolvePaymentType(order);
+    const shippingIncluded = paymentType === "BANK" || paymentType === "VNPAY";
+    if (total > 0) {
+        return Math.max(0, total + (shippingIncluded ? 0 : shipping));
+    }
+    const merchandise = Math.max(
+        0,
+        Number(order?.amount?.subtotal || 0) - Number(order?.amount?.discount || 0)
+    );
+    return Math.max(0, merchandise + shipping);
+};
 
 const describeWarehouse = (warehouse) => {
     if (!warehouse) return "";
@@ -222,7 +254,7 @@ const OrderAdminPage = () => {
         [warehouses, selectedWarehouseId]
     );
     const selectedShipping = resolveShippingDeducted(selectedOrder);
-    const selectedDisplayTotal = Math.max(0, Number(selectedOrder?.amount?.total || 0) + selectedShipping);
+    const selectedDisplayTotal = computeDisplayTotal(selectedOrder);
     const selectedImportCost = useMemo(
         () => calcImportCost(selectedOrder?.items || []),
         [selectedOrder]
@@ -359,9 +391,7 @@ const OrderAdminPage = () => {
                             <tbody>
                                 {viewRows.map((o) => {
                                     const id = String(o._id || "");
-                                    const shippingDisplay = Number(o?.amount?.shipping || o?.shippingFee || o?.shippingFeeActual || 0);
-                                    const total = o?.amount?.total ?? o?.amount ?? 0;
-                                    const displayTotal = Math.max(0, Number(total) + shippingDisplay);
+                                    const displayTotal = computeDisplayTotal(o);
                                     const { methodLabel, channelLabel } = resolvePaymentLabels(o);
                                     const cancelNote = resolveCancelNote(o);
                                     const confirmedAt = o?.paymentCompletedAt ? formatDateTime(o.paymentCompletedAt) : "";

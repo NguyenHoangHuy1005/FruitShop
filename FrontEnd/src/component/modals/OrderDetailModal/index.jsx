@@ -44,7 +44,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             throw new Error(res?.data?.message || `HTTP ${res.status}`);
         } catch (error) {
             console.error("Error fetching order detail:", error);
-            alert("Khong the tai thong tin don hang.");
+            alert("Không thể tải thông tin đơn hàng.");
             onClose?.();
         } finally {
             setLoading(false);
@@ -69,9 +69,9 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             } else {
                 await fetchOrderDetail();
             }
-            alert("Da xac nhan don hoan tat.");
+            alert("Đã xác nhận đơn hoàn tất.");
         } catch (err) {
-            alert(err?.message || "Xac nhan that bai.");
+            alert(err?.message || "Xác nhận thất bại.");
         } finally {
             setActionKey("");
         }
@@ -82,7 +82,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
         if (!current) return;
         const items = Array.isArray(current.items) ? current.items : [];
         if (!items.length) {
-            alert("Don hang khong co san pham de dat lai.");
+            alert("Đơn hàng không có sản phẩm để đặt lại.");
             return;
         }
 
@@ -102,7 +102,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                 validateStatus: () => true,
             });
             if (cartSnapshot.status !== 200) {
-                alert(cartSnapshot?.data?.message || "Khong the dong bo gio hang.");
+                alert(cartSnapshot?.data?.message || "Không thể đồng bộ giỏ hàng.");
                 return;
             }
 
@@ -112,7 +112,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                 .filter((pid) => pid && selectedIds.includes(pid));
 
             if (!matchedIds.length) {
-                alert("Khong co san pham nao duoc them vao gio.");
+                alert("Không có sản phẩm nào được thêm vào giỏ.");
                 return;
             }
 
@@ -135,7 +135,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             onClose?.();
             navigate("/checkout", { state: repeatState });
         } catch (err) {
-            alert(err?.message || "Khong the chuan bi don moi.");
+            alert(err?.message || "Không thể chuẩn bị đơn mới.");
         } finally {
             setActionKey("");
         }
@@ -150,7 +150,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             firstItem?.product ||
             firstItem?.id;
         if (!productId) {
-            alert("Khong tim thay san pham de danh gia.");
+            alert("Không tìm thấy sản phẩm để đánh giá.");
             return;
         }
         onClose?.();
@@ -161,7 +161,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="order-detail-modal loading" onClick={(e) => e.stopPropagation()}>
-                    <p>Dang tai don hang...</p>
+                    <p>Đang tải đơn hàng...</p>
                 </div>
             </div>
         );
@@ -178,37 +178,37 @@ const OrderDetailModal = ({ orderId, onClose }) => {
             <div className="order-detail-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <div>
-                        <h2>Chi tiet don hang</h2>
+                        <h2>Chi tiết đơn hàng</h2>
                         <p className="order-id">#{String(order._id || "").slice(-8).toUpperCase()}</p>
                     </div>
                     <div className="modal-header__meta">
                         <OrderStatusTag status={order.status} />
-                        <button className="close-btn" onClick={onClose}>Dong</button>
+                        <button className="close-btn" onClick={onClose}>Đóng</button>
                     </div>
                 </div>
 
                 <div className="modal-body">
                     <div className="order-info-section">
                         <div className="info-row">
-                            <span className="label">Ngay dat:</span>
+                            <span className="label">Ngày đặt:</span>
                             <span className="value">{new Date(order.createdAt).toLocaleString()}</span>
                         </div>
                         {normalizedStatus === "cancelled" && (
                             <div className="info-row info-row--muted">
-                                <span className="label">Ly do huy:</span>
-                                <span className="value">{cancelReason || "Khong co ly do"}</span>
+                                <span className="label">Lý do hủy:</span>
+                                <span className="value">{cancelReason || "Không có lý do"}</span>
                             </div>
                         )}
                     </div>
 
                     <div className="customer-section">
-                        <h3>Thong tin khach hang</h3>
+                        <h3>Thông tin khách hàng</h3>
                         <div className="info-row">
-                            <span className="label">Ten:</span>
+                            <span className="label">Tên:</span>
                             <span className="value">{order.customer?.name || order.guestInfo?.name}</span>
                         </div>
                         <div className="info-row">
-                            <span className="label">Dien thoai:</span>
+                            <span className="label">Điện thoại:</span>
                             <span className="value">{order.customer?.phone || order.guestInfo?.phone}</span>
                         </div>
                         <div className="info-row">
@@ -216,19 +216,19 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                             <span className="value">{order.customer?.email || order.guestInfo?.email}</span>
                         </div>
                         <div className="info-row">
-                            <span className="label">Dia chi:</span>
+                            <span className="label">Địa chỉ:</span>
                             <span className="value">{order.customer?.address || order.guestInfo?.address}</span>
                         </div>
                         {order.customer?.note && (
                             <div className="info-row">
-                                <span className="label">Ghi chu:</span>
+                                <span className="label">Ghi chú:</span>
                                 <span className="value">{order.customer.note}</span>
                             </div>
                         )}
                     </div>
 
                     <div className="items-section">
-                        <h3>San pham ({itemCount})</h3>
+                        <h3>Sản phẩm ({itemCount})</h3>
                         <div className="items-list">
                             {order.items?.map((item, index) => {
                                 const thumb = Array.isArray(item.image) ? item.image[0] : item.image;
@@ -243,7 +243,7 @@ const OrderDetailModal = ({ orderId, onClose }) => {
                                         </div>
                                         <div className="item-details">
                                             <div className="item-name">{item.name}</div>
-                                            <div className="item-quantity">So luong: {item.quantity}</div>
+                                            <div className="item-quantity">Số lượng: {item.quantity}</div>
                                         </div>
                                         <div className="item-price">{formatter(item.price * item.quantity)}</div>
                                     </div>

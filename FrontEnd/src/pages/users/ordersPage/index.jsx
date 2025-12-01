@@ -78,6 +78,21 @@ const OrdersPage = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const user = useSelector((s) => s.auth?.login?.currentUser);
+  const FREE_SHIP_THRESHOLD = 199000;
+  const IN_CITY_FEE = 20000;
+  const OUT_CITY_FEE = 30000;
+
+  const deriveShippingAmount = (order) => {
+    if (!order) return 0;
+    const existing = Number(order?.amount?.shipping ?? order?.shippingFee ?? order?.shippingFeeActual ?? 0);
+    if (existing > 0) return existing;
+    const merchandise = Math.max(
+      0,
+      Number(order?.amount?.subtotal || 0) - Number(order?.amount?.discount || 0)
+    );
+    const baseFee = order?.isInCity === false ? OUT_CITY_FEE : IN_CITY_FEE;
+    return merchandise >= FREE_SHIP_THRESHOLD ? 0 : baseFee;
+  };
 
   const [orders, setOrders] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -153,7 +168,7 @@ const OrdersPage = () => {
   const selectedOrderKey = selectedOrder ? String(selectedOrder._id || selectedOrder.id || "") : "";
   const selectedOrderTimestamp = selectedOrder?.createdAt || selectedOrder?.updatedAt;
   const selectedShipping = useMemo(
-    () => Number(selectedOrder?.amount?.shipping ?? 0),
+    () => deriveShippingAmount(selectedOrder),
     [selectedOrder]
   );
   const selectedMerchandise = useMemo(
@@ -471,9 +486,7 @@ const toggleOpen = (id) => {
                   const id = String(o._id || o.id || "");
                   const subtotal = Number(o?.amount?.subtotal || 0);
                   const discount = Number(o?.amount?.discount || 0);
-                  const shippingPaid = Number(
-                    o?.amount?.shipping ?? o?.shippingFee ?? o?.shippingFeeActual ?? 0
-                  );
+                  const shippingPaid = deriveShippingAmount(o);
                   const merchandise = Math.max(0, subtotal - discount);
                   const totalDisplay = Math.max(0, merchandise + shippingPaid);
                   const normalizedRowStatus = normalizeOrderStatus(o?.status);
@@ -749,7 +762,7 @@ const toggleOpen = (id) => {
                         Math.max(
                           0,
                           Number(cancelDialog.order.amount?.total || 0) +
-                            Number(cancelDialog.order.amount?.shipping ?? cancelDialog.order.shippingFee ?? cancelDialog.order.shippingFeeActual ?? 0)
+                            deriveShippingAmount(cancelDialog.order)
                         )
                       )}</>
                     )}

@@ -6,9 +6,38 @@ const Product = require("../../admin-services/models/Product");
 const Reservation = require("../../product-services/models/Reservation");
 const { sendPaymentSuccessMail } = require("../../auth-services/utils/mailer");
 const { _updateProductStatus } = require("../../product-services/controllers/stockController");
+const { emitOrderUpdate } = require("../../auth-services/socket/chatEvents");
 
 const SEPAY_API_KEY = process.env.SEPAY_API_KEY;
 const SEPAY_BASE_URL = 'https://my.sepay.vn/userapi';
+
+const normalizeId = (raw) => {
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  if (raw._id) return raw._id.toString();
+  if (typeof raw.toString === "function") return raw.toString();
+  return null;
+};
+
+const broadcastOrderUpdate = (orderDoc, event = "updated") => {
+  if (!orderDoc) return;
+  const userId = normalizeId(orderDoc.user);
+  const shipperId = normalizeId(orderDoc.shipperId);
+  const payload = {
+    id: normalizeId(orderDoc._id || orderDoc.id),
+    status: orderDoc.status,
+    userId,
+    shipperId,
+    paymentType: orderDoc.paymentType || orderDoc.payment?.gateway || orderDoc.payment || "COD",
+    amount: orderDoc.amount || {},
+    customer: orderDoc.customer || null,
+    pickupAddress: orderDoc.pickupAddress || "",
+    deliveredAt: orderDoc.deliveredAt || null,
+    updatedAt: orderDoc.updatedAt || new Date(),
+    createdAt: orderDoc.createdAt || null,
+  };
+  emitOrderUpdate({ order: payload, userId, shipperId, event });
+};
 
 const sanitizeOrder = (orderDoc) => {
   if (!orderDoc) return null;
@@ -393,6 +422,7 @@ exports.handleSePayWebhook = async (req, res) => {
       order.markModified('paymentMeta');
       order.markModified('payment');
       await order.save();
+      broadcastOrderUpdate(order, "payment_confirmed");
       console.log('[SEPAY WEBHOOK] Order saved successfully');
     } catch (saveErr) {
       console.error('[SEPAY WEBHOOK] Failed to save order:', saveErr.message);
@@ -522,23 +552,27 @@ exports.cancelPayment = async (req, res) => {
 
     const { order, expired } = await ensureNotExpired(orderDoc);
     if (expired) {
+      broadcastOrderUpdate(order, "expired");
       return res.json({ ok: true, order: sanitizeOrder(order) });
     }
 
-    if (order.status !== "pending") {
+    const cancellableStatuses = ["pending", "pending_payment", "awaiting_payment"];
+    if (!cancellableStatuses.includes(order.status)) {
       return res.status(400).json({ message: "Đơn hàng không ở trạng thái chờ thanh toán." });
     }
 
     await restoreInventory(order);
-    order.status = "expired";
+    order.status = "cancelled";
     order.paymentDeadline = null;
     order.autoConfirmAt = null;
     order.paymentMeta = {
       ...(order.paymentMeta || {}),
       cancelledAt: new Date(),
+      cancelledBy: "user",
       cancelReason: req.body?.reason || "user_cancelled",
     };
     await order.save();
+    broadcastOrderUpdate(order, "cancelled");
 
     try {
       const reservation = await Reservation.findOne({

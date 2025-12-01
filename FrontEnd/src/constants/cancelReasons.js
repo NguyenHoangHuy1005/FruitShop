@@ -2,7 +2,7 @@ export const SHIPPER_CANCEL_REASONS = [
   { value: "customer_refused", label: "Khách không nhận hàng" },
   { value: "cannot_contact", label: "Không liên hệ được khách" },
   { value: "address_wrong", label: "Sai địa chỉ / không tìm thấy" },
-  { value: "delay_request", label: "Khách yêu cầu giao lại lúc khác" },
+  { value: "delay_request", label: "Quá thời gian nhận hàng" },
   { value: "other", label: "Lý do khác" },
 ];
 

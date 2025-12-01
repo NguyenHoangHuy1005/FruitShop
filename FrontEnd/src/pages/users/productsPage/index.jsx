@@ -162,6 +162,16 @@ const ProductsPage = () => {
         const sorted = filtered.sort((a, b) => {
             const snapA = resolveSnapshot(a) || {};
             const snapB = resolveSnapshot(b) || {};
+            const hasStockA =
+                snapA.hasAvailableBatch !== undefined
+                    ? Boolean(snapA.hasAvailableBatch)
+                    : Number(a?.onHand || 0) > 0;
+            const hasStockB =
+                snapB.hasAvailableBatch !== undefined
+                    ? Boolean(snapB.hasAvailableBatch)
+                    : Number(b?.onHand || 0) > 0;
+            const isOutOfStockA = !hasStockA;
+            const isOutOfStockB = !hasStockB;
             const priceAView = Number.isFinite(snapA.displayPrice) ? Number(snapA.displayPrice) : getFinalPrice(a);
             const priceBView = Number.isFinite(snapB.displayPrice) ? Number(snapB.displayPrice) : getFinalPrice(b);
             if (isOutOfStockA && !isOutOfStockB) return 1;

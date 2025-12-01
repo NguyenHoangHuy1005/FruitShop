@@ -25,6 +25,7 @@ router.post("/:id/reaction", verifyToken, reviewController.addReaction);
 router.delete("/:id/reaction", verifyToken, reviewController.removeReaction);
 router.post("/:id/reply", verifyToken, reviewController.addReply);
 router.delete("/:id/reply/:replyId", verifyToken, reviewController.deleteReply);
+router.patch("/:id/reply/:replyId", verifyToken, reviewController.updateReply);
 router.post("/:id/reply/:replyId/like", verifyToken, reviewController.toggleLikeReply);
 router.post("/:id/reply/:replyId/dislike", verifyToken, reviewController.toggleDislikeReply);
 router.post("/:id/reply/:replyId/reaction", verifyToken, reviewController.addReactionToReply);

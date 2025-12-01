@@ -67,9 +67,7 @@ const NotificationsPage = () => {
   };
 
   useEffect(() => {
-    console.log('NotificationsPage mounted');
-    console.log('User:', user);
-    console.log('AccessToken:', user?.accessToken ? 'exists' : 'missing');
+    
   }, [user]);
 
   const fetchNotifications = async () => {
@@ -96,7 +94,7 @@ const NotificationsPage = () => {
         params
       });
 
-      let notifs = dedupeNotifications(response.data.notifications || []);
+      let notifs = response.data.notifications || [];
       
       if (filter === 'read') {
         notifs = notifs.filter(n => n.isRead);
@@ -112,36 +110,31 @@ const NotificationsPage = () => {
   };
 
   // Loại bỏ thông báo trùng (giữ order_delivery_success, bỏ order_delivered nếu cùng relatedId)
-  const dedupeNotifications = (items = []) => {
-    const map = new Map();
-    items.forEach((n) => {
-      const key = n.relatedId ? String(n.relatedId) : n._id;
-      const existing = map.get(key);
-      const isSuccess = n.type === "order_delivery_success";
-      const isDelivered = n.type === "order_delivered";
-
-      if (!existing) {
-        map.set(key, n);
-        return;
-      }
-
-      if (isSuccess) {
-        map.set(key, n);
-        return;
-      }
-
-      if (existing.type === "order_delivery_success" && isDelivered) {
-        // keep success, skip delivered
-        return;
-      }
-    });
-    return Array.from(map.values());
-  };
 
   useEffect(() => {
     fetchNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, user?.accessToken]);
+
+  useEffect(() => {
+    const syncListener = (event) => {
+      const payload = event?.detail;
+      if (!payload) {
+        fetchNotifications();
+        return;
+      }
+      if (filter === 'read') return;
+      setNotifications((prev) => [payload, ...prev]);
+    };
+    window.addEventListener("notifications:append", syncListener);
+    return () => window.removeEventListener("notifications:append", syncListener);
+  }, [fetchNotifications, filter]);
+
+  useEffect(() => {
+    const syncListener = () => fetchNotifications();
+    window.addEventListener("notifications:markAllRead", syncListener);
+    return () => window.removeEventListener("notifications:markAllRead", syncListener);
+  }, [fetchNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {
@@ -172,6 +165,7 @@ const NotificationsPage = () => {
       );
       
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      window.dispatchEvent(new CustomEvent("notifications:markAllRead"));
     } catch (error) {
       console.error('Error marking all as read:', error);
     }

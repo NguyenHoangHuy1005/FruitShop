@@ -683,6 +683,7 @@ const reviewController = {
       const { id } = req.params;
       const { comment, parentReplyId, mentionedUserId } = req.body;
       const userId = req.user.id;
+      const currentUser = req.user || {};
 
       if (!comment || comment.trim().length === 0) {
         return res.status(400).json({
@@ -707,12 +708,19 @@ const reviewController = {
         });
       }
 
+      const userName = currentUser.username || currentUser.email || "User";
+
       review.replies.push({
         user: userId,
+        userName,
         parentReply: parentReplyId || null,
         mentionedUser: mentionedUserId || null,
+        mentionedUserName: "",
         comment: comment.trim(),
         likes: [],
+        dislikes: [],
+        reactions: [],
+        status: "active",
         createdAt: new Date(),
       });
 
@@ -727,7 +735,6 @@ const reviewController = {
         .populate("replies.reactions.user", "username email");
 
       // ===== NOTIFICATION =====
-      const userName = req.user.username || req.user.email;
       
       // Thông báo cho chủ review
       if (updatedReview.user && updatedReview.user._id.toString() !== userId) {
@@ -792,14 +799,20 @@ const reviewController = {
         });
       }
 
-      if (reply.user.toString() !== userId && !isAdmin) {
+      // An toàn hơn với dữ liệu populate hoặc giá trị null
+      const replyOwnerId = reply?.user?._id
+        ? reply.user._id.toString()
+        : reply?.user?.toString?.() || null;
+
+      if (replyOwnerId && replyOwnerId !== userId && !isAdmin) {
         return res.status(403).json({
           success: false,
           message: "Bạn không có quyền xóa câu trả lời này",
         });
       }
 
-      reply.remove();
+      // Xóa thủ công để tránh lỗi khi reply là subdoc không có phương thức remove
+      review.replies = review.replies.filter((r) => r._id.toString() !== replyId);
       await review.save();
 
       res.status(200).json({
@@ -813,6 +826,53 @@ const reviewController = {
         message: "Lỗi khi xóa câu trả lời",
         error: error.message,
       });
+    }
+  },
+
+  updateReply: async (req, res) => {
+    try {
+      const { id, replyId } = req.params;
+      const userId = req.user.id;
+      const comment = (req.body?.comment || "").trim();
+      if (!comment) {
+        return res.status(400).json({ success: false, message: "Nội dung không được để trống" });
+      }
+
+      const review = await Review.findById(id);
+      if (!review) {
+        return res.status(404).json({ success: false, message: "Không tìm thấy đánh giá" });
+      }
+
+      const reply = review.replies.id(replyId);
+      if (!reply) {
+        return res.status(404).json({ success: false, message: "Không tìm thấy trả lời" });
+      }
+
+      const isAdmin = req.user.admin === true;
+      if (reply.user.toString() !== userId && !isAdmin) {
+        return res.status(403).json({ success: false, message: "Không có quyền sửa trả lời này" });
+      }
+
+      reply.comment = comment;
+      await review.save();
+
+      const updatedReview = await Review.findById(id)
+        .populate("user", "username email")
+        .populate("product", "name")
+        .populate("reactions.user", "username email")
+        .populate("replies.user", "username email")
+        .populate("replies.mentionedUser", "username email")
+        .populate("replies.reactions.user", "username email");
+
+      return res.status(200).json({
+        success: true,
+        review: updatedReview,
+        reply: updatedReview.replies.id(replyId),
+        message: "Đã cập nhật trả lời",
+      });
+    } catch (error) {
+      console.error("Error updating reply:", error);
+      return res.status(500).json({ success: false, message: "Lỗi khi cập nhật trả lời" });
     }
   },
 

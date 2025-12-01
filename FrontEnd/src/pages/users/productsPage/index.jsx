@@ -75,6 +75,7 @@ const ProductsPage = () => {
             return {
                 min: fallbackPrice,
                 max: fallbackPrice,
+                displayPrice: fallbackPrice,
                 hasDiscount: Number(product.discountPercent) > 0,
                 hasAvailableBatch: Number(product.onHand || 0) > 0,
             };
@@ -84,6 +85,7 @@ const ProductsPage = () => {
             return {
                 min: fallbackPrice,
                 max: fallbackPrice,
+                displayPrice: fallbackPrice,
                 hasDiscount: Number(product.discountPercent) > 0,
                 hasAvailableBatch: false,
             };
@@ -99,10 +101,17 @@ const ProductsPage = () => {
             cached.hasAvailableBatch !== false
                 ? Boolean(cached.hasAvailableBatch)
                 : entries.some((entry) => Number(entry?.remainingQuantity || 0) > 0);
+        const bestEntry =
+            entries.find((entry) => Number(entry?.remainingQuantity || 0) > 0) ||
+            entries[0];
+        const displayPrice = Number.isFinite(bestEntry?.finalPrice)
+            ? Number(bestEntry.finalPrice)
+            : minFinal;
 
         return {
             min: minFinal,
             max: maxFinal,
+            displayPrice,
             hasDiscount: hasBatchDiscount || Number(product.discountPercent) > 0,
             hasAvailableBatch,
         };
@@ -150,75 +159,61 @@ const ProductsPage = () => {
             return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
         });
 
-const sorted = filtered.sort((a, b) => {
-    const snapA = resolveSnapshot(a) || {};
-    const snapB = resolveSnapshot(b) || {};
+        const sorted = filtered.sort((a, b) => {
+            const snapA = resolveSnapshot(a) || {};
+            const snapB = resolveSnapshot(b) || {};
+            const priceAView = Number.isFinite(snapA.displayPrice) ? Number(snapA.displayPrice) : getFinalPrice(a);
+            const priceBView = Number.isFinite(snapB.displayPrice) ? Number(snapB.displayPrice) : getFinalPrice(b);
 
-    // Xác định trạng thái hết hàng dựa trên batch info
-    const isOutOfStockA = !snapA.hasAvailableBatch || (Number(a.onHand) || 0) <= 0;
-    const isOutOfStockB = !snapB.hasAvailableBatch || (Number(b.onHand) || 0) <= 0;
-    
-    // Luôn đưa sản phẩm hết hàng xuống cuối, bất kể bộ lọc nào
-    if (isOutOfStockA && !isOutOfStockB) return 1;
-    if (!isOutOfStockA && isOutOfStockB) return -1;
+            const statusPriority = {
+                "Hết hạn": 0,
+                "Sắp hết hạn": 1,
+                "Còn hạn": 2,
+                "Còn hàng": 3,
+                "Hết hàng": 4,
+            };
 
-    const statusPriority = {
-        "Hết hạn": 0,
-        "Sắp hết hạn": 1,
-        "Còn hạn": 2,
-        "Còn hàng": 3,
-        "Hết hàng": 4,
-    };
+            switch (sortType) {
+                case "Trạng thái ưu tiên": {
+                    const aPriority = statusPriority[a?.status] ?? 5;
+                    const bPriority = statusPriority[b?.status] ?? 5;
 
-    switch (sortType) {
-        case "Trạng thái ưu tiên": {
-            const aPriority = statusPriority[a?.status] ?? 5;
-            const bPriority = statusPriority[b?.status] ?? 5;
+                    if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                    }
+                    return (a?.name || "").localeCompare(b?.name || "");
+                }
 
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
+                case "Mặc định": {
+                    // Mặc định = sắp xếp theo trạng thái ưu tiên, nếu bằng thì theo tên
+                    const aPriority = statusPriority[a?.status] ?? 5;
+                    const bPriority = statusPriority[b?.status] ?? 5;
+
+                    if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                    }
+                    return (a?.name || "").localeCompare(b?.name || "");
+                }
+
+                case "Mới nhất":
+                    return new Date(b?.createdAt) - new Date(a?.createdAt);
+
+                case "Giá thấp đến cao":
+                    return priceAView - priceBView || (a?.name || "").localeCompare(b?.name || "");
+
+                case "Giá cao đến thấp":
+                    return priceBView - priceAView || (a?.name || "").localeCompare(b?.name || "");
+
+                case "Bán chạy nhất":
+                    return (b?.purchaseCount || 0) - (a?.purchaseCount || 0);
+
+                case "Đang giảm giá":
+                    return (snapB.hasDiscount ? 1 : 0) - (snapA.hasDiscount ? 1 : 0);
+
+                default:
+                    return 0;
             }
-            return (a?.name || "").localeCompare(b?.name || "");
-        }
-
-        case "Mặc định": {
-            // Mặc định = sắp xếp theo trạng thái ưu tiên, nếu bằng thì theo tên
-            const aPriority = statusPriority[a?.status] ?? 5;
-            const bPriority = statusPriority[b?.status] ?? 5;
-
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
-            }
-            return (a?.name || "").localeCompare(b?.name || "");
-        }
-
-        case "Mới nhất":
-            return new Date(b?.createdAt) - new Date(a?.createdAt);
-
-        case "Giá thấp đến cao": {
-            // Sử dụng giá hiển thị thực tế
-            const priceA = snapA.hasAvailableBatch ? snapA.min : getFinalPrice(a);
-            const priceB = snapB.hasAvailableBatch ? snapB.min : getFinalPrice(b);
-            return priceA - priceB;
-        }
-
-        case "Giá cao đến thấp": {
-            // Sử dụng giá hiển thị thực tế
-            const priceA = snapA.hasAvailableBatch ? snapA.max : getFinalPrice(a);
-            const priceB = snapB.hasAvailableBatch ? snapB.max : getFinalPrice(b);
-            return priceB - priceA;
-        }
-
-        case "Bán chạy nhất":
-            return (b?.purchaseCount || 0) - (a?.purchaseCount || 0);
-
-        case "Đang giảm giá":
-            return (snapB.hasDiscount ? 1 : 0) - (snapA.hasDiscount ? 1 : 0);
-
-        default:
-            return 0;
-    }
-});
+        });
 
         return sorted;
     }, [

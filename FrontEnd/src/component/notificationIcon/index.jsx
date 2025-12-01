@@ -20,12 +20,12 @@ const NotificationIcon = () => {
         try {
             const res = await API.get("/notification", {
                 headers: { Authorization: `Bearer ${user.accessToken}` },
-                params: { limit: 10 },
+                params: { limit: 30 },
             });
 
             if (res.status === 200 && res.data) {
-                const deduped = dedupeNotifications(res.data.notifications || []);
-                setNotifications(deduped);
+                const list = res.data.notifications || [];
+                setNotifications(list);
                 setUnreadCount(res.data.unreadCount || 0);
             }
         } catch (error) {
@@ -37,7 +37,7 @@ const NotificationIcon = () => {
         if (user?.accessToken) {
             fetchNotifications();
             // Poll mỗi 30 giây để cập nhật thông báo mới
-            const interval = setInterval(fetchNotifications, 30000);
+            const interval = setInterval(fetchNotifications, 70000);
             return () => clearInterval(interval);
         }
     }, [user?.accessToken, fetchNotifications]);
@@ -142,13 +142,34 @@ const NotificationIcon = () => {
             await API.patch("/notification/read-all", null, {
                 headers: { Authorization: `Bearer ${user.accessToken}` },
             });
-            await fetchNotifications();
+            setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+            setUnreadCount(0);
+            window.dispatchEvent(new CustomEvent("notifications:markAllRead"));
         } catch (error) {
             console.error("Error marking all as read:", error);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const syncListener = () => {
+            fetchNotifications();
+        };
+        window.addEventListener("notifications:markAllRead", syncListener);
+        return () => window.removeEventListener("notifications:markAllRead", syncListener);
+    }, [fetchNotifications]);
+
+    useEffect(() => {
+        const appendListener = (event) => {
+            const payload = event?.detail;
+            if (!payload) return;
+            setNotifications((prev) => [payload, ...prev].slice(0, 30));
+            setUnreadCount((c) => c + 1);
+        };
+        window.addEventListener("notifications:append", appendListener);
+        return () => window.removeEventListener("notifications:append", appendListener);
+    }, []);
 
     const handleDeleteRead = async () => {
         setLoading(true);

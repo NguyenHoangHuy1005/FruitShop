@@ -412,6 +412,14 @@ const ChatWidget = () => {
     dispatchOrderUpdateEvent(payload);
   }, []);
 
+  const handleNotificationRealtime = useCallback((payload = {}) => {
+    try {
+      window.dispatchEvent(new CustomEvent("notifications:append", { detail: payload }));
+    } catch (err) {
+      console.error("notification realtime dispatch fail:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const token = currentUser?.accessToken;
     if (!currentUser || !token) {
@@ -437,6 +445,7 @@ const ChatWidget = () => {
     socket.on("chat:message", handleSocketMessage);
     socket.on("chat:conversation", handleConversationEvent);
     socket.on("order:update", handleOrderRealtime);
+    socket.on("notification:new", handleNotificationRealtime);
     socket.on("connect_error", handleError);
 
     return () => {
@@ -445,6 +454,7 @@ const ChatWidget = () => {
       socket.off("chat:message", handleSocketMessage);
       socket.off("chat:conversation", handleConversationEvent);
       socket.off("order:update", handleOrderRealtime);
+      socket.off("notification:new", handleNotificationRealtime);
       socket.off("connect_error", handleError);
       socket.disconnect();
       socketRef.current = null;

@@ -1537,14 +1537,6 @@ exports.shipperDeliveredOrder = async (req, res) => {
                 order._id,
                 "/orders"
             ).catch(err => console.error("[notification] Failed to create order_delivered notification:", err));
-            createNotification(
-                order.user,
-                "order_delivery_success",
-                "Giao hàng thành công",
-                `Đơn hàng #${orderIdShort} đã giao thành công. Cảm ơn bạn đã mua sắm!`,
-                order._id,
-                "/orders"
-            ).catch(err => console.error("[notification] Failed to create order_delivery_success notification:", err));
         }
 
         return res.json({ ok: true, order });

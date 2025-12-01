@@ -66,6 +66,11 @@ const reviewSchema = new mongoose.Schema(
         ref: "User",
         required: true,
       },
+      userName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
       parentReply: {
         type: mongoose.Schema.Types.ObjectId,
         default: null,
@@ -74,6 +79,11 @@ const reviewSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         default: null,
+      },
+      mentionedUserName: {
+        type: String,
+        default: "",
+        trim: true,
       },
       comment: {
         type: String,

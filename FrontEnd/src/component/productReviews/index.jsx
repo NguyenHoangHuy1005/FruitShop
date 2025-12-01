@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
@@ -30,6 +30,9 @@ const ProductReviews = ({ productId }) => {
     comment: "",
     images: [],
   });
+  const reviewFormRef = useRef(null);
+  const [editingReplyId, setEditingReplyId] = useState(null);
+  const [editingReplyText, setEditingReplyText] = useState("");
 
   useEffect(() => {
     fetchReviews();
@@ -224,6 +227,11 @@ const ProductReviews = ({ productId }) => {
       images: review.images || [],
     });
     setShowReviewForm(true);
+    setTimeout(() => {
+      if (reviewFormRef.current) {
+        reviewFormRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 50);
   };
 
   const handleCancelEdit = () => {
@@ -276,6 +284,22 @@ const ProductReviews = ({ productId }) => {
       fetchReviews();
     } catch (error) {
       console.error("Error disliking review:", error);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!user?.accessToken) return;
+    if (!window.confirm("Bạn có chắc muốn xóa đánh giá này? Toàn bộ phản hồi cũng sẽ bị xóa.")) return;
+    try {
+      await axios.delete(`http://localhost:3000/api/review/${reviewId}`, {
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      });
+      toast.success("Đã xóa đánh giá");
+      setEditingReview(null);
+      fetchReviews();
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi xóa đánh giá");
     }
   };
 
@@ -373,7 +397,10 @@ const ProductReviews = ({ productId }) => {
       // Nếu đang reply vào một reply khác (nested reply)
       if (replyingToReply) {
         payload.parentReplyId = replyingToReply._id;
-        payload.mentionedUserId = replyingToReply.user._id;
+        const mentionId = replyingToReply.user?._id || replyingToReply.user;
+        if (mentionId) {
+          payload.mentionedUserId = mentionId;
+        }
       }
 
       const response = await axios.post(
@@ -389,6 +416,8 @@ const ProductReviews = ({ productId }) => {
         setReplyingTo(null);
         setReplyingToReply(null);
         setReplyText("");
+        setEditingReplyId(null);
+        setEditingReplyText("");
         fetchReviews();
       }
     } catch (error) {
@@ -517,11 +546,50 @@ const ProductReviews = ({ productId }) => {
 
       if (response.data.success) {
         toast.success("Đã xóa câu trả lời");
+        setReplyingTo(null);
+        setReplyingToReply(null);
+        setEditingReplyId(null);
         fetchReviews();
       }
     } catch (error) {
       console.error("Error deleting reply:", error);
       toast.error(error.response?.data?.message || "Lỗi khi xóa");
+    }
+  };
+
+  const startEditReply = (reply) => {
+    setEditingReplyId(reply._id);
+    setEditingReplyText(reply.comment || "");
+    setReplyingTo(null);
+    setReplyingToReply(null);
+    setReplyText("");
+    setTimeout(() => {
+      const el = document.getElementById(`edit-reply-${reply._id}`);
+      if (el?.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.focus();
+    }, 50);
+  };
+
+  const handleUpdateReply = async (reviewId, replyId) => {
+    if (!user?.accessToken) return;
+    const trimmed = (editingReplyText || "").trim();
+    if (!trimmed) {
+      toast.error("Nội dung không được để trống");
+      return;
+    }
+    try {
+      await axios.patch(
+        `http://localhost:3000/api/review/${reviewId}/reply/${replyId}`,
+        { comment: trimmed },
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
+      );
+      toast.success("Đã cập nhật trả lời");
+      setEditingReplyId(null);
+      setEditingReplyText("");
+      fetchReviews();
+    } catch (error) {
+      console.error("Error updating reply:", error);
+      toast.error(error.response?.data?.message || "Lỗi khi cập nhật trả lời");
     }
   };
 
@@ -554,6 +622,11 @@ const ProductReviews = ({ productId }) => {
       r.user._id === user?._id || r.user === user?._id
     );
     const isHidden = reply.status === 'hidden';
+    const authorName = reply.user?.username || reply.userName || reply.user?.email || "Người dùng";
+    const mentionedName = reply.mentionedUser?.username || reply.mentionedUserName || reply.mentionedUser?.email || "";
+    const isEditing = editingReplyId === reply._id;
+    const canManageReply = !!user && (reply.user?._id === user._id || reply.user === user._id || user?.admin);
+    const isReplyingHere = replyingTo === reviewId && replyingToReply && replyingToReply._id === reply._id;
 
     return (
       <div 
@@ -563,7 +636,7 @@ const ProductReviews = ({ productId }) => {
         style={{ marginLeft: isNested ? '32px' : '0' }}
       >
         <div className="reply-header">
-          <strong>{reply.user?.username || "Người dùng"}</strong>
+          <strong>{authorName}</strong>
           <span className="reply-date">
             {new Date(reply.createdAt).toLocaleDateString("vi-VN")}
           </span>
@@ -577,7 +650,7 @@ const ProductReviews = ({ productId }) => {
         <p className="reply-content">
           {reply.mentionedUser && (
             <span className="mention-tag">
-              @{reply.mentionedUser.username}{" "}
+              @{mentionedName}{" "}
             </span>
           )}
           {reply.comment}
@@ -626,13 +699,30 @@ const ProductReviews = ({ productId }) => {
                 setReplyingTo(reviewId);
                 setReplyingToReply(reply);
                 setReplyText("");
+                setEditingReplyId(null);
               }}
             >
               💬 Trả lời
             </button>
           )}
 
-          {user && (reply.user?._id === user._id || user?.admin) && (
+          {canManageReply && (
+            <button
+              className={`btn-edit-reply ${isEditing ? 'active' : ''}`}
+              onClick={() => {
+                if (isEditing) {
+                  setEditingReplyId(null);
+                  setEditingReplyText("");
+                } else {
+                  startEditReply(reply);
+                }
+              }}
+            >
+              ✏️ {isEditing ? "Đang sửa" : "Chỉnh sửa"}
+            </button>
+          )}
+
+          {canManageReply && (
             <button
               className="btn-delete-reply"
               onClick={() => handleDeleteReply(reviewId, reply._id)}
@@ -662,11 +752,41 @@ const ProductReviews = ({ productId }) => {
           )}
         </div>
 
+        {isEditing && (
+          <div className="edit-reply-form">
+            <textarea
+              id={`edit-reply-${reply._id}`}
+              value={editingReplyText}
+              onChange={(e) => setEditingReplyText(e.target.value)}
+              placeholder="Cập nhật nội dung trả lời..."
+              rows="3"
+            />
+            <div className="edit-reply-actions">
+              <button
+                type="button"
+                className="btn-cancel-edit"
+                onClick={() => {
+                  setEditingReplyId(null);
+                  setEditingReplyText("");
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                className="btn-save-edit"
+                onClick={() => handleUpdateReply(reviewId, reply._id)}
+              >
+                Lưu thay đổi
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* If the user is replying specifically to this reply, show the inline reply form here */}
-        {replyingTo === reviewId && replyingToReply && replyingToReply._id === reply._id && (
+        {isReplyingHere && (
           <div className="reply-form" style={{ marginTop: 12 }}>
             <div className="replying-to-info">
-              Đang trả lời <strong>@{reply.user?.username}</strong>
+              Đang trả lời <strong>@{authorName}</strong>
               <button
                 className="btn-clear-mention"
                 onClick={() => setReplyingToReply(null)}
@@ -678,7 +798,7 @@ const ProductReviews = ({ productId }) => {
               id={`reply-input-${reply._id}`}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder={`Trả lời @${reply.user?.username}...`}
+              placeholder={`Trả lời @${authorName}...`}
               rows="3"
             />
             <div className="reply-actions">
@@ -770,7 +890,7 @@ const ProductReviews = ({ productId }) => {
       )}
 
       {showReviewForm && (
-        <form className="review-form" onSubmit={handleSubmitReview}>
+        <form className="review-form" ref={reviewFormRef} onSubmit={handleSubmitReview}>
           <h3>{editingReview ? "Chỉnh sửa đánh giá" : "Viết đánh giá của bạn"}</h3>
 
           {!editingReview && (
@@ -917,11 +1037,27 @@ const ProductReviews = ({ productId }) => {
                 </div>
                 
                 {user && review.user?._id === user._id && (
+                  <>
+                    <button
+                      className="btn-edit-review"
+                      onClick={() => handleEditReview(review)}
+                    >
+                      ✏️ Chỉnh sửa
+                    </button>
+                    <button
+                      className="btn-delete-review"
+                      onClick={() => handleDeleteReview(review._id)}
+                    >
+                      🗑 Xóa
+                    </button>
+                  </>
+                )}
+                {user?.admin && review.user?._id !== user._id && (
                   <button
-                    className="btn-edit-review"
-                    onClick={() => handleEditReview(review)}
+                    className="btn-delete-review"
+                    onClick={() => handleDeleteReview(review._id)}
                   >
-                    ✏️ Chỉnh sửa
+                    🗑 Xóa (Admin)
                   </button>
                 )}
 
@@ -931,10 +1067,13 @@ const ProductReviews = ({ productId }) => {
                     onClick={() => {
                       if (replyingTo === review._id) {
                         setReplyingTo(null);
+                        setReplyingToReply(null);
                         setReplyText("");
                       } else {
                         setReplyingTo(review._id);
                         setReplyingToReply(null);
+                        setEditingReplyId(null);
+                        setEditingReplyText("");
                       }
                     }}
                   >

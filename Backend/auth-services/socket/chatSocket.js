@@ -81,6 +81,7 @@ const registerChatSockets = (io) => {
       socket.join(ORDER_ADMIN_ROOM);
     } else {
       socket.join(buildUserRoomName(userId));
+      socket.join(String(userId));
       if (socket.user?.shipper) {
         socket.join(ORDER_SHIPPER_ROOM);
       }

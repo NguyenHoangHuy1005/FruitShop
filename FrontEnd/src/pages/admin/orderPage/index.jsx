@@ -269,8 +269,7 @@ const OrderAdminPage = () => {
     const manualAddressFilled = manualPickupAddress.trim().length > 0;
     const hasPickupAddressInput = Boolean(
         selectedWarehouse ||
-        manualAddressFilled ||
-        (selectedOrder?.pickupAddress && selectedOrder.pickupAddress.trim())
+        manualAddressFilled
     );
 
     useEffect(() => {
@@ -586,7 +585,7 @@ const OrderAdminPage = () => {
                                             type="text"
                                             className="form-control"
                                             placeholder="VD: 789 Fruit Shop, phường Sài Gòn, Tp.HCM"
-                                            // value={manualPickupAddress || selectedOrder.pickupAddress || ""}
+                                            value={manualPickupAddress}
                                             onChange={(e) => setManualPickupAddress(e.target.value)}
                                             disabled={!!selectedWarehouseId}
                                         />
@@ -604,7 +603,7 @@ const OrderAdminPage = () => {
                                         onClick={async () => {
                                             const address = selectedWarehouse
                                                 ? describeWarehouse(selectedWarehouse)
-                                                : (manualPickupAddress || selectedOrder.pickupAddress || "");
+                                                : manualPickupAddress;
                                             if (!address || !address.trim()) {
                                                 alert("Vui lòng cung cấp địa chỉ lấy hàng!");
                                                 return;

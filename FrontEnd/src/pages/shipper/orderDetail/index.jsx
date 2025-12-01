@@ -7,6 +7,7 @@ import {
   shipperAcceptOrder,
   shipperDeliveredOrder,
   shipperCancelOrder,
+  uploadImageFile,
 } from "../../../component/redux/apiRequest";
 import {
   SHIPPER_CANCEL_REASONS,
@@ -30,6 +31,17 @@ const OrderDetail = () => {
   const [selectedReason, setSelectedReason] = useState(DEFAULT_SHIPPER_CANCEL_REASON_VALUE);
   const [customReason, setCustomReason] = useState("");
   const [cancelError, setCancelError] = useState("");
+  const [deliverDialog, setDeliverDialog] = useState(false);
+  const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState("");
+  const [proofError, setProofError] = useState("");
+  const [proofUploading, setProofUploading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (proofPreview) URL.revokeObjectURL(proofPreview);
+    };
+  }, [proofPreview]);
 
 
   const load = useCallback(async () => {
@@ -82,15 +94,8 @@ const OrderDetail = () => {
   };
 
   const handleDelivered = async () => {
-    try {
-      setActionState({ id, key: "delivered" });
-      await shipperDeliveredOrder(id);
-      await load();
-    } catch (e) {
-      alert(e?.message || "Cập nhật giao hàng thất bại.");
-    } finally {
-      resetAction();
-    }
+    setDeliverDialog(true);
+    setProofError("");
   };
 
   const handleCancel = () => {
@@ -98,6 +103,52 @@ const OrderDetail = () => {
     setSelectedReason(DEFAULT_SHIPPER_CANCEL_REASON_VALUE);
     setCustomReason("");
     setCancelError("");
+  };
+
+  const clearProofSelection = () => {
+    if (proofPreview) URL.revokeObjectURL(proofPreview);
+    setProofFile(null);
+    setProofPreview("");
+    setProofError("");
+  };
+
+  const handleProofChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      clearProofSelection();
+      return;
+    }
+    if (proofPreview) URL.revokeObjectURL(proofPreview);
+    setProofFile(file);
+    setProofPreview(URL.createObjectURL(file));
+    setProofError("");
+  };
+
+  const handleConfirmDelivered = async () => {
+    try {
+      setActionState({ id, key: "delivered" });
+      let proofUrls = [];
+      if (proofFile) {
+        setProofUploading(true);
+        try {
+          const uploadedUrl = await uploadImageFile(proofFile, {});
+          proofUrls = [uploadedUrl];
+        } catch (err) {
+          setProofError(err?.message || "Tải ảnh thất bại, vui lòng thử lại.");
+          return;
+        } finally {
+          setProofUploading(false);
+        }
+      }
+      await shipperDeliveredOrder(id, proofUrls);
+      await load();
+      clearProofSelection();
+      setDeliverDialog(false);
+    } catch (e) {
+      alert(e?.message || "Cập nhật giao hàng thất bại.");
+    } finally {
+      resetAction();
+    }
   };
 
   const closeCancelDialog = () => {
@@ -264,6 +315,42 @@ const OrderDetail = () => {
           loadingAction={actionKey}
         />
       </div>
+
+      {deliverDialog && (
+        <div className="shipper-proof-dialog">
+          <div className="shipper-proof-dialog__panel">
+            <h4>Xác nhận giao hàng</h4>
+            {proofPreview ? (
+              <div className="shipper-proof-dialog__preview">
+                <img src={proofPreview} alt="Ảnh bàn giao" />
+                <button type="button" className="shipper-proof-dialog__remove" onClick={clearProofSelection}>
+                  Xóa ảnh
+                </button>
+              </div>
+            ) : (
+              <label className="shipper-proof-dialog__input">
+                <span>Tải ảnh bàn giao (tùy chọn)</span>
+                <input type="file" accept="image/*" onChange={handleProofChange} />
+              </label>
+            )}
+            {proofUploading && <p className="shipper-proof-dialog__hint">Đang tải ảnh...</p>}
+            {proofError && <p className="shipper-proof-dialog__error">{proofError}</p>}
+            <div className="shipper-proof-dialog__actions">
+              <button type="button" className="btn btn-secondary" onClick={() => { clearProofSelection(); setDeliverDialog(false); }}>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmDelivered}
+                disabled={proofUploading}
+              >
+                Xác nhận giao
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cancelDialog && (
         <div className="shipper-cancel-dialog">

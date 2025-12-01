@@ -124,6 +124,23 @@ const notificationController = {
                 link,
             });
             await notification.save();
+            try {
+                const payload = {
+                    id: notification._id,
+                    title: notification.title,
+                    message: notification.message,
+                    body: notification.message,
+                    type: notification.type,
+                    relatedId: notification.relatedId,
+                    link: notification.link,
+                    createdAt: notification.createdAt,
+                    unread: true,
+                };
+                const { emitNotificationNew } = require("../socket/chatEvents");
+                emitNotificationNew(userId, payload);
+            } catch (emitErr) {
+                console.warn("[notification] emit socket fail:", emitErr?.message || emitErr);
+            }
             return notification;
         } catch (error) {
             console.error("Error creating notification:", error);

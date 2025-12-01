@@ -56,6 +56,13 @@ const emitConversationUpdate = (summary) => {
   ioRef.to(CHAT_ADMIN_ROOM).emit("chat:conversation", summary);
 };
 
+const emitNotificationNew = (userId, payload = {}) => {
+  if (!ioRef || !userId) return;
+  const roomId = typeof userId === "string" ? userId : userId?.toString?.();
+  if (!roomId) return;
+  ioRef.to(roomId).emit("notification:new", payload);
+};
+
 const emitOrderUpdate = ({ order, userId, shipperId, event = "updated" }) => {
   if (!ioRef || !order) return;
   const payload = { event, order };
@@ -86,4 +93,5 @@ module.exports = {
   emitChatMessageRemoved,
   emitConversationUpdate,
   emitOrderUpdate,
+  emitNotificationNew,
 };

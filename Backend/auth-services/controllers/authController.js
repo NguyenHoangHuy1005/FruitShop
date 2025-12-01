@@ -25,12 +25,12 @@ const generate6Digit = () =>
   String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 
 const hasShipperRole = (user) => {
-  if (!user) return false;
-  if (user.shipper) return true;
-  if (user.roles && Array.isArray(user.roles)) {
-    return user.roles.includes("shipper");
-  }
-  return false;
+    if (!user) return false;
+    if (user.shipper) return true;
+    if (user.roles && Array.isArray(user.roles)) {
+        return user.roles.includes("shipper");
+    }
+    return false;
 };
 
 const COOKIE_OPTS = {
@@ -195,7 +195,6 @@ const authController = {
         }
     },
 
-    // ============== JWT helpers ==============
     // generateAccessToken: (user) => {
     //     return jwt.sign(
     //     { id: user.id, admin: user.admin },

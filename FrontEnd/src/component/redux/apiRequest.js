@@ -41,6 +41,72 @@ const API = axios.create({
     withCredentials: true,
 });
 
+// ----- Axios refresh interceptor state -----
+let refreshPromise = null;
+
+const doRefreshToken = async () => {
+    // Nếu biết chắc không có refresh -> bỏ qua
+    if (!maybeHasRefresh()) {
+        throw new Error("No refresh token available");
+    }
+
+    if (!refreshPromise) {
+        refreshPromise = API.post("/auth/refresh", null, {
+            validateStatus: () => true,
+            withCredentials: true,
+        })
+            .then((r) => {
+                if (r.status === 200 && r.data?.accessToken) {
+                    const t = r.data.accessToken;
+                    API.defaults.headers.common.Authorization = `Bearer ${t}`;
+                    markHasRefresh();
+                    return t;
+                }
+                throw new Error(r?.data?.message || "Refresh failed");
+            })
+            .catch((err) => {
+                clearHasRefresh();
+                throw err;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+    return refreshPromise;
+};
+
+// Axios response interceptor: auto refresh & retry 1 lần khi 401/403
+API.interceptors.response.use(
+    (res) => res,
+    async (error) => {
+        const { response, config } = error || {};
+        if (!response || !config) return Promise.reject(error);
+
+        const status = response.status;
+        const isAuthEndpoint =
+            config.url?.includes("/auth/login") ||
+            config.url?.includes("/auth/google-login") ||
+            config.url?.includes("/auth/register") ||
+            config.url?.includes("/auth/refresh");
+
+        if ((status === 401 || status === 403) && !config.__retry && !isAuthEndpoint) {
+            try {
+                const token = await doRefreshToken();
+                if (token) {
+                    config.__retry = true;
+                    config.headers = config.headers || {};
+                    config.headers.Authorization = `Bearer ${token}`;
+                    return API(config);
+                }
+            } catch (e) {
+                // Refresh thất bại, fall-through để reject
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 // Export nếu nơi khác cần dùng trực tiếp
 export { API };
 
@@ -1024,7 +1090,7 @@ export const confirmUsernameChange = async (otp, dispatch) => {
 
 // Danh sách tồn kho (kèm product)
 export const listStock = async () => {
-    const token = await ensureAccessToken(null);
+    await ensureAccessToken(null);
     const res = await API.get("/stock", {
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);
@@ -1033,7 +1099,7 @@ export const listStock = async () => {
 
 // Lấy tồn 1 sản phẩm
 export const getStockOne = async (productId) => {
-    const token = await ensureAccessToken(null);
+    await ensureAccessToken(null);
     const res = await API.get(`/stock/${productId}`, {
     });
     if (res.status !== 200) throw new Error(res?.data?.message || `HTTP ${res.status}`);

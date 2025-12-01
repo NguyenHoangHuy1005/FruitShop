@@ -616,6 +616,8 @@ const ProductReviews = ({ productId }) => {
   const renderReply = (reply, reviewId, allReplies, depth = 0) => {
     const nestedReplies = allReplies.filter(r => r.parentReply === reply._id);
     const isNested = depth > 0;
+    // Chỉ lùi cấp 1; các cấp sâu hơn không lùi thêm (trở về không lùi)
+    const depthIndent = depth === 1 ? 28 : 0;
     const isLiked = reply.likes?.includes(user?._id);
     const isDisliked = reply.dislikes?.includes(user?._id);
     const currentUserReaction = reply.reactions?.find(r => 
@@ -633,7 +635,7 @@ const ProductReviews = ({ productId }) => {
         id={`reply-${reply._id}`}
         key={reply._id} 
         className={`reply-item ${isNested ? 'nested-reply' : ''} ${isHidden ? 'hidden-reply' : ''}`}
-        style={{ marginLeft: isNested ? '32px' : '0' }}
+        style={{ marginLeft: isNested ? `${depthIndent}px` : '0' }}
       >
         <div className="reply-header">
           <strong>{authorName}</strong>

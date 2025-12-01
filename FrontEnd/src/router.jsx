@@ -92,8 +92,33 @@ const RequireShipper = ({ children }) => {
   return children;
 };
 
+// Middleware check User (chặn trang cần đăng nhập)
+const RequireUser = ({ children }) => {
+  const user = useSelector((state) => state.auth.login?.currentUser);
+  const location = useLocation();
+  if (!user) {
+    return (
+      <Navigate
+        to={ROUTERS.ADMIN.LOGIN}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+  return children;
+};
+
 // ---------- USER ROUTES ----------
 const renderUserRouter = () => {
+  const protectedPaths = new Set([
+    ROUTERS.USER.ORDERS,
+    ROUTERS.USER.PROFILE,
+    ROUTERS.USER.CHECKOUT,
+    ROUTERS.USER.PAYMENT,
+    ROUTERS.USER.PAYMENT_SUCCESS,
+    ROUTERS.USER.NOTIFICATIONS,
+  ]);
+
   const userRouters = [
     { path: ROUTERS.USER.HOME,         element: <HomePage /> },
     { path: ROUTERS.USER.ORDERS,       element: <OrderUserPage /> },
@@ -113,7 +138,15 @@ const renderUserRouter = () => {
     <MasterLayout>
       <Routes>
         {userRouters.map((r, i) => (
-          <Route key={i} path={r.path} element={r.element} />
+          <Route
+            key={i}
+            path={r.path}
+            element={
+              protectedPaths.has(r.path)
+                ? <RequireUser>{r.element}</RequireUser>
+                : r.element
+            }
+          />
         ))}
       </Routes>
     </MasterLayout>

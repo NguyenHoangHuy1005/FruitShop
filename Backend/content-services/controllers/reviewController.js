@@ -811,13 +811,27 @@ const reviewController = {
         });
       }
 
-      // Xóa thủ công để tránh lỗi khi reply là subdoc không có phương thức remove
-      review.replies = review.replies.filter((r) => r._id.toString() !== replyId);
-      await review.save();
+      const targetId = replyId.toString();
+
+      // 1) Xóa reply mục tiêu
+      review.replies = review.replies.filter((r) => (r?._id?.toString?.() || "") !== targetId);
+
+      // 2) Giữ lại reply con: đưa chúng thành reply gốc để vẫn hiển thị, giữ nguyên mention
+      review.replies = review.replies.map((r) => {
+        const parentId = r?.parentReply?.toString?.();
+        if (parentId === targetId) {
+          r.parentReply = null;
+        }
+        return r;
+      });
+
+      review.markModified("replies");
+      const updatedReview = await review.save();
 
       res.status(200).json({
         success: true,
         message: "Đã xóa câu trả lời",
+        review: updatedReview,
       });
     } catch (error) {
       console.error("Error deleting reply:", error);

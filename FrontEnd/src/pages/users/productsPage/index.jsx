@@ -46,7 +46,7 @@ const ProductsPage = () => {
                         setPriceVersion((v) => v + 1);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         });
 
         return () => {
@@ -150,7 +150,7 @@ const ProductsPage = () => {
             const snapshot = resolveSnapshot(p);
             // Sử dụng giá hiển thị (giá batch nếu có, nếu không thì giá gốc)
             const displayPrice = snapshot.hasAvailableBatch ? snapshot.min : getFinalPrice(p);
-            
+
             const matchesSearch = normalizeString(p.name).includes(normalizedSearch);
             const matchesMin = minPrice === "" || displayPrice >= Number(minPrice);
             const matchesMax = maxPrice === "" || displayPrice <= Number(maxPrice);
@@ -164,7 +164,8 @@ const ProductsPage = () => {
             const snapB = resolveSnapshot(b) || {};
             const priceAView = Number.isFinite(snapA.displayPrice) ? Number(snapA.displayPrice) : getFinalPrice(a);
             const priceBView = Number.isFinite(snapB.displayPrice) ? Number(snapB.displayPrice) : getFinalPrice(b);
-
+            if (isOutOfStockA && !isOutOfStockB) return 1;
+            if (!isOutOfStockA && isOutOfStockB) return -1;
             const statusPriority = {
                 "Hết hạn": 0,
                 "Sắp hết hạn": 1,
@@ -229,7 +230,7 @@ const ProductsPage = () => {
 
     const sorts = [
         "Mặc định",
-        "Mới nhất", 
+        "Mới nhất",
         "Giá thấp đến cao",
         "Giá cao đến thấp",
         "Bán chạy nhất",

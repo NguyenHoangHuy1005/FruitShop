@@ -1,6 +1,34 @@
 import { normalizeOrderStatus } from "./OrderStatusTag";
 import "./orderStatus.scss";
 
+const ONLINE_BLOCKLIST = ["COD"];
+
+const resolvePaymentCode = (payment) => {
+  if (!payment) return "";
+  if (typeof payment === "string") return payment.toUpperCase();
+  return (
+    payment.gateway ||
+    payment.method ||
+    payment.type ||
+    payment.code ||
+    ""
+  ).toString().toUpperCase();
+};
+
+const hasSuccessfulOnlinePayment = (order) => {
+  if (!order) return false;
+  const paymentCode = resolvePaymentCode(order.payment);
+  if (!paymentCode || ONLINE_BLOCKLIST.includes(paymentCode)) return false;
+  const paymentMetaStatus = String(order?.paymentMeta?.status || "").toLowerCase();
+  const paidFlags = [
+    Boolean(order?.paymentCompletedAt),
+    Boolean(order?.paymentMeta?.paidAt),
+    Boolean(order?.paymentMeta?.completedAt),
+    ["paid", "success", "completed"].includes(paymentMetaStatus),
+  ];
+  return paidFlags.some(Boolean);
+};
+
 const noop = () => {};
 
 const OrderActions = ({
@@ -20,6 +48,7 @@ const OrderActions = ({
   if (!id) return null;
 
   const status = normalizeOrderStatus(order?.status);
+  const paidOnline = hasSuccessfulOnlinePayment(order);
   const actions = [];
   const baseClass = compact ? "action-btn action-btn--compact" : "action-btn";
 
@@ -57,7 +86,7 @@ const OrderActions = ({
       pushAction("reorder", "Đặt lại đơn này", "action-btn--reorder", onReorder);
     }
     const cancellableStatuses = ["pending", "pending_payment"];
-    if (cancellableStatuses.includes(status) && onCancel !== noop) {
+    if (!paidOnline && cancellableStatuses.includes(status) && onCancel !== noop) {
       pushAction("cancel", "Hủy đơn", "action-btn--cancel", onCancel);
     }
   }

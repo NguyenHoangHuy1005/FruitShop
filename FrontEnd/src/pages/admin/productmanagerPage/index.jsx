@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo } from "react";
+import { memo, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import "./style.scss";
 import { useSelector, useDispatch } from "react-redux";
 import ProductForm from "../../../component/modals/addProductModal";
@@ -24,6 +24,7 @@ const ProductManagerPage = () => {
     const [openMenuId, setOpenMenuId] = useState(null); // Track which menu is open
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(50); // 🔥 Hiển thị 50 items mỗi trang
+    const latestBatchCacheRef = useRef(new Map());
     useEffect(() => {
         const initializePage = async () => {
             try {
@@ -64,12 +65,11 @@ const ProductManagerPage = () => {
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, [openMenuId]);
-    // Fetch thông tin lô mới nhất khi products đã được load
     useEffect(() => {
-        if (products.length > 0) {
-            fetchAllLatestBatchInfo();
-        }
-    }, [products]);
+        if (!products.length) return;
+        if (!productBatches || Object.keys(productBatches).length === 0) return;
+        fetchAllLatestBatchInfo(productBatches);
+    }, [productBatches, products]);
     const fetchAllProductBatches = async () => {
         try {
             const response = await fetch("http://localhost:3000/api/stock/batch-details", {
@@ -131,6 +131,7 @@ const ProductManagerPage = () => {
             }, {});
             
             setProductBatches(batchesByProduct);
+            latestBatchCacheRef.current.clear();
             return batchesByProduct;
         } catch (error) {
             console.error('Error fetching batches:', error);
@@ -138,81 +139,143 @@ const ProductManagerPage = () => {
         }
     };
     // Fetch thông tin lô mới nhất cho tất cả sản phẩm
-    const fetchAllLatestBatchInfo = async (batchesMap) => {
+    const fetchAllLatestBatchInfo = async (incomingBatches) => {
         try {
             const latestBatchData = {};
-            const productsNeedingAPI = [];
-            
-            // 🔥 Ư u tiên xử lý từ dữ liệu local
-            products.forEach((product) => {
-                const localBatches = (batchesMap && batchesMap[product._id]) ? batchesMap[product._id].batches : productBatches[product._id]?.batches;
-                
-                if (localBatches && localBatches.length > 0) {
-                    // Find FEFO active batch from local batches
-                    const sorted = [...localBatches].sort((a, b) => {
-                        if (!a.expiryDate && !b.expiryDate) return new Date(a.importDate) - new Date(b.importDate);
-                        if (!a.expiryDate) return 1;
-                        if (!b.expiryDate) return -1;
-                        return new Date(a.expiryDate) - new Date(b.expiryDate);
-                    });
-                    
-                    // Pick first non-expired batch with remaining quantity
-                    let active = null;
-                    for (const b of sorted) {
-                        const remaining = (b.remainingQuantity ?? b.batchQuantity ?? b.quantity ?? 0);
-                        const isExpired = (b.status === 'expired') || false;
-                        if (remaining > 0 && !isExpired) { active = b; break; }
+            const needApi = [];
+
+            const normalizeDate = (value) => (value ? new Date(value) : null);
+            const isExpiredBatch = (batch) => {
+                if (!batch) return true;
+                if (batch.status) {
+                    if (batch.status === 'expired') return true;
+                    if (batch.status === 'empty') {
+                        const remaining = Number(batch.remainingQuantity ?? 0);
+                        if (remaining <= 0) return true;
                     }
-                    if (active) {
-                        const batchData = batchesMap?.[product._id] ?? productBatches[product._id];
-                        latestBatchData[product._id] = {
-                            latestBatch: {
-                                _id: active._id,
-                                productId: active.productId || product._id,
-                                productName: active.productName || product.name,
-                                supplierName: active.supplierName || (active.receipt?.supplier?.name) || 'Unknown',
-                                unitPrice: active.unitPrice ?? active.importPrice ?? 0,
-                                sellingPrice: active.sellingPrice ?? active.unitPrice ?? 0,
-                                batchQuantity: active.batchQuantity ?? active.quantity ?? 0,
-                                remainingInThisBatch: active.remainingQuantity ?? 0,
-                                soldFromThisBatch: active.soldQuantity ?? 0,
-                                importDate: active.importDate,
-                                expiryDate: active.expiryDate,
-                                status: active.status || 'valid'
-                            },
-                            summary: {
-                                totalInStock: batchData?.totalInStock ?? 0,
-                                totalSold: batchData?.totalSold ?? 0,
-                                totalBatches: batchData?.batches.length ?? 0
-                            }
-                        };
+                    if (batch.status === 'valid' || batch.status === 'expiring') {
+                        // still usable unless daysLeft <= 0
+                        if (typeof batch.daysLeft === 'number' && batch.daysLeft <= 0) {
+                            return true;
+                        }
+                    }
+                }
+                if (typeof batch.daysLeft === 'number') {
+                    return batch.daysLeft <= 0;
+                }
+                if (!batch.expiryDate) return false;
+                const today = new Date();
+                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const expiry = normalizeDate(batch.expiryDate);
+                if (!expiry) return false;
+                const expiryDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+                return expiryDay <= startOfToday;
+            };
+
+            const hasRemainingStock = (batch) => Number(batch?.remainingQuantity ?? batch?.batchQuantity ?? batch?.quantity ?? 0) > 0;
+
+            const resolveFromLocal = (productId) => {
+                const entry = incomingBatches?.[productId] || productBatches[productId];
+                if (!entry || !(entry.batches || []).length) return null;
+                const list = entry.batches || [];
+
+                const eligibleByFlag = list.find(
+                    (b) => Boolean(b.isActive) && hasRemainingStock(b) && !isExpiredBatch(b)
+                );
+                if (eligibleByFlag) {
+                    return { batch: eligibleByFlag, summary: entry };
+                }
+
+                const fallback = [...list]
+                    .filter((b) => hasRemainingStock(b) && !isExpiredBatch(b))
+                    .sort((a, b) => {
+                        const aExpiry = normalizeDate(a.expiryDate);
+                        const bExpiry = normalizeDate(b.expiryDate);
+                        if (aExpiry && bExpiry) return aExpiry - bExpiry;
+                        if (aExpiry) return -1;
+                        if (bExpiry) return 1;
+                        return new Date(a.importDate || 0) - new Date(b.importDate || 0);
+                    })[0];
+                if (fallback) {
+                    return { batch: fallback, summary: entry };
+                }
+                return null;
+            };
+
+            const mapBatchToState = (product, source) => {
+                if (!source?.batch) return null;
+                const batch = source.batch;
+                const summary = source.summary;
+                return {
+                    latestBatch: {
+                        _id: batch._id,
+                        productId: batch.productId || product._id,
+                        productName: batch.productName || product.name,
+                        supplierName: batch.supplierName || batch?.receipt?.supplier?.name || 'Unknown',
+                        unitPrice: batch.unitPrice ?? batch.importPrice ?? 0,
+                        sellingPrice: batch.sellingPrice ?? batch.unitPrice ?? 0,
+                        batchQuantity: batch.batchQuantity ?? batch.quantity ?? 0,
+                        remainingInThisBatch: batch.remainingQuantity ?? 0,
+                        soldFromThisBatch: batch.soldQuantity ?? 0,
+                        importDate: batch.importDate,
+                        expiryDate: batch.expiryDate,
+                        status: batch.status || 'valid',
+                        isActive: Boolean(batch.isActive),
+                    },
+                    summary: {
+                        totalInStock: summary?.totalInStock ?? 0,
+                        totalSold: summary?.totalSold ?? 0,
+                        totalBatches: summary?.batches?.length ?? summary?.totalBatches ?? 0,
+                    },
+                };
+            };
+
+            products.forEach((product) => {
+                const resolved = resolveFromLocal(product._id);
+                if (resolved) {
+                    const mapped = mapBatchToState(product, resolved);
+                    if (mapped) {
+                        latestBatchData[product._id] = mapped;
                     } else {
-                        productsNeedingAPI.push(product);
+                        needApi.push(product);
                     }
                 } else {
-                    productsNeedingAPI.push(product);
+                    needApi.push(product);
                 }
             });
-            
-            // 🔥 Chỉ gọi API cho những sản phẩm thực sự cần
-            if (productsNeedingAPI.length > 0) {
-                console.log(`📞 Fetching API for ${productsNeedingAPI.length} products...`);
-                const apiPromises = productsNeedingAPI.map(async (product) => {
-                    try {
-                        const data = await getLatestBatchInfo(product._id);
-                        latestBatchData[product._id] = data;
-                    } catch (error) {
-                        latestBatchData[product._id] = {
-                            latestBatch: null,
-                            summary: { totalInStock: product.onHand || 0, totalSold: 0, totalBatches: 0 }
-                        };
-                    }
+
+            if (needApi.length > 0) {
+                const apiResults = await Promise.all(
+                    needApi.map(async (product) => {
+                        const cached = latestBatchCacheRef.current.get(product._id);
+                        if (cached) {
+                            return { productId: product._id, data: cached };
+                        }
+
+                        try {
+                            const data = await getLatestBatchInfo(product._id);
+                            latestBatchCacheRef.current.set(product._id, data);
+                            return { productId: product._id, data };
+                        } catch (error) {
+                            const fallback = {
+                                latestBatch: null,
+                                summary: { totalInStock: product.onHand || 0, totalSold: 0, totalBatches: 0 },
+                            };
+                            latestBatchCacheRef.current.set(product._id, fallback);
+                            return {
+                                productId: product._id,
+                                data: fallback,
+                            };
+                        }
+                    })
+                );
+
+                apiResults.forEach(({ productId, data }) => {
+                    latestBatchData[productId] = data;
                 });
-                await Promise.all(apiPromises);
             }
-            
+
             setLatestBatchInfo(latestBatchData);
-            
         } catch (error) {
             console.error('Error fetching latest batch info:', error);
         }
@@ -316,6 +379,58 @@ const ProductManagerPage = () => {
         const productBatch = productBatches[productId];
         return productBatch ? productBatch.batches.length : 0;
     };
+    const isBatchSellable = useCallback((batch) => {
+        if (!batch) return false;
+        const remaining = Number(
+            batch.remainingQuantity ??
+            batch.remainingInThisBatch ??
+            batch.batchQuantity ??
+            batch.quantity ??
+            0
+        );
+        if (!Number.isFinite(remaining) || remaining <= 0) return false;
+        if (batch.status === 'expired') return false;
+        if (typeof batch.daysLeft === 'number' && batch.daysLeft <= 0) return false;
+        if (batch.expiryDate) {
+            const expiry = new Date(batch.expiryDate);
+            const today = new Date();
+            if (expiry < today) return false;
+        }
+        return true;
+    }, []);
+
+    const resolveProductDisplayPrice = useCallback((product) => {
+        if (!product) return 0;
+        const productId = product._id;
+        const latest = latestBatchInfo[productId]?.latestBatch;
+        const extractPrice = (batch) => {
+            if (!batch) return null;
+            const price = Number(batch.sellingPrice ?? batch.unitPrice ?? batch.importPrice ?? 0);
+            return Number.isFinite(price) && price > 0 ? price : null;
+        };
+
+        if (isBatchSellable(latest)) {
+            const latestPrice = extractPrice(latest);
+            if (latestPrice !== null) return latestPrice;
+        }
+
+        const localEntry = productBatches[productId];
+        if (localEntry?.batches?.length) {
+            const fallbackBatch = [...localEntry.batches]
+                .filter((batch) => isBatchSellable(batch))
+                .sort((a, b) => {
+                    const aTime = new Date(a.expiryDate || a.importDate || 0).getTime();
+                    const bTime = new Date(b.expiryDate || b.importDate || 0).getTime();
+                    return aTime - bTime;
+                })[0];
+            const fallbackPrice = extractPrice(fallbackBatch);
+            if (fallbackPrice !== null) return fallbackPrice;
+        }
+
+        const base = Number(product.price ?? product.basePrice ?? 0);
+        return Number.isFinite(base) && base > 0 ? base : 0;
+    }, [isBatchSellable, latestBatchInfo, productBatches]);
+
     const filteredProducts = useMemo(() => {
         const key = (searchTerm || "").trim().toLowerCase();
         let result = key ? products.filter((p) => (p?.name || "").toLowerCase().includes(key)) : [...products];
@@ -449,10 +564,12 @@ const ProductManagerPage = () => {
                             />
                         </td>
                         <td>
-                            <b>{latestBatch?.latestBatch ? 
-                                (Number(latestBatch.latestBatch.sellingPrice) || 0).toLocaleString() : 
-                                <span>—</span>
-                            }</b>
+                            <b>
+                                {(() => {
+                                    const priceValue = resolveProductDisplayPrice(product);
+                                    return priceValue > 0 ? priceValue.toLocaleString() : "—";
+                                })()}
+                            </b>
                         </td>
                         <td>{Number(product.discountPercent || 0)}%</td>
                         <td>

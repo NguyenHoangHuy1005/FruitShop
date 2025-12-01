@@ -8,6 +8,7 @@ import {
     extendCoupon,
     getAllProduct,
     getPriceRange,
+    getLatestBatchInfo,
     API,
     ensureAccessToken,
 } from "../../../component/redux/apiRequest";
@@ -46,6 +47,7 @@ const CouponManagerPage = () => {
     const [coupons, setCoupons] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
     const [priceLookup, setPriceLookup] = useState({});
+    const [latestBatchLookup, setLatestBatchLookup] = useState({});
     const [productsLoading, setProductsLoading] = useState(false); // trang thai load san pham
 
     const [couponFilter, setCouponFilter] = useState({
@@ -76,6 +78,11 @@ const CouponManagerPage = () => {
 
     const resolveProductPrice = (product) => {
         const id = typeof product === "object" ? product?._id : product;
+        const latest = id ? latestBatchLookup[id] : undefined;
+        if (latest) {
+            const selling = Number(latest?.sellingPrice ?? latest?.price);
+            if (Number.isFinite(selling) && selling > 0) return selling;
+        }
         const range = id ? priceLookup[id] : undefined;
         const rangePrice =
             range?.minPrice ??
@@ -113,7 +120,7 @@ const CouponManagerPage = () => {
             displayPrice: resolveProductPrice(p),
             displayDiscount: resolveProductDiscount(p),
         }));
-    }, [allProducts, priceLookup]);
+    }, [allProducts, priceLookup, latestBatchLookup]);
 
     // xu ly danh sach san pham ap dung trong modal xem chi tiet
     const viewProducts = useMemo(() => {
@@ -244,21 +251,24 @@ const CouponManagerPage = () => {
             const data = Array.isArray(res.data) ? res.data : [];
             setAllProducts(data);
 
-            if (!data.length) {
-                setPriceLookup({});
-                return;
-            }
+                if (!data.length) {
+                    setPriceLookup({});
+                    setLatestBatchLookup({});
+                    return;
+                }
 
             const priceMap = {};
+            const latestMap = {};
             const chunkSize = 6;
 
             for (let i = 0; i < data.length; i += chunkSize) {
                 const slice = data.slice(i, i + chunkSize);
-                const results = await Promise.allSettled(
-                    slice.map((p) => getPriceRange(p._id))
-                );
+                const [rangeResults, latestResults] = await Promise.all([
+                    Promise.allSettled(slice.map((p) => getPriceRange(p._id))),
+                    Promise.allSettled(slice.map((p) => getLatestBatchInfo(p._id))),
+                ]);
 
-                results.forEach((result, idx) => {
+                rangeResults.forEach((result, idx) => {
                     if (result.status !== "fulfilled" || !result.value) return;
                     const payload = result.value;
                     const priceCandidate =
@@ -271,9 +281,18 @@ const CouponManagerPage = () => {
                         priceMap[slice[idx]._id] = payload;
                     }
                 });
+
+                latestResults.forEach((result, idx) => {
+                    if (result.status !== "fulfilled") return;
+                    const latestPayload = result.value;
+                    if (latestPayload?.latestBatch) {
+                        latestMap[slice[idx]._id] = latestPayload.latestBatch;
+                    }
+                });
             }
 
             setPriceLookup(priceMap);
+            setLatestBatchLookup(latestMap);
         } catch (e) {
             console.error("Load products fail:", e);
         } finally {
@@ -412,7 +431,7 @@ const CouponManagerPage = () => {
 
     // 🔥 NEW: Mở modal chỉnh sửa sản phẩm áp dụng
     const openEditProducts = (c) => {
-        const productIds = (c.applicableProducts || []).map(p => 
+            const productIds = (c.applicableProducts || []).map(p => 
             typeof p === 'object' ? p._id : p
         );
         setEditProductsModal({

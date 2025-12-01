@@ -5,6 +5,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, LabelList,
   CartesianGrid, Area, AreaChart, RadialBarChart, RadialBar
 } from "recharts";
+import { Link } from "react-router-dom";
 import { getOrderStats } from "../../../component/redux/apiRequest";
 import ExpiryAlert from "../../../component/ExpiryAlert";
 
@@ -42,7 +43,7 @@ const Dashboard = () => {
   const totalProfit = stats.totalProfit || 0;
   const totalCost = stats.totalCost || 0;
   const countOrders = stats.countOrders || 0;
-  
+
   // Calculate order success rate
   const orderByStatus = stats.orderByStatus || {};
   const successOrders = (orderByStatus.completed || 0) + (orderByStatus.shipping || 0) + (orderByStatus.processing || 0) + (orderByStatus.delivered || 0);
@@ -72,7 +73,7 @@ const Dashboard = () => {
     displayStock: Number(item.displayStock ?? item.onHand ?? 0),
   }));
   const lowStockProductCount = stats.lowStockProductCount || lowStockProducts.length;
-  
+
   // Tính tổng số đơn vị sắp hết kho để hiển thị chi tiết
   const totalLowStockUnits = lowStockData.reduce((sum, p) => sum + p.displayStock, 0);
 
@@ -121,7 +122,7 @@ const Dashboard = () => {
       <div className="filter-section">
         <div className="filter-group">
           <label>📅 Bộ lọc:</label>
-          <select 
+          <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="month-select"
@@ -152,13 +153,16 @@ const Dashboard = () => {
           </span>
         </div>
 
-        <div className="card highlight blue">
-          <h3>📦 Đơn Hàng</h3>
-          <p className="value">{countOrders}</p>
-          <span className="trend up">
-            Thành công: {successRate}% | Thất bại: {failedRate}%
-          </span>
-        </div>
+        <Link to="/admin/orders" className="no-style">
+          <div className="card highlight blue">
+            <h3>📦 Đơn Hàng</h3>
+            <p className="value">{countOrders}</p>
+            <span className="trend up">
+              Thành công: {successRate}% | Thất bại: {failedRate}%
+            </span>
+          </div>
+        </Link>
+
 
         <div className="card highlight purple">
           <h3>👥 Lượng Truy Cập</h3>
@@ -168,13 +172,16 @@ const Dashboard = () => {
           </span>
         </div>
 
-        <div className="card highlight orange">
-          <h3>⚠️ Sắp Hết Kho</h3>
-          <p className="value">{lowStockProductCount}</p>
-          <span className="trend warning">
-            Lô dưới {LOW_STOCK_THRESHOLD} đơn vị
-          </span>
-        </div>
+        <Link to="/admin/stock" className="no-style">
+          <div className="card highlight orange">
+            <h3>⚠️ Sắp Hết Kho</h3>
+            <p className="value">{lowStockProductCount}</p>
+            <span className="trend warning">
+              Lô dưới {LOW_STOCK_THRESHOLD} đơn vị
+            </span>
+          </div>
+        </Link>
+
       </div>
 
       {/* 📊 Charts Section */}
@@ -186,22 +193,22 @@ const Dashboard = () => {
             <AreaChart data={revenueData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="period" 
+              <XAxis
+                dataKey="period"
                 tick={{ fontSize: 12, fill: '#6b7280' }}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12, fill: '#6b7280' }}
                 tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip formatter={(value) => [`${value.toLocaleString()} VNĐ`, 'Doanh thu']} />}
               />
               <Area
@@ -224,12 +231,12 @@ const Dashboard = () => {
             <PieChart>
               <defs>
                 <linearGradient id="successGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#34d399" stopOpacity={1} />
                 </linearGradient>
                 <linearGradient id="failedGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#f87171" stopOpacity={1} />
                 </linearGradient>
               </defs>
               <Pie
@@ -248,11 +255,11 @@ const Dashboard = () => {
                 <Cell fill="url(#successGradient)" />
                 <Cell fill="url(#failedGradient)" />
               </Pie>
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip formatter={(v, name) => [`${v} đơn`, name]} />}
               />
-              <Legend 
-                verticalAlign="bottom" 
+              <Legend
+                verticalAlign="bottom"
                 height={36}
                 iconType="circle"
                 wrapperStyle={{ fontSize: '14px', fontWeight: '600' }}
@@ -268,44 +275,44 @@ const Dashboard = () => {
             <BarChart data={lowStockData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <defs>
                 <linearGradient id="lowStockGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#fca5a5" stopOpacity={0.8}/>
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#fca5a5" stopOpacity={0.8} />
                 </linearGradient>
                 <linearGradient id="warningStockGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.8}/>
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.8} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="name" 
+              <XAxis
+                dataKey="name"
                 angle={-25}
                 textAnchor="end"
                 height={80}
                 tick={{ fontSize: 11, fill: '#6b7280' }}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12, fill: '#6b7280' }}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip formatter={(value) => [`Còn: ${value.toLocaleString()}`, 'Số lượng']} />}
               />
-              <Bar 
-                dataKey="displayStock" 
+              <Bar
+                dataKey="displayStock"
                 radius={[12, 12, 0, 0]}
                 animationDuration={1200}
               >
                 {lowStockData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.displayStock < LOW_STOCK_THRESHOLD ? 'url(#lowStockGradient)' : 'url(#warningStockGradient)'} 
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.displayStock < LOW_STOCK_THRESHOLD ? 'url(#lowStockGradient)' : 'url(#warningStockGradient)'}
                   />
                 ))}
-                <LabelList 
-                  dataKey="displayStock" 
-                  position="top" 
+                <LabelList
+                  dataKey="displayStock"
+                  position="top"
                   style={{ fontSize: '12px', fontWeight: 'bold', fill: '#374151' }}
                 />
               </Bar>
@@ -320,35 +327,35 @@ const Dashboard = () => {
             <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <defs>
                 <linearGradient id="topProductGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.8}/>
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.8} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="name" 
+              <XAxis
+                dataKey="name"
                 angle={-25}
                 textAnchor="end"
                 height={80}
                 tick={{ fontSize: 11, fill: '#6b7280' }}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12, fill: '#6b7280' }}
                 axisLine={{ stroke: '#d1d5db' }}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip formatter={(v) => [`${v} đã bán`, 'Số lượng']} />}
               />
-              <Bar 
-                dataKey="sales" 
-                fill="url(#topProductGradient)" 
+              <Bar
+                dataKey="sales"
+                fill="url(#topProductGradient)"
                 radius={[12, 12, 0, 0]}
                 animationDuration={1200}
               >
-                <LabelList 
-                  dataKey="sales" 
-                  position="top" 
+                <LabelList
+                  dataKey="sales"
+                  position="top"
                   style={{ fontSize: '12px', fontWeight: 'bold', fill: '#374151' }}
                 />
               </Bar>
@@ -356,7 +363,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
-      
+
       {/* Expiry Alert Component */}
       <ExpiryAlert />
 
@@ -397,12 +404,12 @@ const Dashboard = () => {
                     <td>
                       <span className={`status-badge ${order.status}`}>
                         {order.status === 'pending' ? '⏳ Chờ' :
-                         order.status === 'processing' ? '🛠️ Đang xử lý' :
-                         order.status === 'shipping' || order.status === 'shipped' ? '🚚 Đang giao' :
-                         order.status === 'delivered' ? '📦 Đã giao' :
-                         order.status === 'completed' ? '✅ Hoàn thành' :
-                         order.status === 'expired' ? '⏰ Hết hạn' :
-                         order.status === 'cancelled' ? '❌ Đã hủy' : order.status}
+                          order.status === 'processing' ? '🛠️ Đang xử lý' :
+                            order.status === 'shipping' || order.status === 'shipped' ? '🚚 Đang giao' :
+                              order.status === 'delivered' ? '📦 Đã giao' :
+                                order.status === 'completed' ? '✅ Hoàn thành' :
+                                  order.status === 'expired' ? '⏰ Hết hạn' :
+                                    order.status === 'cancelled' ? '❌ Đã hủy' : order.status}
                       </span>
                     </td>
                     <td className="date">
@@ -423,6 +430,11 @@ const Dashboard = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="recent-orders-footer">
+          <Link to="/admin/orders" className="view-more-btn">
+            Xem thêm
+          </Link>
         </div>
       </div>
     </div>

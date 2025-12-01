@@ -139,10 +139,12 @@ const ProductsPage = () => {
         const normalizedSearch = normalizeString(searchTerm);
         const filtered = products.filter((p) => {
             const snapshot = resolveSnapshot(p);
-            const finalPrice = snapshot.min;
+            // Sử dụng giá hiển thị (giá batch nếu có, nếu không thì giá gốc)
+            const displayPrice = snapshot.hasAvailableBatch ? snapshot.min : getFinalPrice(p);
+            
             const matchesSearch = normalizeString(p.name).includes(normalizedSearch);
-            const matchesMin = minPrice === "" || finalPrice >= Number(minPrice);
-            const matchesMax = maxPrice === "" || finalPrice <= Number(maxPrice);
+            const matchesMin = minPrice === "" || displayPrice >= Number(minPrice);
+            const matchesMax = maxPrice === "" || displayPrice <= Number(maxPrice);
             const matchesCategory = !categoryParam || p.category === categoryParam;
             const matchesFamily = !selectedFamily || p.family === selectedFamily;
             return matchesSearch && matchesMin && matchesMax && matchesCategory && matchesFamily;
@@ -151,6 +153,14 @@ const ProductsPage = () => {
 const sorted = filtered.sort((a, b) => {
     const snapA = resolveSnapshot(a) || {};
     const snapB = resolveSnapshot(b) || {};
+
+    // Xác định trạng thái hết hàng dựa trên batch info
+    const isOutOfStockA = !snapA.hasAvailableBatch || (Number(a.onHand) || 0) <= 0;
+    const isOutOfStockB = !snapB.hasAvailableBatch || (Number(b.onHand) || 0) <= 0;
+    
+    // Luôn đưa sản phẩm hết hàng xuống cuối, bất kể bộ lọc nào
+    if (isOutOfStockA && !isOutOfStockB) return 1;
+    if (!isOutOfStockA && isOutOfStockB) return -1;
 
     const statusPriority = {
         "Hết hạn": 0,
@@ -185,11 +195,19 @@ const sorted = filtered.sort((a, b) => {
         case "Mới nhất":
             return new Date(b?.createdAt) - new Date(a?.createdAt);
 
-        case "Giá thấp đến cao":
-            return (snapA.min ?? 0) - (snapB.min ?? 0);
+        case "Giá thấp đến cao": {
+            // Sử dụng giá hiển thị thực tế
+            const priceA = snapA.hasAvailableBatch ? snapA.min : getFinalPrice(a);
+            const priceB = snapB.hasAvailableBatch ? snapB.min : getFinalPrice(b);
+            return priceA - priceB;
+        }
 
-        case "Giá cao đến thấp":
-            return (snapB.max ?? 0) - (snapA.max ?? 0);
+        case "Giá cao đến thấp": {
+            // Sử dụng giá hiển thị thực tế
+            const priceA = snapA.hasAvailableBatch ? snapA.max : getFinalPrice(a);
+            const priceB = snapB.hasAvailableBatch ? snapB.max : getFinalPrice(b);
+            return priceB - priceA;
+        }
 
         case "Bán chạy nhất":
             return (b?.purchaseCount || 0) - (a?.purchaseCount || 0);

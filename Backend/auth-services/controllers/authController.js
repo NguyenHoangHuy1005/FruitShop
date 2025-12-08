@@ -57,9 +57,9 @@ function genAccessToken(user) {
             email: user.email
         },
         ACCESS_SECRET,
-        { expiresIn: "1h" } // Tăng lên 1 giờ để user có thời gian thanh toán
+        { expiresIn: "6h" } // Phiên truy cập 6 giờ, hạn chế phải refresh liên tục khi đang làm việc
     );
-    }
+}
 
 function genRefreshToken(user, ttlMs, remember = false) {
     return jwt.sign(

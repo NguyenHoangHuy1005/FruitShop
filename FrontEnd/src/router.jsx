@@ -1,5 +1,5 @@
 
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import HomePage from "./pages/users/homePage";
 import { ROUTERS } from "./utils/router";
@@ -53,11 +53,12 @@ const getRole = (user) => {
   return "user";
 };
 
-//  Trang b?o l?i 403
-const ForbiddenPage = () => (
-  <div style={{ textAlign: "center", padding: "50px" }}>
+//  Trang báo lỗi 403
+const ForbiddenPage = ({ message }) => (
+  <div className="forbidden-page">
     <h1>403 - Forbidden</h1>
-    <p>Bạn không có quyền truy cập vào trang này.</p>
+    <p>{message || "Bạn không có quyền truy cập trang này."}</p>
+    <Link className="forbidden-back-btn" to="/">Về trang chủ</Link>
   </div>
 );
 
@@ -80,13 +81,18 @@ const RequireShipper = ({ children }) => {
   const user = useSelector((state) => state.auth.login?.currentUser);
   const role = getRole(user);
   const location = useLocation();
-  if (!user || role !== "shipper") {
+  if (!user) {
     return (
       <Navigate
         to={ROUTERS.ADMIN.LOGIN}
         replace
         state={{ from: location.pathname }}
       />
+    );
+  }
+  if (role !== "shipper") {
+    return (
+      <ForbiddenPage message="Chỉ tài khoản shipper mới được truy cập khu vực này." />
     );
   }
   return children;

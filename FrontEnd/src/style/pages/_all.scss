@@ -1,4 +1,5 @@
 @use "sass:map";
+@use "sass:color";
 @use "theme";
 @use "responsive";
 
@@ -12,7 +13,6 @@ body {
     padding: 0;
     margin: 0;
     line-height: 1.5;
-   
 }
 
 .container {
@@ -21,7 +21,6 @@ body {
     padding-left: 25px;
     padding-right: 25px;
     margin: auto;
-   
 }
 
 .section-title{
@@ -91,9 +90,9 @@ body {
     height: 100%;
     font-family: "Be Vietnam Pro";
 
-     &:hover{
-                cursor: pointer;
-            }
+        &:hover{
+            cursor: pointer;
+        }
 
 }
 
@@ -180,6 +179,48 @@ textarea{
      .col-xs-12 {
         flex: 0 0 100%;
         max-width: 100%;
+    }
+}
+
+.forbidden-page {
+    text-align: center;
+    padding: 60px 16px;
+
+    h1 {
+        margin-bottom: 12px;
+        color: map.get(theme.$theme-colors, "main");
+    }
+
+    p {
+        margin-bottom: 20px;
+        color: map.get(theme.$theme-colors, "normal-text");
+    }
+}
+
+.forbidden-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    background: map.get(theme.$theme-colors, "main");
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transition: transform 120ms ease, box-shadow 160ms ease, background 120ms ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+        background: color.scale(map.get(theme.$theme-colors, "main"), $lightness: -4%);
+    }
+
+    &:active {
+        transform: translateY(0);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
     }
 }
 

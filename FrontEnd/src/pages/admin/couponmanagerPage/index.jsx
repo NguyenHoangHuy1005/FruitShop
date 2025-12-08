@@ -656,7 +656,7 @@ const CouponManagerPage = () => {
                         className="btn-add"
                         onClick={() => setCreateModal((s) => ({ ...s, open: true }))}
                     >
-                        + THÊM COUPON
+                        + TẠO MÃ GIẢM GIÁ
                     </button>
 
                     <button
@@ -827,7 +827,7 @@ const CouponManagerPage = () => {
             {createModal.open && (
                 <div className="modal-overlay" onClick={() => setCreateModal((s) => ({ ...s, open: false }))}>
                     <div className="modal-content coupon-modal create-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Tạo Coupon mới</h3>
+                        <h3>Tạo Mã Giảm Giá</h3>
 
                         <div className="form-grid">
                         <label className="code-field">

@@ -313,7 +313,7 @@ const OrderAdminPage = () => {
                             <input
                             value={q}
                             onChange={(e) => { setPage(1); setQ(e.target.value); }}
-                            placeholder="Mã HD / Nhà cung cấp / Người nhập..."
+                            placeholder="Mã hóa đơn, tên hoặc SĐT khách hàng"
                             />
                     </div>
 

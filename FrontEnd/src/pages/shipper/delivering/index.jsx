@@ -274,7 +274,11 @@ const Delivering = () => {
             {proofPreview ? (
               <div className="shipper-proof-dialog__preview">
                 <img src={proofPreview} alt="Ảnh bàn giao" />
-                <button type="button" onClick={() => handleProofChange({ target: { files: [] } })}>
+                <button
+                  type="button"
+                  className="shipper-proof-dialog__remove"
+                  onClick={() => handleProofChange({ target: { files: [] } })}
+                >
                   Chọn ảnh khác
                 </button>
               </div>
@@ -287,12 +291,12 @@ const Delivering = () => {
             {proofUploading && <p className="shipper-proof-dialog__hint">Đang tải ảnh...</p>}
             {proofError && <p className="shipper-proof-dialog__error">{proofError}</p>}
             <div className="shipper-proof-dialog__actions">
-              <button type="button" onClick={closeDeliverDialog}>
+              <button type="button" className="btn btn-secondary" onClick={closeDeliverDialog}>
                 Đóng
               </button>
               <button
                 type="button"
-                className="confirm"
+                className="btn btn-primary"
                 disabled={proofUploading}
                 onClick={handleConfirmDelivered}
               >

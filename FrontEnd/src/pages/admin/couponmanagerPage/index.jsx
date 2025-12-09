@@ -607,7 +607,7 @@ const CouponManagerPage = () => {
                         <label>TÌM KIẾM</label>
                         <input
                             type="text"
-                            placeholder="Mã HD / Nhà cung cấp / Người nhập..."
+                            placeholder="Mã code giảm giá"
                             value={couponFilter.code}
                             onChange={(e) => setCouponFilter((s) => ({ ...s, code: e.target.value }))}
                         />
@@ -671,7 +671,7 @@ const CouponManagerPage = () => {
                 <table className="coupon-table">
                 <thead>
                     <tr>
-                    <th>Code</th>
+                    <th>Mã giảm</th>
                     <th>Bắt đầu</th>
                     <th>Hạn sử dụng</th>
                     <th>Sử dụng</th>

@@ -327,7 +327,7 @@ const ShoppingCart = () => {
 
                     {cart?.items?.length > 0 && (
                         <div className="cart__intro-meta">
-                            <span className="cart__intro-qty">{selectedTotalQty}</span>
+                            <span className="cart__intro-qty">{selectedItems.length}</span>
                             <span>Sản phẩm đã chọn</span>
                         </div>
                     )}
@@ -533,8 +533,8 @@ const ShoppingCart = () => {
 
                             <ul className="cart__breakdown">
                                 <li>
-                                    <span>Số lượng đã chọn</span>
-                                    <strong>{selectedTotalQty}</strong>
+                                    <span>Số sản phẩm đã chọn</span>
+                                    <strong>{selectedItems.length}</strong>
                                 </li>
                                 <li>
                                     <span>Tạm tính</span>
